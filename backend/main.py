@@ -11,7 +11,7 @@ from routes.chat import router as chat_router
 from services.embedder import get_model
 get_model()
 
-app = FastAPI(title="DeskBot AI Service")
+app = FastAPI(title="WorkBox AI Service")
 
 app.add_middleware(
     CORSMiddleware,
