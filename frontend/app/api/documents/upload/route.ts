@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Trigger FastAPI ingestion in background
-  const backendUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+  const backendUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}/_/backend`
+    : process.env.FASTAPI_URL || "http://localhost:8000";
   fetch(`${backendUrl}/api/v1/ingest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
