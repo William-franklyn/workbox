@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 
@@ -110,12 +111,12 @@ export default function ChatWindow({ conversationId, organizationId, initialMess
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
         {messages.length === 0 && !streaming && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 bg-[#1a3c5e] rounded-xl flex items-center justify-center mb-4">
-              <span className="text-white text-xl font-bold">D</span>
+            <div className="w-20 h-20 bg-[#1a3c5e] rounded-2xl flex items-center justify-center mb-4 p-3">
+              <Image src="/logo-light.svg" alt="WorkBox" width={56} height={56} />
             </div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Ask DeskBot anything</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">Ask WorkBox anything</h2>
             <p className="text-gray-400 text-sm max-w-sm">
-              Ask about company policies, procedures, or any workplace question. Load documents from the dashboard for more accurate answers.
+              Ask about company policies, procedures, or any workplace question. Upload documents from the dashboard for more accurate answers.
             </p>
           </div>
         )}
@@ -127,7 +128,7 @@ export default function ChatWindow({ conversationId, organizationId, initialMess
         )}
         {streaming && !streamingText && (
           <div className="flex items-center gap-2 text-gray-400 text-sm">
-            <span className="animate-pulse">DeskBot is thinking...</span>
+            <span className="animate-pulse">WorkBox is thinking...</span>
           </div>
         )}
         <div ref={bottomRef} />

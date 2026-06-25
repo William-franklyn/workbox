@@ -1,10 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white">
       <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
-        <span className="text-xl font-bold text-[#1a3c5e]">DeskBot</span>
+        <Image src="/logo-dark.svg" alt="WorkBox" width={120} height={40} priority />
         <div className="flex gap-4">
           <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2">
             Log in
@@ -24,7 +25,7 @@ export default function LandingPage() {
           <span className="text-[#1a3c5e]">instantly answered</span>
         </h1>
         <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto">
-          DeskBot reads your internal documents — HR policies, procedures, manuals — and lets every employee get instant, accurate answers without bothering HR or management.
+          WorkBox reads your internal documents — HR policies, procedures, manuals — and lets every employee get instant, accurate answers without bothering HR or management.
         </p>
         <div className="flex gap-4 justify-center">
           <Link href="/signup" className="bg-[#1a3c5e] text-white px-8 py-3 rounded-lg text-base font-semibold hover:bg-[#2d6a9f] transition-colors">
@@ -38,7 +39,7 @@ export default function LandingPage() {
 
       <section className="max-w-5xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
-          { title: "Upload any document", desc: "PDF, Word, or text files. DeskBot reads your HR manuals, policies, and guides instantly." },
+          { title: "Upload any document", desc: "PDF, Word, or text files. WorkBox reads your HR manuals, policies, and guides instantly." },
           { title: "Ask anything", desc: "Employees type natural questions and get precise answers from your actual company documents." },
           { title: "Secure by design", desc: "Each company's data is completely isolated. No cross-tenant data access, ever." },
         ].map((f) => (
@@ -50,7 +51,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="text-center text-sm text-gray-400 py-10 border-t border-gray-100">
-        © {new Date().getFullYear()} DeskBot. Built for modern teams.
+        © {new Date().getFullYear()} WorkBox. Built for modern teams.
       </footer>
     </main>
   );

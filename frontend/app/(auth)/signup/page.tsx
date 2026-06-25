@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[#1a3c5e]">DeskBot</h1>
+          <Image src="/logo-dark.svg" alt="WorkBox" width={140} height={46} className="mx-auto mb-3" priority />
           <p className="text-gray-500 mt-1">Create your company workspace</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">

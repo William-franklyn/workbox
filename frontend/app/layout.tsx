@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "DeskBot — Company Assistant",
+  title: "WorkBox — Company Assistant",
   description: "AI-powered internal knowledge assistant for your team",
 };
 
