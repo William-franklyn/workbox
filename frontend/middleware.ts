@@ -1,43 +1,32 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/invite");
-  const isAppRoute = pathname.startsWith("/chat") || pathname.startsWith("/dashboard") || pathname.startsWith("/integrations");
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/invite");
 
-  if (!user && isAppRoute) {
+  const isAppRoute =
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/integrations");
+
+  // Supabase SSR stores the session in cookies prefixed with the project ref
+  const hasSession = request.cookies.getAll().some((c) =>
+    c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+  );
+
+  if (!hasSession && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/chat/new", request.url));
+  if (hasSession && isAuthRoute) {
+    return NextResponse.redirect(new URL("/integrations", request.url));
   }
 
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 export const config = {
