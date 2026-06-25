@@ -22,7 +22,7 @@ export default function ChatWindow({ conversationId, organizationId, initialMess
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const backendUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+  const backendUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "/_/backend";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
