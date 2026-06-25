@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/invite");
-  const isAppRoute = pathname.startsWith("/chat") || pathname.startsWith("/dashboard");
+  const isAppRoute = pathname.startsWith("/chat") || pathname.startsWith("/dashboard") || pathname.startsWith("/integrations");
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -87,6 +87,14 @@ export default function ConversationSidebar({ userId, orgId, orgName, userRole, 
 
       {/* Footer links */}
       <div className="p-3 border-t border-white/10 space-y-1">
+        <Link
+          href="/integrations"
+          className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
+            pathname === "/integrations" ? "bg-white/20 font-medium" : "hover:bg-white/10 text-blue-100"
+          }`}
+        >
+          Integrations
+        </Link>
         {userRole === "admin" && (
           <Link href="/dashboard" className="block text-sm px-3 py-2 rounded-lg hover:bg-white/10 text-blue-100 transition-colors">
             Admin Dashboard
