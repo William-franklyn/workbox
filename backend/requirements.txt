@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+requests
+httpx
+pdfplumber
+python-docx
+sentence-transformers
+supabase
+python-jose[cryptography]
+python-multipart

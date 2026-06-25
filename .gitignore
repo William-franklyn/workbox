@@ -1,0 +1,25 @@
+# Environment files - NEVER commit these
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+myenv/
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
