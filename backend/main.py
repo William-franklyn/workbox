@@ -1,4 +1,3 @@
-import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -6,10 +5,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.ingest import router as ingest_router
 from routes.chat import router as chat_router
-
-# Pre-load the embedding model at startup so first request isn't slow
-from services.embedder import get_model
-get_model()
 
 app = FastAPI(title="WorkBox AI Service")
 
