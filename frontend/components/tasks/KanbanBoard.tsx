@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { Flag, Plus, MoreHorizontal } from "lucide-react";
+import { useMembers, getMemberInitials } from "@/hooks/useMembers";
 
 const STATUSES: { key: Task["status"]; label: string; color: string }[] = [
   { key: "todo", label: "To Do", color: "#94a3b8" },
@@ -18,6 +19,7 @@ const PRIORITY_COLOR: Record<Task["priority"], string> = {
 export default function KanbanBoard({ listId }: { listId: string }) {
   const { tasks, addTask, moveTask } = useTasksStore();
   const { selectedTaskId, setSelectedTask } = useWorkspaceStore();
+  const members = useMembers();
   const listTasks = tasks[listId] || [];
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Task["status"] | null>(null);
@@ -89,11 +91,20 @@ export default function KanbanBoard({ listId }: { listId: string }) {
                       <Flag size={11} style={{ color: PRIORITY_COLOR[task.priority] }} />
                       <span className="text-xs capitalize" style={{ color: PRIORITY_COLOR[task.priority] }}>{task.priority}</span>
                     </div>
-                    {task.due_date && (
-                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {new Date(task.due_date).toLocaleDateString()}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {task.due_date && (
+                        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                          {new Date(task.due_date).toLocaleDateString()}
+                        </span>
+                      )}
+                      {task.assignee && (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          style={{ background: "var(--accent-purple)", fontSize: "0.6rem" }}
+                          title={getMemberInitials(members, task.assignee)}>
+                          {getMemberInitials(members, task.assignee)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

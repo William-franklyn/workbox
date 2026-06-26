@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, FileText, Trash2, Loader2 } from "lucide-react";
+import { Plus, FileText, Trash2, Loader2, Search } from "lucide-react";
 
 interface Doc { id: string; title: string; updated_at: string; blocks?: Block[]; }
 type BlockType = "paragraph" | "h1" | "h2" | "h3" | "bullet" | "todo" | "code" | "quote";
@@ -14,6 +14,7 @@ export default function DocsPage() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDoc, setActiveDoc] = useState<Doc | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/docs").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setDocs(d); }).finally(() => setLoading(false));
@@ -55,16 +56,23 @@ export default function DocsPage() {
           <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Docs</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>Create and share documents with your team</p>
         </div>
-        <button onClick={createDoc} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90" style={{ background: "var(--accent-purple)" }}>
-          <Plus size={14} /> New doc
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+            <Search size={13} style={{ color: "var(--text-secondary)" }} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search docs..."
+              className="bg-transparent outline-none text-sm w-36" style={{ color: "var(--text-primary)" }} />
+          </div>
+          <button onClick={createDoc} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90" style={{ background: "var(--accent-purple)" }}>
+            <Plus size={14} /> New doc
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {docs.map((doc) => (
+          {docs.filter((d) => !search || d.title.toLowerCase().includes(search.toLowerCase())).map((doc) => (
             <div key={doc.id} onClick={() => openDoc(doc)}
               className="group p-4 rounded-xl border cursor-pointer hover:border-purple-500/50 transition-all"
               style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>

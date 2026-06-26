@@ -46,7 +46,7 @@ interface WorkspaceState {
   activeSpaceId: string | null;
   activeListId: string | null;
   selectedTaskId: string | null;
-  view: "list" | "board" | "calendar" | "table";
+  view: "list" | "board" | "calendar" | "table" | "gantt";
   loaded: boolean;
 
   // Read
@@ -63,7 +63,7 @@ interface WorkspaceState {
   setActiveSpace: (id: string) => void;
   setActiveList: (id: string) => void;
   setSelectedTask: (id: string | null) => void;
-  setView: (view: "list" | "board" | "calendar" | "table") => void;
+  setView: (view: "list" | "board" | "calendar" | "table" | "gantt") => void;
   toggleSpaceExpanded: (id: string) => void;
   toggleFolderExpanded: (spaceId: string, folderId: string) => void;
 }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
-import { Search, Bell, LayoutList, Kanban, Calendar, Table, Plus, CheckCheck, Menu } from "lucide-react";
+import { Search, Bell, LayoutList, Kanban, Calendar, Table, Plus, CheckCheck, Menu, GanttChart } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
 
@@ -51,11 +51,12 @@ export default function TopNav({ orgName, userName, userId }: Props) {
     addTask(task);
   }
 
-  const views: { key: "list" | "board" | "calendar" | "table"; icon: React.ReactNode; label: string }[] = [
+  const views: { key: "list" | "board" | "calendar" | "table" | "gantt"; icon: React.ReactNode; label: string }[] = [
     { key: "list", icon: <LayoutList size={15} />, label: "List" },
     { key: "board", icon: <Kanban size={15} />, label: "Board" },
     { key: "calendar", icon: <Calendar size={15} />, label: "Calendar" },
     { key: "table", icon: <Table size={15} />, label: "Table" },
+    { key: "gantt", icon: <GanttChart size={15} />, label: "Gantt" },
   ];
 
   return (

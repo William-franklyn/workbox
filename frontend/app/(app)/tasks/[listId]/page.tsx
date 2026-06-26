@@ -8,6 +8,7 @@ import KanbanBoard from "@/components/tasks/KanbanBoard";
 import CalendarView from "@/components/tasks/CalendarView";
 import TableView from "@/components/tasks/TableView";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+import GanttView from "@/components/tasks/GanttView";
 import { Loader2 } from "lucide-react";
 
 export default function TasksPage({ params }: { params: Promise<{ listId: string }> }) {
@@ -34,6 +35,7 @@ export default function TasksPage({ params }: { params: Promise<{ listId: string
         {view === "board" && <KanbanBoard listId={listId} />}
         {view === "calendar" && <CalendarView listId={listId} />}
         {view === "table" && <TableView listId={listId} />}
+        {view === "gantt" && <GanttView listId={listId} />}
       </div>
       {selectedTaskId && <TaskDetailPanel />}
     </div>

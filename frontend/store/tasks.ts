@@ -39,11 +39,9 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     })),
 
   addTask: (task) => {
-    // Optimistic update
     set((s) => ({
       tasks: { ...s.tasks, [task.list_id]: [...(s.tasks[task.list_id] || []), task] },
     }));
-    // Persist
     fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,7 +49,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }).then(async (res) => {
       if (res.ok) {
         const saved = await res.json();
-        // Replace optimistic id with server id if needed
         if (saved.id !== task.id) {
           set((s) => {
             const listTasks = (s.tasks[task.list_id] || []).map((t) => t.id === task.id ? { ...t, ...saved } : t);
@@ -60,10 +57,16 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         }
       }
     }).catch(() => {});
+    // Fire notification
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: `n${Date.now()}`, title: `New task: ${task.title}`, body: "", read: false }),
+    }).catch(() => {});
   },
 
   updateTask: (id, patch) => {
-    // Optimistic update
+    const prev = Object.values(get().tasks).flat().find((t) => t.id === id);
     set((s) => {
       const next = { ...s.tasks };
       for (const listId in next) {
@@ -71,12 +74,19 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
       return { tasks: next };
     });
-    // Persist
     fetch("/api/tasks", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
     }).catch(() => {});
+    // Notify on completion
+    if (patch.status === "done" && prev?.status !== "done") {
+      fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: `n${Date.now()}`, title: `Task completed: ${prev?.title ?? ""}`, body: "", read: false }),
+      }).catch(() => {});
+    }
   },
 
   deleteTask: (id) => {
