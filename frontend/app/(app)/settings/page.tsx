@@ -54,9 +54,16 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   // Profile state
-  const [fullName, setFullName] = useState("Jane Smith");
-  const [email] = useState("jane@company.com");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
+
+  useEffect(() => {
+    fetch("/api/profile").then((r) => r.json()).then((d) => {
+      if (d.full_name) setFullName(d.full_name);
+      if (d.email) setEmail(d.email);
+    }).catch(() => {});
+  }, []);
 
   // Members state
   const [members, setMembers] = useState<Member[]>([]);
@@ -90,7 +97,10 @@ export default function SettingsPage() {
   // Appearance
   const [accentColor, setAccentColor] = useState("#7c3aed");
 
-  function saveSettings() {
+  async function saveSettings() {
+    if (tab === "profile") {
+      await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: fullName }) });
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }

@@ -39,14 +39,16 @@ export default function OnboardingPage() {
 
   async function handleSpaceNext() {
     const name = spaceName.trim() || "My Space";
+    const spaceId = `s${Date.now()}`;
+    const listId = `l${Date.now() + 1}`;
     const space: Space = {
-      id: `s${Date.now()}`,
+      id: spaceId,
       name,
       icon: spaceIcon,
       color: spaceColor,
       expanded: true,
       folders: [],
-      lists: [{ id: `l${Date.now()}`, name: "Tasks", space_id: `s${Date.now()}`, color: spaceColor, position: 0 }],
+      lists: [{ id: listId, name: "Tasks", space_id: spaceId, color: spaceColor, position: 0 }],
     };
     addSpace(space);
     setStep(2);
