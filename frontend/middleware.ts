@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
 
   // Supabase SSR stores the session in cookies prefixed with the project ref
   const hasSession = request.cookies.getAll().some((c) =>
-    c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+    c.name.startsWith("sb-") && c.name.includes("-auth-token")
   );
 
   if (!hasSession && isAppRoute) {
