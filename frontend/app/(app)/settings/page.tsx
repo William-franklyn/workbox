@@ -95,7 +95,15 @@ export default function SettingsPage() {
   const [notifs, setNotifs] = useState({ email: true, desktop: false, mentions: true, updates: false });
 
   // Appearance
-  const [accentColor, setAccentColor] = useState("#7c3aed");
+  const [accentColor, setAccentColor] = useState(() =>
+    (typeof window !== "undefined" && localStorage.getItem("wb_accent_color")) || "#7c3aed"
+  );
+
+  function applyAccent(color: string) {
+    setAccentColor(color);
+    document.documentElement.style.setProperty("--accent-purple", color);
+    localStorage.setItem("wb_accent_color", color);
+  }
 
   async function saveSettings() {
     if (tab === "profile") {
@@ -258,7 +266,7 @@ export default function SettingsPage() {
               <SettingRow label="Accent color" description="Primary color for buttons and highlights">
                 <div className="flex items-center gap-2">
                   {["#7c3aed", "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#ec4899"].map((c) => (
-                    <button key={c} onClick={() => setAccentColor(c)}
+                    <button key={c} onClick={() => applyAccent(c)}
                       className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
                       style={{ background: c, borderColor: accentColor === c ? "white" : "transparent" }} />
                   ))}

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import Sidebar from "./Sidebar";
@@ -18,10 +18,17 @@ interface Props {
 }
 
 export default function AppShell({ userId, orgId, orgName, userRole, userName, userEmail, children }: Props) {
-  const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed } = useUIStore();
+  const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed, toggleSidebar } = useUIStore();
   const { loadSpaces } = useWorkspaceStore();
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => { loadSpaces(); }, []);
+
+  // Apply saved accent color
+  useEffect(() => {
+    const saved = localStorage.getItem("wb_accent_color");
+    if (saved) document.documentElement.style.setProperty("--accent-purple", saved);
+  }, []);
 
   // Auto-collapse sidebar on small screens
   useEffect(() => {
@@ -33,14 +40,20 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Cmd+K global shortcut
+  // Global keyboard shortcuts
   useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); }
+      const tag = (e.target as HTMLElement).tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") { e.preventDefault(); toggleSidebar(); return; }
+      if (!inInput && e.key === "?") { e.preventDefault(); setShowShortcuts((s) => !s); return; }
+      if (e.key === "Escape" && showShortcuts) { setShowShortcuts(false); return; }
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setSearchOpen]);
+  }, [setSearchOpen, toggleSidebar, showShortcuts]);
 
   const isMobileOpen = !sidebarCollapsed;
 
@@ -71,6 +84,32 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
 
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
       <AIAssistant />
+
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setShowShortcuts(false)}>
+          <div className="rounded-xl border p-6 w-80" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-bold text-base mb-4" style={{ color: "var(--text-primary)" }}>Keyboard Shortcuts</h2>
+            <div className="space-y-2">
+              {[
+                ["⌘K", "Search / Command palette"],
+                ["⌘B", "Toggle sidebar"],
+                ["?", "Show this help"],
+                ["Esc", "Close panels"],
+                ["↑↓ Enter", "Navigate command palette"],
+                ["Tab", "Cycle block type in Docs"],
+                ["Enter", "Add block in Docs"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{desc}</span>
+                  <kbd className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>{key}</kbd>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowShortcuts(false)} className="mt-4 w-full text-xs py-2 rounded-lg hover:opacity-80" style={{ background: "var(--bg-primary)", color: "var(--text-secondary)" }}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

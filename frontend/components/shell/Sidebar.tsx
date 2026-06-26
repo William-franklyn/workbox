@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, MessageSquare, Target, Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
-  LogOut, List as ListIcon, FileText, BarChart2, Trash2,
+  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder,
 } from "lucide-react";
 
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
@@ -25,10 +25,13 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   // Inline creation state
   const [creatingSpace, setCreatingSpace] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState("");
-  const [creatingListIn, setCreatingListIn] = useState<string | null>(null); // spaceId
+  const [creatingListIn, setCreatingListIn] = useState<string | null>(null);
   const [newListName, setNewListName] = useState("");
+  const [creatingFolderIn, setCreatingFolderIn] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState("");
   const spaceInputRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   async function logout() {
     const supabase = createClient();
@@ -58,6 +61,22 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       lists: [],
     };
     addSpace(space);
+  }
+
+  function handleAddFolder(spaceId: string) {
+    const space = spaces.find((s) => s.id === spaceId);
+    if (space && !space.expanded) toggleSpaceExpanded(spaceId);
+    setCreatingFolderIn(spaceId);
+    setNewFolderName("");
+    setTimeout(() => folderInputRef.current?.focus(), 30);
+  }
+
+  function commitFolder(spaceId: string) {
+    const name = newFolderName.trim();
+    setCreatingFolderIn(null);
+    if (!name) return;
+    const { addFolder } = useWorkspaceStore.getState();
+    addFolder({ id: `f${Date.now()}`, name, space_id: spaceId, expanded: true, lists: [] }, spaceId);
   }
 
   function handleAddList(spaceId: string) {
@@ -176,6 +195,10 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                     className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
                     <Plus size={12} />
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleAddFolder(space.id); }} title="Add folder"
+                    className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
+                    <FolderPlus size={11} />
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }} title="Delete space"
                     className="p-0.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
                     <Trash2 size={11} />
@@ -207,6 +230,19 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                       )}
                     </div>
                   ))}
+
+                  {/* New folder inline input */}
+                  {creatingFolderIn === space.id && (
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-md mb-0.5" style={{ background: "rgba(124,58,237,0.08)" }}>
+                      <Folder size={11} style={{ color: "var(--text-secondary)" }} />
+                      <input ref={folderInputRef} value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitFolder(space.id); if (e.key === "Escape") setCreatingFolderIn(null); }}
+                        onBlur={() => commitFolder(space.id)}
+                        placeholder="Folder name..."
+                        className="flex-1 bg-transparent outline-none text-xs"
+                        style={{ color: "var(--text-primary)" }} />
+                    </div>
+                  )}
 
                   {/* Direct lists */}
                   {space.lists.map((list) => (
