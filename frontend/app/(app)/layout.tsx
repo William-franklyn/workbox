@@ -10,16 +10,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, organization_id, organizations(name)")
+    .select("full_name, role, organization_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  const { data: org } = profile?.organization_id
+    ? await supabase.from("organizations").select("name").eq("id", profile.organization_id).maybeSingle()
+    : { data: null };
 
   return (
     <div className="flex h-screen bg-gray-50">
       <ConversationSidebar
         userId={user.id}
         orgId={profile?.organization_id}
-        orgName={(profile?.organizations as any)?.name || ""}
+        orgName={org?.name || ""}
         userRole={profile?.role || "member"}
         userName={profile?.full_name || user.email || ""}
       />
