@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -17,12 +16,8 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      if (authError) {
-        setError(authError.message);
-        setLoading(false);
-      } else {
-        window.location.href = "/integrations";
-      }
+      if (authError) { setError(authError.message); setLoading(false); }
+      else { window.location.href = "/home"; }
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setLoading(false);
@@ -30,45 +25,45 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--bg-primary)" }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <Image src="/logo-dark.svg" alt="WorkBox" width={140} height={46} className="mx-auto mb-3" priority />
-          <p className="text-gray-500 mt-1">Sign in to your workspace</p>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold text-white mx-auto mb-4" style={{ background: "var(--accent-purple)" }}>W</div>
+          <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>Welcome back</h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Sign in to your WorkBox</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+
+        <div className="rounded-2xl p-6 border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email" required value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]"
-                placeholder="you@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password" required value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]"
-                placeholder="••••••••"
-              />
-            </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button
-              type="submit" disabled={loading}
-              className="w-full bg-[#1a3c5e] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#2d6a9f] transition-colors disabled:opacity-50"
-            >
+            {[
+              { label: "Email", value: email, onChange: setEmail, type: "email", placeholder: "you@company.com" },
+              { label: "Password", value: password, onChange: setPassword, type: "password", placeholder: "••••••••" },
+            ].map(({ label, value, onChange, type, placeholder }) => (
+              <div key={label}>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{label}</label>
+                <input
+                  type={type} required value={value} placeholder={placeholder}
+                  onChange={(e) => onChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+                  style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                  onFocus={(e) => e.target.style.borderColor = "var(--accent-purple)"}
+                  onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+                />
+              </div>
+            ))}
+
+            {error && <p className="text-xs p-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>{error}</p>}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--accent-purple)" }}>
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-          <p className="text-center text-sm text-gray-500 mt-4">
+
+          <p className="text-center text-xs mt-4" style={{ color: "var(--text-secondary)" }}>
             No account?{" "}
-            <Link href="/signup" className="text-[#1a3c5e] font-medium hover:underline">
-              Create one
-            </Link>
+            <Link href="/signup" className="font-medium hover:underline" style={{ color: "var(--accent-purple)" }}>Create one</Link>
           </p>
         </div>
       </div>

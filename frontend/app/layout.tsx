@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "WorkBox — Company Assistant",
-  description: "AI-powered internal knowledge assistant for your team",
+  title: "WorkBox — All-in-One Productivity",
+  description: "Fast, beautiful, AI-powered productivity platform for teams and individuals",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full`}>{children}</body>
+    <html lang="en" className="h-full dark">
+      <body className={`${inter.variable} h-full font-sans`}>{children}</body>
     </html>
   );
 }
