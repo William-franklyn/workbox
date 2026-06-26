@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "@/store/workspace";
 import Sidebar from "./Sidebar";
 import TopNav from "./TopNav";
 import CommandPalette from "./CommandPalette";
+import AIAssistant from "@/components/ai/AIAssistant";
 
 interface Props {
   userId: string;
@@ -90,6 +91,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
         </main>
       </div>
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
+      <AIAssistant />
     </div>
   );
 }

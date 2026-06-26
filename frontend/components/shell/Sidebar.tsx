@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, MessageSquare, Target, Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
-  LogOut, List,
+  LogOut, List, FileText, BarChart2,
 } from "lucide-react";
 
 interface Props {
@@ -35,8 +35,10 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
 
   const navItems = [
     { icon: LayoutDashboard, label: "Home", href: "/home" },
-    { icon: MessageSquare, label: "Chat", href: "/chat/new" },
+    { icon: BarChart2, label: "Overview", href: "/overview" },
+    { icon: FileText, label: "Docs", href: "/docs" },
     { icon: Target, label: "Goals", href: "/goals" },
+    { icon: MessageSquare, label: "Chat", href: "/chat/new" },
     { icon: Zap, label: "Automations", href: "/automations" },
   ];
 
