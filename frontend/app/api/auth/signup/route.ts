@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   const { companyName, fullName, email, password } = await req.json();
@@ -49,13 +48,6 @@ export async function POST(req: NextRequest) {
     await sb.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: "Failed to create profile." }, { status: 500 });
   }
-
-  // 4. Sign in the user and return session via cookie
-  const userSb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  await userSb.auth.signInWithPassword({ email, password });
 
   return NextResponse.json({ success: true });
 }

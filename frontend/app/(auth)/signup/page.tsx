@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -28,7 +29,9 @@ export default function SignupPage() {
       setError(data.error || "Something went wrong.");
       setLoading(false);
     } else {
-      router.push("/chat/new");
+      const supabase = createClient();
+      await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
+      window.location.href = "/integrations";
     }
   }
 
