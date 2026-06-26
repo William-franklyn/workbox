@@ -16,22 +16,35 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Something went wrong."); setLoading(false); return; }
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
-      if (signInError) { setError(signInError.message); setLoading(false); return; }
-      window.location.href = "/home";
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+
+    const supabase = createClient();
+
+    // Sign up directly — DB trigger auto-creates the profile row
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        data: { full_name: form.fullName },
+      },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
       setLoading(false);
+      return;
     }
+
+    // Update profile with org_id (user's own id) + role
+    if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        full_name: form.fullName,
+        role: "admin",
+        organization_id: data.user.id,
+      });
+    }
+
+    window.location.href = "/home";
   }
 
   const fields = [
