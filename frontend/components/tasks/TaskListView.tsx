@@ -4,7 +4,6 @@ import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { useUIStore } from "@/store/ui";
 import { Plus, ChevronDown, ChevronRight, Flag, Circle } from "lucide-react";
-import TaskDetailPanel from "./TaskDetailPanel";
 
 const STATUSES: { key: Task["status"]; label: string; color: string }[] = [
   { key: "todo", label: "To Do", color: "#94a3b8" },
@@ -130,13 +129,6 @@ export default function TaskListView({ listId }: { listId: string }) {
         })}
       </div>
 
-      {/* Task detail panel */}
-      {selectedTaskId && (
-        <TaskDetailPanel
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTask(null)}
-        />
-      )}
     </div>
   );
 }
