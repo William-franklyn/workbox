@@ -3,14 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
-import { Search, Bell, LayoutList, Kanban, Calendar, Table, Plus, CheckCheck } from "lucide-react";
+import { Search, Bell, LayoutList, Kanban, Calendar, Table, Plus, CheckCheck, Menu } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
 
 interface Props { orgName: string; userName: string; userId: string; }
 
 export default function TopNav({ orgName, userName, userId }: Props) {
-  const { setSearchOpen } = useUIStore();
+  const { setSearchOpen, toggleSidebar } = useUIStore();
   const { view, setView, spaces, activeListId } = useWorkspaceStore();
   const { addTask, tasks } = useTasksStore();
 
@@ -60,6 +60,11 @@ export default function TopNav({ orgName, userName, userId }: Props) {
 
   return (
     <header className="flex items-center gap-3 px-4 border-b shrink-0" style={{ height: "var(--topnav-height)", background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+      {/* Mobile hamburger */}
+      <button onClick={toggleSidebar} className="md:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors flex-shrink-0" style={{ color: "var(--text-secondary)" }}>
+        <Menu size={18} />
+      </button>
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
         <span style={{ color: "var(--text-secondary)" }}>{orgName}</span>

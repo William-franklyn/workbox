@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
-import { User, Building2, Bell, Shield, Palette } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2 } from "lucide-react";
 
-type Tab = "profile" | "workspace" | "notifications" | "security" | "appearance";
+type Tab = "profile" | "workspace" | "members" | "notifications" | "security" | "appearance";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "workspace", label: "Workspace", icon: Building2 },
+  { id: "members", label: "Members", icon: Users },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
   { id: "appearance", label: "Appearance", icon: Palette },
@@ -46,6 +47,8 @@ function Input({ value, onChange, placeholder, type = "text" }: { value: string;
   );
 }
 
+interface Member { id: string; full_name: string; role: string; created_at: string; }
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
   const [saved, setSaved] = useState(false);
@@ -54,6 +57,29 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("Jane Smith");
   const [email] = useState("jane@company.com");
   const [bio, setBio] = useState("");
+
+  // Members state
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoaded, setMembersLoaded] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState("");
+
+  useEffect(() => {
+    if (tab === "members" && !membersLoaded) {
+      fetch("/api/members").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setMembers(d); setMembersLoaded(true); }).catch(() => setMembersLoaded(true));
+    }
+  }, [tab, membersLoaded]);
+
+  async function sendInvite() {
+    if (!inviteEmail.trim()) return;
+    setInviting(true); setInviteMsg("");
+    const res = await fetch("/api/members/invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: inviteEmail }) });
+    const d = await res.json();
+    setInviteMsg(res.ok ? "Invite sent!" : d.error || "Failed to send invite");
+    if (res.ok) setInviteEmail("");
+    setInviting(false);
+  }
 
   // Workspace state
   const [workspaceName, setWorkspaceName] = useState("My Workspace");
@@ -118,6 +144,59 @@ export default function SettingsPage() {
               <SettingRow label="Members" description="People in your workspace">
                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>1 member</span>
               </SettingRow>
+            </>
+          )}
+
+          {tab === "members" && (
+            <>
+              <h1 className="text-lg font-bold mb-6" style={{ color: "var(--text-primary)" }}>Members</h1>
+
+              {/* Invite box */}
+              <div className="rounded-xl p-4 mb-6 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                <p className="text-sm font-medium mb-3" style={{ color: "var(--text-primary)" }}>Invite a teammate</p>
+                <div className="flex gap-2">
+                  <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendInvite()}
+                    placeholder="colleague@company.com" type="email"
+                    className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    onFocus={(e) => e.target.style.borderColor = "var(--accent-purple)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+                  />
+                  <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                    style={{ background: "var(--accent-purple)" }}>
+                    {inviting ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                    Invite
+                  </button>
+                </div>
+                {inviteMsg && <p className="text-xs mt-2" style={{ color: inviteMsg === "Invite sent!" ? "#22c55e" : "var(--danger)" }}>{inviteMsg}</p>}
+              </div>
+
+              {/* Members list */}
+              {!membersLoaded ? (
+                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} /></div>
+              ) : members.length === 0 ? (
+                <p className="text-sm text-center py-8" style={{ color: "var(--text-secondary)" }}>No members yet. Invite someone above.</p>
+              ) : (
+                <div className="space-y-2">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: "var(--accent-purple)" }}>
+                        {(m.full_name || "?")[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{m.full_name || "Unnamed"}</p>
+                        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full capitalize"
+                        style={{ background: m.role === "admin" ? "rgba(124,58,237,0.15)" : "var(--bg-secondary)", color: m.role === "admin" ? "var(--accent-purple)" : "var(--text-secondary)" }}>
+                        {m.role === "admin" && <Crown size={10} />}{m.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 

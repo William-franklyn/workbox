@@ -1,12 +1,22 @@
 "use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore } from "@/store/workspace";
 import { CheckCircle2, Clock, AlertCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
+  const router = useRouter();
   const { tasks } = useTasksStore();
-  const { spaces } = useWorkspaceStore();
+  const { spaces, loaded } = useWorkspaceStore();
+
+  // Redirect first-time users to onboarding
+  useEffect(() => {
+    if (!loaded) return;
+    const done = localStorage.getItem("wb_onboarded");
+    if (!done && spaces.length === 0) router.replace("/onboarding");
+  }, [loaded, spaces.length]);
   const allTasks = Object.values(tasks).flat();
 
   const stats = {

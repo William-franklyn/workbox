@@ -18,11 +18,20 @@ interface Props {
 }
 
 export default function AppShell({ userId, orgId, orgName, userRole, userName, userEmail, children }: Props) {
-  const { searchOpen, setSearchOpen } = useUIStore();
+  const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   const { loadSpaces } = useWorkspaceStore();
 
-  // Load spaces/folders/lists from Supabase on mount
   useEffect(() => { loadSpaces(); }, []);
+
+  // Auto-collapse sidebar on small screens
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth < 768) setSidebarCollapsed(true);
+    }
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Cmd+K global shortcut
   useEffect(() => {
@@ -33,15 +42,33 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
     return () => window.removeEventListener("keydown", handler);
   }, [setSearchOpen]);
 
+  const isMobileOpen = !sidebarCollapsed;
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-      <Sidebar orgName={orgName} userRole={userRole} userName={userName} userEmail={userEmail} userId={userId} />
-      <div className="flex flex-col flex-1 min-w-0 transition-all duration-200">
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-30 md:hidden" style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setSidebarCollapsed(true)} />
+      )}
+
+      {/* Sidebar — fixed overlay on mobile, inline on desktop */}
+      <div className={`
+        md:relative md:flex md:shrink-0
+        fixed inset-y-0 left-0 z-40
+        transition-transform duration-200
+        ${sidebarCollapsed ? "-translate-x-full md:translate-x-0" : "translate-x-0"}
+      `}>
+        <Sidebar orgName={orgName} userRole={userRole} userName={userName} userEmail={userEmail} userId={userId} />
+      </div>
+
+      <div className="flex flex-col flex-1 min-w-0">
         <TopNav orgName={orgName} userName={userName} userId={userId} />
         <main className="flex-1 overflow-hidden" style={{ background: "var(--bg-primary)" }}>
           {children}
         </main>
       </div>
+
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
       <AIAssistant />
     </div>
