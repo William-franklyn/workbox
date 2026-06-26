@@ -1,6 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // This refreshes the session and clears invalid tokens automatically
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { pathname } = request.nextUrl;
 
   const isAuthRoute =
@@ -9,29 +32,27 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/invite");
 
   const isAppRoute =
-    pathname.startsWith("/chat") ||
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/integrations") ||
     pathname.startsWith("/home") ||
+    pathname.startsWith("/chat") ||
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/goals") ||
+    pathname.startsWith("/overview") ||
+    pathname.startsWith("/docs") ||
     pathname.startsWith("/automations") ||
-    pathname.startsWith("/settings");
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/integrations");
 
-  // Supabase SSR stores the session in cookies prefixed with the project ref
-  const hasSession = request.cookies.getAll().some((c) =>
-    c.name.startsWith("sb-") && c.name.includes("-auth-token")
-  );
-
-  if (!hasSession && isAppRoute) {
+  if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (hasSession && isAuthRoute) {
+  if (user && isAuthRoute) {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
