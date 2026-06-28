@@ -20,7 +20,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   const router = useRouter();
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { spaces, activeListId, toggleSpaceExpanded, toggleFolderExpanded, setActiveList, setActiveSpace, addSpace, addList, deleteSpace, deleteList } = useWorkspaceStore();
+  const { spaces, activeListId, toggleSpaceExpanded, toggleFolderExpanded, setActiveList, setActiveSpace, addSpace, addList, deleteSpace, deleteList, renameSpace, renameList } = useWorkspaceStore();
 
   // Space members popover
   const [membersSpaceId, setMembersSpaceId] = useState<string | null>(null);
@@ -45,6 +45,11 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   const spaceInputRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameType, setRenameType] = useState<"space" | "list" | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   async function logout() {
     const supabase = createClient();
@@ -118,6 +123,23 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
     router.push(`/tasks/${list.id}`);
   }
 
+  function startRename(id: string, type: "space" | "list", currentName: string) {
+    setRenamingId(id);
+    setRenameType(type);
+    setRenameValue(currentName);
+    setTimeout(() => renameInputRef.current?.select(), 30);
+  }
+
+  function commitRename() {
+    const name = renameValue.trim();
+    if (name && renamingId && renameType) {
+      if (renameType === "space") renameSpace(renamingId, name);
+      else renameList(renamingId, name);
+    }
+    setRenamingId(null);
+    setRenameType(null);
+  }
+
   const w = sidebarCollapsed ? "60px" : "240px";
 
 
@@ -178,7 +200,21 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                 <button onClick={() => { toggleSpaceExpanded(space.id); setActiveSpace(space.id); }}
                   className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 text-sm">
                   <span className="text-base leading-none flex-shrink-0">{space.icon}</span>
-                  <span className="flex-1 text-left truncate font-medium">{space.name}</span>
+                  {renamingId === space.id ? (
+                    <input ref={renameInputRef} value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                      onBlur={commitRename}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 bg-transparent outline-none font-medium text-sm min-w-0"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+                  ) : (
+                    <span className="flex-1 text-left truncate font-medium"
+                      onDoubleClick={(e) => { e.stopPropagation(); startRename(space.id, "space", space.name); }}>
+                      {space.name}
+                    </span>
+                  )}
                   {space.expanded ? <ChevronDown size={13} style={{ color: "var(--text-secondary)" }} /> : <ChevronRight size={13} style={{ color: "var(--text-secondary)" }} />}
                 </button>
                 {/* Hover actions */}
@@ -228,6 +264,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                             <ListRow key={list.id} list={list} active={activeListId === list.id}
                               onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
                               onDelete={() => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
+                              onRename={() => startRename(list.id, "list", list.name)}
                             />
                           ))}
                         </div>
@@ -251,10 +288,26 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                   {/* Direct lists */}
                   {space.lists.map((list) => {
                     const isProtectedList = isPersonal && list.name === "My Tasks";
+                    if (renamingId === list.id) {
+                      return (
+                        <div key={list.id} className="flex items-center gap-2 px-2 py-1 rounded-md"
+                          style={{ background: "rgba(124,58,237,0.08)" }}>
+                          <ListIcon size={11} style={{ color: list.color }} />
+                          <input ref={renameInputRef} value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                            onBlur={commitRename}
+                            className="flex-1 bg-transparent outline-none text-xs min-w-0"
+                            style={{ color: "var(--text-primary)" }}
+                          />
+                        </div>
+                      );
+                    }
                     return (
                       <ListRow key={list.id} list={list} active={activeListId === list.id}
                         onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
                         onDelete={isProtectedList ? undefined : () => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
+                        onRename={() => startRename(list.id, "list", list.name)}
                       />
                     );
                   })}
@@ -365,14 +418,16 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   );
 }
 
-function ListRow({ list, active, onOpen, onDelete }: { list: List; active: boolean; onOpen: () => void; onDelete?: () => void }) {
+function ListRow({ list, active, onOpen, onDelete, onRename }: {
+  list: List; active: boolean; onOpen: () => void; onDelete?: () => void; onRename?: () => void;
+}) {
   return (
     <div className="group flex items-center gap-1 rounded-md hover:bg-white/5 transition-colors"
       style={{ background: active ? "rgba(124,58,237,0.1)" : "transparent" }}>
       <button onClick={onOpen} className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1 text-xs"
         style={{ color: active ? "var(--text-primary)" : "var(--text-secondary)" }}>
         <ListIcon size={11} style={{ color: list.color }} className="flex-shrink-0" />
-        <span className="truncate">{list.name}</span>
+        <span className="truncate" onDoubleClick={(e) => { e.stopPropagation(); onRename?.(); }}>{list.name}</span>
       </button>
       {onDelete && (
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }}

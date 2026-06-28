@@ -62,6 +62,8 @@ interface WorkspaceState {
   addFolder: (folder: Folder, spaceId: string) => void;
   deleteSpace: (id: string) => void;
   deleteList: (id: string) => void;
+  renameSpace: (id: string, name: string) => void;
+  renameList: (id: string, name: string) => void;
 
   setActiveSpace: (id: string) => void;
   setActiveList: (id: string) => void;
@@ -154,6 +156,28 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }),
     }));
     saveToAPI("list", { ...list, space_id: spaceId, folder_id: folderId ?? null });
+  },
+
+  renameSpace: (id, name) => {
+    set((s) => ({ spaces: s.spaces.map((sp) => sp.id === id ? { ...sp, name } : sp) }));
+    const space = useWorkspaceStore.getState().spaces.find(sp => sp.id === id);
+    if (space) {
+      const { folders, lists, expanded, ...row } = space;
+      saveToAPI("space", { ...row, name });
+    }
+  },
+
+  renameList: (id, name) => {
+    set((s) => ({
+      spaces: s.spaces.map((sp) => ({
+        ...sp,
+        lists: sp.lists.map((l) => l.id === id ? { ...l, name } : l),
+        folders: sp.folders.map((f) => ({ ...f, lists: f.lists.map((l) => l.id === id ? { ...l, name } : l) })),
+      })),
+    }));
+    const allLists = useWorkspaceStore.getState().spaces.flatMap(sp => [...sp.lists, ...sp.folders.flatMap(f => f.lists)]);
+    const list = allLists.find(l => l.id === id);
+    if (list) saveToAPI("list", { ...list, name });
   },
 
   deleteSpace: (id) => {
