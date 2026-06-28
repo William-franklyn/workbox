@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { googleEventId, title, description, startDateTime, dueDate, meetLink, calendarLink, listId } = await req.json();
+  const { googleEventId, title, description, startDateTime, endDateTime, dueDate, meetLink, calendarLink, listId } = await req.json();
   if (!listId) return NextResponse.json({ error: "listId required" }, { status: 400 });
 
   const { data: existing } = await supabase
@@ -30,9 +30,20 @@ export async function POST(req: NextRequest) {
 
   if (existing) return NextResponse.json({ alreadySynced: true, task_id: existing.task_id });
 
+  // Format time for title and description
+  function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  const timeLabel = startDateTime
+    ? endDateTime
+      ? `${fmtTime(startDateTime)} – ${fmtTime(endDateTime)}`
+      : fmtTime(startDateTime)
+    : "";
+
   const cleanDesc = stripHtml(description ?? "");
+  const timeLine = timeLabel ? `Time: ${timeLabel}` : "";
   const meetLine = meetLink ? `Meet link: ${meetLink}` : "";
-  const parts = [cleanDesc, meetLine, `Calendar: ${calendarLink}`].filter(Boolean);
+  const parts = [timeLine, cleanDesc, meetLine, `Calendar: ${calendarLink}`].filter(Boolean);
 
   const { count: existingCount } = await supabase
     .from("tasks")
@@ -40,7 +51,7 @@ export async function POST(req: NextRequest) {
     .eq("list_id", listId);
 
   const { data: task, error } = await supabase.from("tasks").insert({
-    title: `📅 ${title}`,
+    title: `📅 ${title}${timeLabel ? ` (${timeLabel})` : ""}`,
     description: parts.join("\n"),
     status: "todo",
     priority: "normal",
