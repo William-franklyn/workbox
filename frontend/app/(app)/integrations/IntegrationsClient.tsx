@@ -1,5 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 
 interface Integration {
   name: string;
@@ -7,6 +9,8 @@ interface Integration {
   category: string;
   color: string;
   letter: string;
+  live?: boolean;
+  connectHref?: string;
 }
 
 const INTEGRATIONS: Integration[] = [
@@ -15,7 +19,15 @@ const INTEGRATIONS: Integration[] = [
   { name: "Outlook", description: "Connect Microsoft Outlook mail", category: "Email", color: "#0078D4", letter: "O" },
 
   // Calendar
-  { name: "Google Calendar", description: "Sync events, meetings and reminders", category: "Calendar", color: "#4285F4", letter: "C" },
+  {
+    name: "Google Calendar",
+    description: "Schedule meetings, view events and sync them as tasks",
+    category: "Calendar",
+    color: "#4285F4",
+    letter: "C",
+    live: true,
+    connectHref: "/api/auth/google/redirect",
+  },
   { name: "Outlook Calendar", description: "Connect your Microsoft calendar", category: "Calendar", color: "#0078D4", letter: "C" },
 
   // Video
@@ -48,8 +60,25 @@ const INTEGRATIONS: Integration[] = [
 const CATEGORIES = Array.from(new Set(INTEGRATIONS.map((i) => i.category)));
 
 export default function IntegrationsClient() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [notified, setNotified] = useState<string | null>(null);
+  const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
+  const [gcalEmail, setGcalEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/google-calendar/status")
+      .then(r => r.json())
+      .then(d => { setGcalConnected(d.connected); setGcalEmail(d.email); })
+      .catch(() => setGcalConnected(false));
+  }, []);
+
+  async function disconnectGcal() {
+    if (!confirm("Disconnect Google Calendar?")) return;
+    await fetch("/api/google-calendar/status", { method: "DELETE" });
+    setGcalConnected(false);
+    setGcalEmail(null);
+  }
 
   const filtered = INTEGRATIONS.filter(
     (i) =>
@@ -61,9 +90,52 @@ export default function IntegrationsClient() {
     filtered.some((i) => i.category === cat)
   );
 
-  function handleConnect(name: string) {
-    setNotified(name);
+  function handleConnect(integration: Integration) {
+    if (integration.live && integration.connectHref) {
+      window.location.href = integration.connectHref;
+      return;
+    }
+    setNotified(integration.name);
     setTimeout(() => setNotified(null), 2500);
+  }
+
+  function renderAction(integration: Integration) {
+    if (integration.name === "Google Calendar") {
+      if (gcalConnected === null) return null;
+      if (gcalConnected) {
+        return (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg"
+              style={{ background: "#22c55e22", color: "#22c55e" }}>
+              <Check size={11} /> Connected
+            </span>
+            <button onClick={() => router.push("/meetings")}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#4285F4] hover:text-[#4285F4] transition-colors">
+              View Meetings
+            </button>
+            <button onClick={disconnectGcal}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              Disconnect
+            </button>
+          </div>
+        );
+      }
+      return (
+        <button onClick={() => handleConnect(integration)}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#4285F4] hover:text-[#4285F4] transition-colors">
+          Connect
+        </button>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => handleConnect(integration)}
+        className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a3c5e] hover:text-[#1a3c5e] transition-colors"
+      >
+        Connect
+      </button>
+    );
   }
 
   return (
@@ -89,7 +161,7 @@ export default function IntegrationsClient() {
 
         {notified && (
           <div className="fixed bottom-6 right-6 bg-[#1a3c5e] text-white text-sm px-4 py-3 rounded-xl shadow-lg z-50">
-            {notified} integration coming soon — we'll notify you when it's ready.
+            {notified} integration coming soon — we&apos;ll notify you when it&apos;s ready.
           </div>
         )}
 
@@ -113,14 +185,20 @@ export default function IntegrationsClient() {
                       {integration.letter}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{integration.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900">{integration.name}</p>
+                        {integration.live && (
+                          <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+                            style={{ background: "#4285F422", color: "#4285F4" }}>
+                            Live
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5 leading-snug">{integration.description}</p>
-                      <button
-                        onClick={() => handleConnect(integration.name)}
-                        className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a3c5e] hover:text-[#1a3c5e] transition-colors"
-                      >
-                        Connect
-                      </button>
+                      {gcalEmail && integration.name === "Google Calendar" && (
+                        <p className="text-xs mt-1" style={{ color: "#4285F4" }}>{gcalEmail}</p>
+                      )}
+                      {renderAction(integration)}
                     </div>
                   </div>
                 ))}
@@ -129,7 +207,7 @@ export default function IntegrationsClient() {
         ))}
 
         {filtered.length === 0 && (
-          <p className="text-sm text-gray-400 py-12 text-center">No integrations match "{search}"</p>
+          <p className="text-sm text-gray-400 py-12 text-center">No integrations match &quot;{search}&quot;</p>
         )}
       </div>
     </div>
