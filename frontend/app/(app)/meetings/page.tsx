@@ -60,9 +60,22 @@ function dayLabel(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
+// ─── Conflict detection ───────────────────────────────────────────────────────
+function findConflicts(startISO: string, endISO: string, events: GCalEvent[]): GCalEvent[] {
+  const s = new Date(startISO).getTime();
+  const e = new Date(endISO).getTime();
+  return events.filter(ev => {
+    if (!ev.start.dateTime || !ev.end.dateTime) return false;
+    const es = new Date(ev.start.dateTime).getTime();
+    const ee = new Date(ev.end.dateTime).getTime();
+    return s < ee && e > es;
+  });
+}
+
 // ─── Schedule Meeting Modal ───────────────────────────────────────────────────
-function ScheduleModal({ lists, onClose, onCreated }: {
+function ScheduleModal({ lists, events, onClose, onCreated }: {
   lists: TaskList[];
+  events: GCalEvent[];
   onClose: () => void;
   onCreated: (ev: GCalEvent) => void;
 }) {
@@ -77,12 +90,22 @@ function ScheduleModal({ lists, onClose, onCreated }: {
   const [listId, setListId] = useState(lists[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+
+  // Compute proposed start/end for conflict checking
+  const proposedStart = date && startTime ? new Date(`${date}T${startTime}:00`) : null;
+  const proposedEnd = proposedStart ? new Date(proposedStart.getTime() + Number(duration) * 60 * 1000) : null;
+  const conflicts = proposedStart && proposedEnd
+    ? findConflicts(proposedStart.toISOString(), proposedEnd.toISOString(), events)
+    : [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) { setError("Title is required"); return; }
-    const start = new Date(`${date}T${startTime}:00`);
-    const end = new Date(start.getTime() + Number(duration) * 60 * 1000);
+    if (conflicts.length > 0 && !confirmed) { setError("Please confirm you want to schedule despite the conflict."); return; }
+
+    const start = proposedStart!;
+    const end = proposedEnd!;
     const attendeeEmails = attendees.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
     setSaving(true); setError("");
     try {
@@ -92,7 +115,8 @@ function ScheduleModal({ lists, onClose, onCreated }: {
         body: JSON.stringify({
           title: title.trim(), description: description.trim(),
           startDateTime: start.toISOString(), endDateTime: end.toISOString(),
-          attendeeEmails, addMeetLink: addMeet, listId: listId || null,
+          attendeeEmails, addMeetLink: addMeet,
+          listId: listId || null,
         }),
       });
       const data = await res.json();
@@ -114,30 +138,57 @@ function ScheduleModal({ lists, onClose, onCreated }: {
             <X size={15} />
           </button>
         </div>
-        <form onSubmit={submit} className="p-5 flex flex-col gap-3">
+        <form onSubmit={submit} className="p-5 flex flex-col gap-3 max-h-[85vh] overflow-y-auto">
           {error && (
             <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: "#ef444422", color: "#ef4444" }}>
               <AlertCircle size={13} /> {error}
             </div>
           )}
+
+          {/* Conflict warning */}
+          {conflicts.length > 0 && (
+            <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: "#f59e0b22", border: "1px solid #f59e0b44", color: "#f59e0b" }}>
+              <div className="flex items-center gap-1.5 font-semibold mb-1">
+                <AlertCircle size={13} /> Time conflict detected
+              </div>
+              <ul className="space-y-0.5 mb-2">
+                {conflicts.map(c => (
+                  <li key={c.id} className="opacity-80">
+                    • {c.summary} ({formatTime(c.start.dateTime!)} – {formatTime(c.end.dateTime!)})
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-center gap-2 cursor-pointer mt-1">
+                <div onClick={() => setConfirmed(!confirmed)}
+                  className="w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors shrink-0"
+                  style={{ background: confirmed ? "#f59e0b" : "transparent", borderColor: "#f59e0b" }}>
+                  {confirmed && <Check size={9} color="white" />}
+                </div>
+                <span>Schedule anyway</span>
+              </label>
+            </div>
+          )}
+
           <input placeholder="Meeting title *" value={title} onChange={e => setTitle(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); setConfirmed(false); }}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
                 style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
             </div>
             <div>
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Start time</label>
-              <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+              <input type="time" value={startTime} onChange={e => { setStartTime(e.target.value); setConfirmed(false); }}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
                 style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
             </div>
           </div>
-          <select value={duration} onChange={e => setDuration(e.target.value)}
+
+          <select value={duration} onChange={e => { setDuration(e.target.value); setConfirmed(false); }}
             className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
             <option value="15">15 minutes</option>
@@ -147,12 +198,15 @@ function ScheduleModal({ lists, onClose, onCreated }: {
             <option value="90">1.5 hours</option>
             <option value="120">2 hours</option>
           </select>
+
           <input placeholder="Attendees (emails, comma-separated)" value={attendees} onChange={e => setAttendees(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+
           <textarea placeholder="Description (optional)" value={description} onChange={e => setDescription(e.target.value)}
             rows={2} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border resize-none"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <div onClick={() => setAddMeet(!addMeet)}
               className="w-4 h-4 rounded flex items-center justify-center border transition-colors"
@@ -161,22 +215,22 @@ function ScheduleModal({ lists, onClose, onCreated }: {
             </div>
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Add Google Meet video link</span>
           </label>
-          {lists.length > 0 && (
-            <div>
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Also add as WorkBox task in</label>
-              <select value={listId} onChange={e => setListId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
-                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
-                <option value="">— Don&apos;t create task —</option>
-                {lists.map(l => <option key={l.id} value={l.id}>{l.space?.name ? `${l.space.name} / ` : ""}{l.name}</option>)}
-              </select>
-            </div>
-          )}
-          <button type="submit" disabled={saving}
-            className="mt-1 w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-60 hover:opacity-90 transition-opacity"
-            style={{ background: "var(--accent-purple)" }}>
+
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Add as task in</label>
+            <select value={listId} onChange={e => setListId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
+              style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
+              <option value="">— Don&apos;t create task —</option>
+              {lists.map(l => <option key={l.id} value={l.id}>{l.space?.name ? `${l.space.name} / ` : ""}{l.name}</option>)}
+            </select>
+          </div>
+
+          <button type="submit" disabled={saving || (conflicts.length > 0 && !confirmed)}
+            className="mt-1 w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+            style={{ background: conflicts.length > 0 && !confirmed ? "#f59e0b" : "var(--accent-purple)" }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
-            {saving ? "Creating…" : "Create Meeting"}
+            {saving ? "Creating…" : conflicts.length > 0 && !confirmed ? "Confirm conflict first" : "Create Meeting"}
           </button>
         </form>
       </div>
@@ -512,7 +566,7 @@ export default function MeetingsPage() {
       </div>
 
       {showModal && (
-        <ScheduleModal lists={lists} onClose={() => setShowModal(false)} onCreated={handleCreated} />
+        <ScheduleModal lists={lists} events={events} onClose={() => setShowModal(false)} onCreated={handleCreated} />
       )}
     </div>
   );
