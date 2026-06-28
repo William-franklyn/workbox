@@ -159,20 +159,19 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: "var(--border)", height: "var(--topnav-height)" }}>
         {!sidebarCollapsed && (
-          // The SVG canvas is 1024×1024 but the logo content sits at approx
-          // x:149–874, y:384–642 (725×258px). We crop to that region using
-          // overflow:hidden + a negatively-positioned oversized img.
-          <div style={{ overflow: "hidden", position: "relative", height: "36px", width: "105px", flexShrink: 0 }}>
+          // logo.png is 1024×1024 but content sits at x≈133–891, y≈379–645.
+          // Crop to that region with overflow:hidden + a scaled+offset img.
+          <div style={{ overflow: "hidden", position: "relative", height: "36px", width: "108px", flexShrink: 0 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-light.svg"
+              src="/logo.png"
               alt="WorkBox"
               style={{
                 position: "absolute",
-                height: "143px",   // 1024 × (36 / 258)
+                height: "139px",   // 1024 × (36 / 266)
                 width:  "auto",
-                top:    "-54px",   // −(384 × 36 / 258)
-                left:   "-21px",   // −(149 × 36 / 258)
+                top:    "-51px",   // −(379 × 36 / 266)
+                left:   "-18px",   // −(133 × 36 / 266)
               }}
             />
           </div>
