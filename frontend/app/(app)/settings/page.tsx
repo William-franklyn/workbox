@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -82,10 +83,11 @@ export default function SettingsPage() {
 
   async function sendInvite() {
     if (!inviteEmail.trim()) return;
-    setInviting(true); setInviteMsg(""); setInviteLink("");
+    setInviting(true); setInviteMsg(""); setInviteLink(""); setInviteSuccess(false);
     const res = await fetch("/api/members/invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: inviteEmail }) });
     const d = await res.json();
     if (res.ok) {
+      setInviteSuccess(true);
       if (d.existing) {
         setInviteMsg("Added to your workspace! They can log in and access it now.");
       } else {
@@ -94,6 +96,7 @@ export default function SettingsPage() {
       }
       setInviteEmail("");
     } else {
+      setInviteSuccess(false);
       setInviteMsg(d.error || "Failed to send invite");
     }
     setInviting(false);
@@ -199,7 +202,7 @@ export default function SettingsPage() {
                     Invite
                   </button>
                 </div>
-                {inviteMsg && <p className="text-xs mt-2" style={{ color: inviteMsg.startsWith("Invite sent") ? "#22c55e" : "var(--danger)" }}>{inviteMsg}</p>}
+                {inviteMsg && <p className="text-xs mt-2" style={{ color: inviteSuccess ? "#22c55e" : "var(--danger)" }}>{inviteMsg}</p>}
                 {inviteLink && (
                   <div className="mt-2 flex items-center gap-2">
                     <input readOnly value={inviteLink} className="flex-1 px-2 py-1 rounded text-xs outline-none" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }} />

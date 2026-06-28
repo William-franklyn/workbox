@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { useMembers, getMemberName } from "@/hooks/useMembers";
-import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send } from "lucide-react";
+import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send, Lock, Unlock } from "lucide-react";
+import { useUIStore } from "@/store/ui";
 
 const PRIORITY_COLOR: Record<Task["priority"], string> = {
   urgent: "#ef4444", high: "#f97316", normal: "#94a3b8", low: "#64748b",
@@ -37,6 +38,7 @@ export default function TaskDetailPanel() {
   const { selectedTaskId, setSelectedTask } = useWorkspaceStore();
   const { tasks, updateTask, deleteTask } = useTasksStore();
   const members = useMembers();
+  const userRole = useUIStore((s) => s.userRole);
   const task = Object.values(tasks).flat().find((t) => t.id === selectedTaskId);
 
   const [editingTitle, setEditingTitle] = useState(false);
@@ -85,6 +87,8 @@ export default function TaskDetailPanel() {
   const status = STATUSES.find((s) => s.key === task.status);
   const totalMinutes = timeLogs.reduce((s, l) => s + l.duration_minutes, 0);
   const subtasksDone = subtasks.filter((s) => s.completed).length;
+  const isAdmin = userRole === "admin";
+  const isLocked = !!task.locked && !isAdmin;
 
   function addTag() {
     const t = tagInput.trim();
@@ -161,24 +165,47 @@ export default function TaskDetailPanel() {
       style={{ width: 380, background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Task Detail</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Task Detail</span>
+          {task.locked && (
+            <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+              <Lock size={9} /> Locked
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <button
+              onClick={() => updateTask(taskId, { locked: !task.locked })}
+              title={task.locked ? "Unlock task" : "Lock task for members"}
+              className="p-1 rounded hover:bg-white/10"
+              style={{ color: task.locked ? "#f59e0b" : "var(--text-secondary)" }}>
+              {task.locked ? <Lock size={13} /> : <Unlock size={13} />}
+            </button>
+          )}
           <button onClick={handleDelete} className="p-1 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
           <button onClick={() => setSelectedTask(null)} className="p-1 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}><X size={15} /></button>
         </div>
       </div>
 
+      {/* Locked banner for members */}
+      {isLocked && (
+        <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+          <Lock size={11} /> This task is locked. You can view and change status, but cannot edit details.
+        </div>
+      )}
+
       <div className="p-4 space-y-5">
         {/* Title */}
-        {editingTitle ? (
+        {editingTitle && !isLocked ? (
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
             onBlur={() => { updateTask(taskId, { title }); setEditingTitle(false); }}
             onKeyDown={(e) => { if (e.key === "Enter") { updateTask(taskId, { title }); setEditingTitle(false); } if (e.key === "Escape") setEditingTitle(false); }}
             className="w-full bg-transparent outline-none text-lg font-semibold border-b pb-1"
             style={{ color: "var(--text-primary)", borderColor: "var(--accent-purple)" }} />
         ) : (
-          <h2 onClick={() => { setTitle(task.title); setEditingTitle(true); }}
-            className="text-lg font-semibold cursor-text hover:opacity-80" style={{ color: "var(--text-primary)" }}>
+          <h2 onClick={() => { if (!isLocked) { setTitle(task.title); setEditingTitle(true); } }}
+            className={`text-lg font-semibold ${isLocked ? "cursor-default" : "cursor-text hover:opacity-80"}`} style={{ color: "var(--text-primary)" }}>
             {task.title}
           </h2>
         )}
@@ -196,7 +223,8 @@ export default function TaskDetailPanel() {
           <div>
             <p className="text-xs mb-1.5 font-medium uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Priority</p>
             <select value={task.priority} onChange={(e) => updateTask(taskId, { priority: e.target.value as Task["priority"] })}
-              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
+              disabled={isLocked}
+              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: `${PRIORITY_COLOR[task.priority]}22`, color: PRIORITY_COLOR[task.priority], border: `1px solid ${PRIORITY_COLOR[task.priority]}44` }}>
               {(["urgent","high","normal","low"] as Task["priority"][]).map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
@@ -211,7 +239,8 @@ export default function TaskDetailPanel() {
             </p>
             <select value={task.assignee ?? ""}
               onChange={(e) => updateTask(taskId, { assignee: e.target.value || undefined })}
-              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
+              disabled={isLocked}
+              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
               <option value="">Unassigned</option>
               {members.map((m) => <option key={m.id} value={m.id}>{m.full_name || "?"}</option>)}
@@ -223,7 +252,8 @@ export default function TaskDetailPanel() {
             </p>
             <input type="date" value={task.due_date ?? ""}
               onChange={(e) => updateTask(taskId, { due_date: e.target.value })}
-              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none"
+              disabled={isLocked}
+              className="w-full text-xs px-2 py-1.5 rounded-lg outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
           </div>
         </div>
@@ -231,10 +261,11 @@ export default function TaskDetailPanel() {
         {/* Description */}
         <Section title="Description">
           <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-            onBlur={() => updateTask(taskId, { description })}
-            placeholder="Add a description..." rows={3}
-            className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none"
-            style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+            onBlur={() => { if (!isLocked) updateTask(taskId, { description }); }}
+            readOnly={isLocked}
+            placeholder={isLocked ? "" : "Add a description..."} rows={3}
+            className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none disabled:opacity-50"
+            style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", cursor: isLocked ? "default" : undefined }} />
         </Section>
 
         {/* Subtasks */}
@@ -264,16 +295,18 @@ export default function TaskDetailPanel() {
               </div>
             </div>
           )}
-          <div className="flex gap-2">
-            <input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addSubtask()}
-              placeholder="Add subtask..."
-              className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none"
-              style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
-            <button onClick={addSubtask} className="text-xs px-2 py-1.5 rounded-lg" style={{ background: "var(--accent-purple)", color: "white" }}>
-              <Plus size={12} />
-            </button>
-          </div>
+          {!isLocked && (
+            <div className="flex gap-2">
+              <input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addSubtask()}
+                placeholder="Add subtask..."
+                className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none"
+                style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+              <button onClick={addSubtask} className="text-xs px-2 py-1.5 rounded-lg" style={{ background: "var(--accent-purple)", color: "white" }}>
+                <Plus size={12} />
+              </button>
+            </div>
+          )}
         </Section>
 
         {/* Tags */}
@@ -283,17 +316,19 @@ export default function TaskDetailPanel() {
               <span key={tag} className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
                 style={{ background: "var(--bg-primary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                 {tag}
-                <button onClick={() => updateTask(taskId, { tags: task.tags.filter((t) => t !== tag) })} className="hover:text-white ml-0.5">×</button>
+                {!isLocked && <button onClick={() => updateTask(taskId, { tags: task.tags.filter((t) => t !== tag) })} className="hover:text-white ml-0.5">×</button>}
               </span>
             ))}
           </div>
-          <div className="flex gap-2">
-            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()}
-              placeholder="Add tag..."
-              className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none"
-              style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
-            <button onClick={addTag} className="text-xs px-2 py-1.5 rounded-lg" style={{ background: "var(--accent-purple)", color: "white" }}>Add</button>
-          </div>
+          {!isLocked && (
+            <div className="flex gap-2">
+              <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTag()}
+                placeholder="Add tag..."
+                className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none"
+                style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+              <button onClick={addTag} className="text-xs px-2 py-1.5 rounded-lg" style={{ background: "var(--accent-purple)", color: "white" }}>Add</button>
+            </div>
+          )}
         </Section>
 
         {/* Time tracking */}

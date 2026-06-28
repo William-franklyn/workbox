@@ -12,6 +12,7 @@ export interface Task {
   position: number;
   tags: string[];
   created_at: string;
+  locked?: boolean;
 }
 
 export interface List {

@@ -18,11 +18,12 @@ interface Props {
 }
 
 export default function AppShell({ userId, orgId, orgName, userRole, userName, userEmail, children }: Props) {
-  const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed, toggleSidebar } = useUIStore();
+  const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed, toggleSidebar, setUserRole } = useUIStore();
   const { loadSpaces } = useWorkspaceStore();
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => { loadSpaces(); }, []);
+  useEffect(() => { setUserRole(userRole); }, [userRole]);
 
   // Apply saved accent color
   useEffect(() => {
