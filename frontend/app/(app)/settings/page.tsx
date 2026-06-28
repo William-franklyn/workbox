@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
 
   useEffect(() => {
     if (tab === "members" && !membersLoaded) {
@@ -80,11 +81,16 @@ export default function SettingsPage() {
 
   async function sendInvite() {
     if (!inviteEmail.trim()) return;
-    setInviting(true); setInviteMsg("");
+    setInviting(true); setInviteMsg(""); setInviteLink("");
     const res = await fetch("/api/members/invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: inviteEmail }) });
     const d = await res.json();
-    setInviteMsg(res.ok ? "Invite sent!" : d.error || "Failed to send invite");
-    if (res.ok) setInviteEmail("");
+    if (res.ok) {
+      setInviteMsg("Invite sent! Share this link if they don't receive the email:");
+      setInviteLink(d.link || "");
+      setInviteEmail("");
+    } else {
+      setInviteMsg(d.error || "Failed to send invite");
+    }
     setInviting(false);
   }
 
@@ -188,7 +194,13 @@ export default function SettingsPage() {
                     Invite
                   </button>
                 </div>
-                {inviteMsg && <p className="text-xs mt-2" style={{ color: inviteMsg === "Invite sent!" ? "#22c55e" : "var(--danger)" }}>{inviteMsg}</p>}
+                {inviteMsg && <p className="text-xs mt-2" style={{ color: inviteMsg.startsWith("Invite sent") ? "#22c55e" : "var(--danger)" }}>{inviteMsg}</p>}
+                {inviteLink && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input readOnly value={inviteLink} className="flex-1 px-2 py-1 rounded text-xs outline-none" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }} />
+                    <button onClick={() => { navigator.clipboard.writeText(inviteLink); }} className="px-2 py-1 rounded text-xs font-medium text-white" style={{ background: "var(--accent-purple)" }}>Copy</button>
+                  </div>
+                )}
               </div>
 
               {/* Members list */}
