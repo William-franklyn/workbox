@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
+import { useTasksStore } from "@/store/tasks";
 import {
   Calendar, Plus, RefreshCw, Video, Users,
   Loader2, X, Check, AlertCircle, ExternalLink, Copy, ClipboardList,
@@ -323,6 +324,7 @@ export default function MeetingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { personalListId } = useWorkspaceStore();
+  const { reloadTasks } = useTasksStore();
 
   const [connected, setConnected] = useState<boolean | null>(null);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
@@ -419,6 +421,8 @@ export default function MeetingsPage() {
         setSyncResult({ count: newCount, listName, listId: syncListId });
         setTimeout(() => setSyncResult(null), 8000);
       }
+      // Force the tasks store to refresh so the calendar view shows the new tasks immediately
+      if (syncListId) reloadTasks(syncListId);
     }).finally(() => setAutoSyncing(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, syncListId]);

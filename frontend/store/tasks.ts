@@ -7,6 +7,7 @@ interface TasksState {
 
   // Load from Supabase for a given list
   loadTasks: (listId: string) => Promise<void>;
+  reloadTasks: (listId: string) => Promise<void>;
 
   setTasks: (listId: string, tasks: Task[]) => void;
   addTask: (task: Task) => void;
@@ -21,6 +22,18 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   loadTasks: async (listId) => {
     if (get().loadedLists.has(listId)) return;
+    try {
+      const res = await fetch(`/api/tasks?listId=${listId}`);
+      if (!res.ok) return;
+      const data: Task[] = await res.json();
+      set((s) => ({
+        tasks: { ...s.tasks, [listId]: data },
+        loadedLists: new Set([...s.loadedLists, listId]),
+      }));
+    } catch {}
+  },
+
+  reloadTasks: async (listId) => {
     try {
       const res = await fetch(`/api/tasks?listId=${listId}`);
       if (!res.ok) return;

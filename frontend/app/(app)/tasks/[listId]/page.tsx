@@ -28,12 +28,12 @@ export default function TasksPage({ params }: { params: Promise<{ listId: string
   const { listId } = use(params);
   const searchParams = useSearchParams();
   const { view, setView, selectedTaskId } = useWorkspaceStore();
-  const { loadTasks, loadedLists } = useTasksStore();
+  const { reloadTasks, loadedLists } = useTasksStore();
   const userRole = useUIStore((s) => s.userRole);
   const isLoaded = loadedLists.has(listId);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => { loadTasks(listId); }, [listId]);
+  useEffect(() => { reloadTasks(listId); }, [listId]);
   useRealtimeTasks(listId);
 
   // Switch to calendar view if navigated here with ?view=calendar
