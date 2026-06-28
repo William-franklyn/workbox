@@ -159,9 +159,22 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: "var(--border)", height: "var(--topnav-height)" }}>
         {!sidebarCollapsed && (
-          <div className="flex items-center min-w-0">
+          // The SVG canvas is 1024×1024 but the logo content sits at approx
+          // x:149–874, y:384–642 (725×258px). We crop to that region using
+          // overflow:hidden + a negatively-positioned oversized img.
+          <div style={{ overflow: "hidden", position: "relative", height: "36px", width: "105px", flexShrink: 0 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-light.svg" alt="WorkBox" style={{ height: "28px", width: "auto", objectFit: "contain" }} />
+            <img
+              src="/logo-light.svg"
+              alt="WorkBox"
+              style={{
+                position: "absolute",
+                height: "143px",   // 1024 × (36 / 258)
+                width:  "auto",
+                top:    "-54px",   // −(384 × 36 / 258)
+                left:   "-21px",   // −(149 × 36 / 258)
+              }}
+            />
           </div>
         )}
         <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0" style={{ color: "var(--text-secondary)" }}>
