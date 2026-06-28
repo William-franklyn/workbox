@@ -159,11 +159,9 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: "var(--border)", height: "var(--topnav-height)" }}>
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
-              {orgName[0]?.toUpperCase()}
-            </div>
-            <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{orgName}</span>
+          <div className="flex items-center min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-light.svg" alt="WorkBox" style={{ height: "28px", width: "auto", objectFit: "contain" }} />
           </div>
         )}
         <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0" style={{ color: "var(--text-secondary)" }}>

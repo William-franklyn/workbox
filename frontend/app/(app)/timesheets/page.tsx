@@ -512,6 +512,7 @@ function InvoiceForm({ timeEntries, expenses, onSave, onCancel }: any) {
   const [form, setForm] = useState({ client_name: "", client_email: "", due_date: "", tax_rate: "0", notes: "" });
   const [items, setItems] = useState<InvoiceItem[]>([{ label: "", qty: 1, rate: 0, total: 0 }]);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function updateItem(i: number, field: keyof InvoiceItem, value: string | number) {
     setItems(prev => prev.map((item, idx) => {
@@ -537,11 +538,19 @@ function InvoiceForm({ timeEntries, expenses, onSave, onCancel }: any) {
   async function save() {
     if (!form.client_name) return;
     setSaving(true);
+    setSaveError(null);
     const invNum = `INV-${Date.now().toString().slice(-6)}`;
     const payload = { ...form, invoice_number: invNum, tax_rate: parseFloat(form.tax_rate) || 0, items, subtotal, tax_amount: taxAmt, total, status: "draft" };
-    const res = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (res.ok) onSave(await res.json());
-    setSaving(false);
+    try {
+      const res = await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (res.ok) { onSave(data); return; }
+      setSaveError(data?.error ?? `Server error ${res.status}. Make sure you've run the billing SQL migration in Supabase.`);
+    } catch (e) {
+      setSaveError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -636,6 +645,12 @@ function InvoiceForm({ timeEntries, expenses, onSave, onCancel }: any) {
       <textarea placeholder="Notes (payment terms, bank details, etc.)" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2}
         className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none focus:border-purple-500 resize-none"
         style={{ borderColor: "var(--border)", color: "var(--text-primary)" }} />
+
+      {saveError && (
+        <div className="p-3 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          <strong>Error:</strong> {saveError}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button onClick={save} disabled={saving || !form.client_name}
