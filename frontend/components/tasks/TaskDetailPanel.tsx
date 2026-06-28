@@ -122,9 +122,12 @@ export default function TaskDetailPanel() {
   async function sendComment() {
     if (!commentText.trim()) return;
     setSendingComment(true);
-    const res = await fetch("/api/comments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task_id: taskId, content: commentText.trim() }) });
-    if (res.ok) { const saved = await res.json(); setComments((c) => [...c, saved]); setCommentText(""); }
-    setSendingComment(false);
+    try {
+      const res = await fetch("/api/comments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task_id: taskId, content: commentText.trim() }) });
+      if (res.ok) { const saved = await res.json(); setComments((c) => [...c, saved]); setCommentText(""); }
+    } finally {
+      setSendingComment(false);
+    }
   }
 
   async function deleteComment(id: string) {

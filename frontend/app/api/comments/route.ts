@@ -28,11 +28,13 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from("task_comments")
     .insert({ id: `c${Date.now()}`, ...body, user_id: user.id })
-    .select("*, profiles(full_name)")
+    .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data);
+
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+  return NextResponse.json({ ...data, profiles: profile ?? null });
 }
 
 export async function DELETE(req: NextRequest) {

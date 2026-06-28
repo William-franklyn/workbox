@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, MessageSquare, Target, Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
-  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder,
+  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder, Users, X,
 } from "lucide-react";
 
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
@@ -21,6 +21,19 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { spaces, activeListId, toggleSpaceExpanded, toggleFolderExpanded, setActiveList, setActiveSpace, addSpace, addList, deleteSpace, deleteList } = useWorkspaceStore();
+
+  // Space members popover
+  const [membersSpaceId, setMembersSpaceId] = useState<string | null>(null);
+  const [spaceMembers, setSpaceMembers] = useState<{ id: string; full_name: string; role: string }[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
+  async function openMembers(spaceId: string) {
+    setMembersSpaceId(spaceId);
+    setMembersLoading(true);
+    const res = await fetch("/api/members");
+    if (res.ok) setSpaceMembers(await res.json());
+    setMembersLoading(false);
+  }
 
   // Inline creation state
   const [creatingSpace, setCreatingSpace] = useState(false);
@@ -199,6 +212,10 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                     className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
                     <FolderPlus size={11} />
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); openMembers(space.id); }} title="Members"
+                    className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
+                    <Users size={11} />
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }} title="Delete space"
                     className="p-0.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
                     <Trash2 size={11} />
@@ -318,6 +335,52 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
         )}
       </div>
     </aside>
+
+    {/* Space members modal */}
+    {membersSpaceId && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}
+        onClick={() => setMembersSpaceId(null)}>
+        <div className="rounded-2xl p-5 w-80 shadow-2xl" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+          onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {spaces.find(s => s.id === membersSpaceId)?.icon} {spaces.find(s => s.id === membersSpaceId)?.name}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Workspace members</p>
+            </div>
+            <button onClick={() => setMembersSpaceId(null)} className="p-1 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
+              <X size={14} />
+            </button>
+          </div>
+          {membersLoading ? (
+            <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>Loading...</p>
+          ) : spaceMembers.length === 0 ? (
+            <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>No members yet. Invite people from Settings.</p>
+          ) : (
+            <div className="space-y-2">
+              {spaceMembers.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: "var(--bg-primary)" }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                    style={{ background: m.id === userId ? "var(--accent-purple)" : "#4b5563" }}>
+                    {m.full_name?.[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                      {m.full_name || "Unknown"} {m.id === userId ? "(you)" : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full capitalize"
+                    style={{ background: m.role === "admin" ? "rgba(124,58,237,0.15)" : "rgba(75,85,99,0.3)", color: m.role === "admin" ? "var(--accent-purple)" : "var(--text-secondary)" }}>
+                    {m.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
   );
 }
 
