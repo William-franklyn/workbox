@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import Sidebar from "./Sidebar";
+import IconRail from "./IconRail";
 import TopNav from "./TopNav";
 import CommandPalette from "./CommandPalette";
 import AIAssistant from "@/components/ai/AIAssistant";
@@ -66,7 +67,10 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
           onClick={() => setSidebarCollapsed(true)} />
       )}
 
-      {/* Sidebar — fixed overlay on mobile, inline on desktop */}
+      {/* Always-visible icon rail */}
+      <IconRail userName={userName} />
+
+      {/* Collapsible main sidebar */}
       <div className={`
         md:relative md:flex md:shrink-0
         fixed inset-y-0 left-0 z-40

@@ -120,14 +120,6 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
 
   const w = sidebarCollapsed ? "60px" : "240px";
 
-  const navItems = [
-    { icon: LayoutDashboard, label: "Home", href: "/home" },
-    { icon: BarChart2, label: "Overview", href: "/overview" },
-    { icon: FileText, label: "Docs", href: "/docs" },
-    { icon: Target, label: "Goals", href: "/goals" },
-    { icon: MessageSquare, label: "Chat", href: "/chat/new" },
-    { icon: Zap, label: "Automations", href: "/automations" },
-  ];
 
   return (
     <>
@@ -148,22 +140,6 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           {sidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
         </button>
       </div>
-
-      {/* Nav items */}
-      <nav className="px-2 pt-2 space-y-0.5">
-        {navItems.map(({ icon: Icon, label, href }) => {
-          const seg = href.split("/")[1];
-          const active = seg ? pathname.startsWith(`/${seg}`) : pathname === href;
-          return (
-            <Link key={href} href={href}
-              className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors"
-              style={{ color: active ? "var(--text-primary)" : "var(--text-secondary)", background: active ? "rgba(124,58,237,0.15)" : "transparent", borderLeft: active ? "2px solid var(--accent-purple)" : "2px solid transparent" }}>
-              <Icon size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span>{label}</span>}
-            </Link>
-          );
-        })}
-      </nav>
 
       {/* Spaces */}
       {!sidebarCollapsed && (
@@ -309,19 +285,9 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       )}
 
       {/* Footer */}
-      <div className="mt-auto border-t px-2 py-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
-        {userRole === "admin" && (
-          <Link href="/integrations" className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm hover:bg-white/5 transition-colors" style={{ color: "var(--text-secondary)" }}>
-            <Plug size={15} />
-            {!sidebarCollapsed && <span>Integrations</span>}
-          </Link>
-        )}
-        <Link href="/settings" className="flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm hover:bg-white/5 transition-colors" style={{ color: "var(--text-secondary)" }}>
-          <Settings size={15} />
-          {!sidebarCollapsed && <span>Settings</span>}
-        </Link>
+      <div className="mt-auto border-t px-2 py-2" style={{ borderColor: "var(--border)" }}>
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 px-2 py-2 mt-1">
+          <div className="flex items-center gap-2 px-2 py-2">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
               {userName[0]?.toUpperCase()}
             </div>
@@ -329,7 +295,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
               <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{userName}</p>
               <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{userEmail}</p>
             </div>
-            <button onClick={logout} className="p-1 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-secondary)" }}>
+            <button onClick={logout} title="Sign out" className="p-1 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-secondary)" }}>
               <LogOut size={13} />
             </button>
           </div>
