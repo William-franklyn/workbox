@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { ChevronUp, ChevronDown, Plus } from "lucide-react";
+import { useUIStore } from "@/store/ui";
+import CreateTaskModal from "./CreateTaskModal";
 
 type SortKey = "title" | "status" | "priority" | "due_date";
 
@@ -12,16 +14,16 @@ const STATUS_COLOR: Record<Task["status"], string> = { todo: "#94a3b8", in_progr
 const PRIORITY_COLOR: Record<Task["priority"], string> = { urgent: "#ef4444", high: "#f97316", normal: "#94a3b8", low: "#64748b" };
 
 export default function TableView({ listId }: { listId: string }) {
-  const { tasks, addTask, updateTask } = useTasksStore();
+  const { tasks, updateTask } = useTasksStore();
   const { setSelectedTask } = useWorkspaceStore();
+  const userRole = useUIStore((s) => s.userRole);
   const listTasks = tasks[listId] || [];
 
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "title", dir: "asc" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingCell, setEditingCell] = useState<{ id: string; key: string } | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [addingRow, setAddingRow] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
+  const [showModal, setShowModal] = useState(false);
 
   const sorted = [...listTasks].sort((a, b) => {
     let cmp = 0;
@@ -157,30 +159,10 @@ export default function TableView({ listId }: { listId: string }) {
               </tr>
             ))}
 
-            {/* Add row */}
-            {addingRow ? (
-              <tr style={{ borderBottom: `1px solid var(--border)` }}>
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5" colSpan={4}>
-                  <input autoFocus value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newTitle.trim()) {
-                        addTask({ id: `t${Date.now()}`, title: newTitle.trim(), status: "todo", priority: "normal", list_id: listId, position: listTasks.length, tags: [], created_at: new Date().toISOString() });
-                        setNewTitle(""); setAddingRow(false);
-                      }
-                      if (e.key === "Escape") setAddingRow(false);
-                    }}
-                    onBlur={() => setAddingRow(false)}
-                    placeholder="Task name... (Enter to save)"
-                    className="w-full bg-transparent outline-none text-sm"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                </td>
-              </tr>
-            ) : (
+            {userRole === "admin" && (
               <tr>
                 <td colSpan={5} className="px-3 py-2">
-                  <button onClick={() => setAddingRow(true)}
+                  <button onClick={() => setShowModal(true)}
                     className="flex items-center gap-2 text-xs hover:opacity-80 transition-opacity"
                     style={{ color: "var(--text-secondary)" }}>
                     <Plus size={12} /> Add task
@@ -196,5 +178,6 @@ export default function TableView({ listId }: { listId: string }) {
         {listTasks.length} tasks · Double-click to edit title
       </div>
     </div>
+    {showModal && <CreateTaskModal listId={listId} onClose={() => setShowModal(false)} />}
   );
 }

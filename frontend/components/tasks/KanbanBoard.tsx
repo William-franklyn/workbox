@@ -4,6 +4,8 @@ import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { Flag, Plus, MoreHorizontal } from "lucide-react";
 import { useMembers, getMemberInitials } from "@/hooks/useMembers";
+import { useUIStore } from "@/store/ui";
+import CreateTaskModal from "./CreateTaskModal";
 
 const STATUSES: { key: Task["status"]; label: string; color: string }[] = [
   { key: "todo", label: "To Do", color: "#94a3b8" },
@@ -17,23 +19,17 @@ const PRIORITY_COLOR: Record<Task["priority"], string> = {
 };
 
 export default function KanbanBoard({ listId }: { listId: string }) {
-  const { tasks, addTask, moveTask } = useTasksStore();
+  const { tasks, moveTask } = useTasksStore();
   const { selectedTaskId, setSelectedTask } = useWorkspaceStore();
   const members = useMembers();
+  const userRole = useUIStore((s) => s.userRole);
   const listTasks = tasks[listId] || [];
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Task["status"] | null>(null);
-  const [adding, setAdding] = useState<Task["status"] | null>(null);
-  const [newTitle, setNewTitle] = useState("");
+  const [modal, setModal] = useState<{ status: Task["status"] } | null>(null);
 
   function handleDrop(status: Task["status"]) {
     if (dragging) { moveTask(dragging, status); setDragging(null); setDragOver(null); }
-  }
-
-  function handleAddTask(status: Task["status"]) {
-    if (!newTitle.trim()) { setAdding(null); return; }
-    addTask({ id: `t${Date.now()}`, title: newTitle.trim(), status, priority: "normal", list_id: listId, position: listTasks.length, tags: [], created_at: new Date().toISOString() });
-    setNewTitle(""); setAdding(null);
   }
 
   return (
@@ -109,20 +105,8 @@ export default function KanbanBoard({ listId }: { listId: string }) {
                 </div>
               ))}
 
-              {/* Inline add */}
-              {adding === key ? (
-                <div className="rounded-lg p-3" style={{ background: "var(--bg-primary)", border: "1px solid var(--accent-purple)" }}>
-                  <input autoFocus value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(key); if (e.key === "Escape") setAdding(null); }}
-                    onBlur={() => handleAddTask(key)}
-                    placeholder="Task name..."
-                    className="w-full bg-transparent outline-none text-sm"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                </div>
-              ) : (
-                <button onClick={() => { setAdding(key); setNewTitle(""); }}
+              {userRole === "admin" && (
+                <button onClick={() => setModal({ status: key })}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs hover:bg-white/5 transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                 >
@@ -134,5 +118,6 @@ export default function KanbanBoard({ listId }: { listId: string }) {
         );
       })}
     </div>
+    {modal && <CreateTaskModal listId={listId} initialStatus={modal.status} onClose={() => setModal(null)} />}
   );
 }

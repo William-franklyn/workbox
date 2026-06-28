@@ -4,6 +4,7 @@ import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { useUIStore } from "@/store/ui";
 import { Plus, ChevronDown, ChevronRight, Flag, Circle } from "lucide-react";
+import CreateTaskModal from "./CreateTaskModal";
 
 const STATUSES: { key: Task["status"]; label: string; color: string }[] = [
   { key: "todo", label: "To Do", color: "#94a3b8" },
@@ -21,23 +22,12 @@ const PRIORITY_LABEL: Record<Task["priority"], string> = {
 };
 
 export default function TaskListView({ listId }: { listId: string }) {
-  const { tasks, addTask, updateTask } = useTasksStore();
+  const { tasks, updateTask } = useTasksStore();
   const { selectedTaskId, setSelectedTask } = useWorkspaceStore();
+  const userRole = useUIStore((s) => s.userRole);
   const listTasks = tasks[listId] || [];
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [adding, setAdding] = useState<Task["status"] | null>(null);
-  const [newTitle, setNewTitle] = useState("");
-
-  function handleAddTask(status: Task["status"]) {
-    if (!newTitle.trim()) { setAdding(null); return; }
-    addTask({
-      id: `t${Date.now()}`, title: newTitle.trim(), status,
-      priority: "normal", list_id: listId, position: listTasks.length,
-      tags: [], created_at: new Date().toISOString(),
-    });
-    setNewTitle("");
-    setAdding(null);
-  }
+  const [modal, setModal] = useState<{ status: Task["status"] } | null>(null);
 
   return (
     <div className="flex h-full">
@@ -99,23 +89,9 @@ export default function TaskListView({ listId }: { listId: string }) {
                     </div>
                   ))}
 
-                  {/* Inline add */}
-                  {adding === key ? (
-                    <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: "var(--bg-secondary)" }}>
-                      <Circle size={14} style={{ color, flexShrink: 0 }} />
-                      <input
-                        autoFocus value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(key); if (e.key === "Escape") setAdding(null); }}
-                        onBlur={() => handleAddTask(key)}
-                        placeholder="Task name..."
-                        className="flex-1 bg-transparent outline-none text-sm"
-                        style={{ color: "var(--text-primary)" }}
-                      />
-                    </div>
-                  ) : (
+                  {userRole === "admin" && (
                     <button
-                      onClick={() => { setAdding(key); setNewTitle(""); }}
+                      onClick={() => setModal({ status: key })}
                       className="flex items-center gap-2 px-4 py-2 text-xs hover:bg-white/3 w-full transition-colors"
                       style={{ color: "var(--text-secondary)" }}
                     >
@@ -128,7 +104,7 @@ export default function TaskListView({ listId }: { listId: string }) {
           );
         })}
       </div>
-
     </div>
+    {modal && <CreateTaskModal listId={listId} initialStatus={modal.status} onClose={() => setModal(null)} />}
   );
 }

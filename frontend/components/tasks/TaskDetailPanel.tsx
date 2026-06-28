@@ -63,15 +63,61 @@ export default function TaskDetailPanel() {
   const [manualNote, setManualNote] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Extension requests
+  interface ExtRequest { id: string; requested_by: string; message: string | null; days_requested: number; status: string; created_at: string; profiles?: { full_name: string } | null; }
+  const [extRequests, setExtRequests] = useState<ExtRequest[]>([]);
+  const [showExtForm, setShowExtForm] = useState(false);
+  const [extDays, setExtDays] = useState("3");
+  const [extMessage, setExtMessage] = useState("");
+  const [submittingExt, setSubmittingExt] = useState(false);
+  const [extSubmitted, setExtSubmitted] = useState(false);
+
   useEffect(() => {
     if (!selectedTaskId) return;
     setSubtasks([]);
     setComments([]);
     setTimeLogs([]);
+    setExtRequests([]);
+    setShowExtForm(false);
+    setExtSubmitted(false);
     fetch(`/api/subtasks?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setSubtasks(d)).catch(() => {});
     fetch(`/api/comments?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setComments(d)).catch(() => {});
     fetch(`/api/time-logs?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setTimeLogs(d)).catch(() => {});
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    if (!selectedTaskId || userRole !== "admin") return;
+    fetch(`/api/extension-requests?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setExtRequests(d)).catch(() => {});
+  }, [selectedTaskId, userRole]);
+
+  async function submitExtRequest() {
+    if (!extDays || parseInt(extDays) < 1) return;
+    setSubmittingExt(true);
+    const res = await fetch("/api/extension-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: taskId, message: extMessage || null, days_requested: parseInt(extDays) }),
+    });
+    if (res.ok) { setExtSubmitted(true); setShowExtForm(false); }
+    setSubmittingExt(false);
+  }
+
+  async function respondToRequest(id: string, status: "approved" | "denied", days_requested: number) {
+    const res = await fetch("/api/extension-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status, task_id: taskId, days_requested }),
+    });
+    if (res.ok) {
+      setExtRequests((r) => r.map((x) => x.id === id ? { ...x, status } : x));
+      if (status === "approved") {
+        const days = days_requested;
+        const base = task!.due_date ? new Date(task!.due_date) : new Date();
+        base.setDate(base.getDate() + days);
+        updateTask(taskId, { due_date: base.toISOString().split("T")[0] });
+      }
+    }
+  }
 
   useEffect(() => {
     if (timerRunning) {
@@ -165,24 +211,8 @@ export default function TaskDetailPanel() {
       style={{ width: 380, background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Task Detail</span>
-          {task.locked && (
-            <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-              <Lock size={9} /> Locked
-            </span>
-          )}
-        </div>
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Task Detail</span>
         <div className="flex items-center gap-1">
-          {isAdmin && (
-            <button
-              onClick={() => updateTask(taskId, { locked: !task.locked })}
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/10"
-              style={{ color: task.locked ? "#f59e0b" : "var(--text-secondary)" }}>
-              {task.locked ? <Lock size={11} /> : <Unlock size={11} />}
-              {task.locked ? "Locked" : "Lock"}
-            </button>
-          )}
           <button onClick={handleDelete} className="p-1 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
           <button onClick={() => setSelectedTask(null)} className="p-1 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}><X size={15} /></button>
         </div>
@@ -191,7 +221,7 @@ export default function TaskDetailPanel() {
       {/* Locked banner for members */}
       {isLocked && (
         <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-          <Lock size={11} /> This task is locked. You can view and change status, but cannot edit details.
+          <Lock size={11} /> This task is admin-only. You can view it and change the status, but cannot edit details.
         </div>
       )}
 
@@ -255,6 +285,37 @@ export default function TaskDetailPanel() {
               disabled={isLocked}
               className="w-full text-xs px-2 py-1.5 rounded-lg outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+            {/* Extension request for members on locked tasks */}
+            {isLocked && task.due_date && (
+              extSubmitted ? (
+                <p className="text-xs mt-1" style={{ color: "#22c55e" }}>Extension request sent to admin.</p>
+              ) : showExtForm ? (
+                <div className="mt-2 p-2 rounded-lg space-y-2" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs shrink-0" style={{ color: "var(--text-secondary)" }}>Days needed:</label>
+                    <input type="number" min={1} max={90} value={extDays} onChange={(e) => setExtDays(e.target.value)}
+                      className="w-16 text-xs px-2 py-1 rounded outline-none"
+                      style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+                  </div>
+                  <input value={extMessage} onChange={(e) => setExtMessage(e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="w-full text-xs px-2 py-1 rounded outline-none"
+                    style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+                  <div className="flex gap-2">
+                    <button onClick={submitExtRequest} disabled={submittingExt}
+                      className="flex-1 text-xs py-1 rounded font-medium text-white disabled:opacity-50"
+                      style={{ background: "var(--accent-purple)" }}>
+                      {submittingExt ? "Sending..." : "Send Request"}
+                    </button>
+                    <button onClick={() => setShowExtForm(false)} className="text-xs px-2 py-1 rounded" style={{ color: "var(--text-secondary)" }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowExtForm(true)} className="text-xs mt-1 hover:underline" style={{ color: "var(--accent-purple)" }}>
+                  Request deadline extension
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -267,6 +328,54 @@ export default function TaskDetailPanel() {
             className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none disabled:opacity-50"
             style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", cursor: isLocked ? "default" : undefined }} />
         </Section>
+
+        {/* Admin: permissions toggle + extension request inbox */}
+        {isAdmin && (
+          <Section title="Permissions">
+            <div className="flex gap-2 mb-2">
+              <button onClick={() => updateTask(taskId, { locked: false })}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ background: !task.locked ? "var(--accent-purple)" : "transparent", color: !task.locked ? "white" : "var(--text-secondary)", border: `1px solid ${!task.locked ? "var(--accent-purple)" : "var(--border)"}` }}>
+                <Unlock size={10} /> Everyone can edit
+              </button>
+              <button onClick={() => updateTask(taskId, { locked: true })}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ background: task.locked ? "var(--accent-purple)" : "transparent", color: task.locked ? "white" : "var(--text-secondary)", border: `1px solid ${task.locked ? "var(--accent-purple)" : "var(--border)"}` }}>
+                <Lock size={10} /> Admin only
+              </button>
+            </div>
+            {extRequests.length > 0 && (
+              <div className="mt-2 space-y-2">
+                <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Extension requests</p>
+                {extRequests.map((r) => (
+                  <div key={r.id} className="p-2 rounded-lg" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                          {r.profiles?.full_name ?? "Member"} · +{r.days_requested} day{r.days_requested !== 1 ? "s" : ""}
+                        </p>
+                        {r.message && <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{r.message}</p>}
+                      </div>
+                      {r.status === "pending" ? (
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => respondToRequest(r.id, "approved", r.days_requested)}
+                            className="text-xs px-2 py-0.5 rounded font-medium text-white" style={{ background: "#22c55e" }}>Approve</button>
+                          <button onClick={() => respondToRequest(r.id, "denied", r.days_requested)}
+                            className="text-xs px-2 py-0.5 rounded font-medium text-white" style={{ background: "var(--danger)" }}>Deny</button>
+                        </div>
+                      ) : (
+                        <span className="text-xs px-1.5 py-0.5 rounded capitalize"
+                          style={{ background: r.status === "approved" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.1)", color: r.status === "approved" ? "#22c55e" : "#ef4444" }}>
+                          {r.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
 
         {/* Subtasks */}
         <Section title={`Subtasks${subtasks.length ? ` · ${subtasksDone}/${subtasks.length}` : ""}`}>
