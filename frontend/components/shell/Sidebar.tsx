@@ -168,7 +168,9 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           )}
 
           {/* Spaces list */}
-          {spaces.map((space) => (
+          {spaces.map((space) => {
+            const isPersonal = space.name === "My Workspace";
+            return (
             <div key={space.id}>
               {/* Space row */}
               <div className="group flex items-center gap-1 rounded-md hover:bg-white/5 transition-colors"
@@ -193,10 +195,12 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                     className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
                     <Users size={11} />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }} title="Delete space"
-                    className="p-0.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
-                    <Trash2 size={11} />
-                  </button>
+                  {!isPersonal && (
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }} title="Delete space"
+                      className="p-0.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -245,12 +249,15 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                   )}
 
                   {/* Direct lists */}
-                  {space.lists.map((list) => (
-                    <ListRow key={list.id} list={list} active={activeListId === list.id}
-                      onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
-                      onDelete={() => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
-                    />
-                  ))}
+                  {space.lists.map((list) => {
+                    const isProtectedList = isPersonal && list.name === "My Tasks";
+                    return (
+                      <ListRow key={list.id} list={list} active={activeListId === list.id}
+                        onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
+                        onDelete={isProtectedList ? undefined : () => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
+                      />
+                    );
+                  })}
 
                   {/* New list inline input */}
                   {creatingListIn === space.id && (
@@ -277,7 +284,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                 </div>
               )}
             </div>
-          ))}
+          );})}
 
           {/* Empty state */}
           {spaces.length === 0 && !creatingSpace && (
@@ -358,7 +365,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   );
 }
 
-function ListRow({ list, active, onOpen, onDelete }: { list: List; active: boolean; onOpen: () => void; onDelete: () => void }) {
+function ListRow({ list, active, onOpen, onDelete }: { list: List; active: boolean; onOpen: () => void; onDelete?: () => void }) {
   return (
     <div className="group flex items-center gap-1 rounded-md hover:bg-white/5 transition-colors"
       style={{ background: active ? "rgba(124,58,237,0.1)" : "transparent" }}>
@@ -367,11 +374,13 @@ function ListRow({ list, active, onOpen, onDelete }: { list: List; active: boole
         <ListIcon size={11} style={{ color: list.color }} className="flex-shrink-0" />
         <span className="truncate">{list.name}</span>
       </button>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity mr-1 flex-shrink-0"
-        style={{ color: "var(--danger)" }}>
-        <Trash2 size={10} />
-      </button>
+      {onDelete && (
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity mr-1 flex-shrink-0"
+          style={{ color: "var(--danger)" }}>
+          <Trash2 size={10} />
+        </button>
+      )}
     </div>
   );
 }

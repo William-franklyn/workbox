@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppShell
         userId={user.id}
         orgId={orgId}
-        orgName="My Workspace"
+        orgName="Workspace"
         userRole={role}
         userName={fullName || user.email || ""}
         userEmail={user.email ?? ""}
