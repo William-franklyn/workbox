@@ -6,7 +6,7 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,7 +14,8 @@ export async function GET() {
   const token = await getValidToken(user.id, supabase);
   if (!token) return NextResponse.json({ error: "not_connected" }, { status: 401 });
 
-  const events = await listEvents(token, 30);
+  const days = parseInt(req.nextUrl.searchParams.get("days") ?? "30", 10);
+  const events = await listEvents(token, days);
   return NextResponse.json(events);
 }
 
