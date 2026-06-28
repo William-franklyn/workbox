@@ -206,12 +206,18 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                   {/* Folders */}
                   {space.folders.map((folder) => (
                     <div key={folder.id}>
-                      <button onClick={() => toggleFolderExpanded(space.id, folder.id)}
-                        className="w-full flex items-center gap-2 px-2 py-1 rounded-md text-xs hover:bg-white/5 transition-colors"
-                        style={{ color: "var(--text-secondary)" }}>
-                        {folder.expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                        <span className="truncate">{folder.name}</span>
-                      </button>
+                      <div className="group/folder flex items-center rounded-md hover:bg-white/5 transition-colors">
+                        <button onClick={() => toggleFolderExpanded(space.id, folder.id)}
+                          className="p-1 shrink-0" style={{ color: "var(--text-secondary)" }}>
+                          {folder.expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                        </button>
+                        <button onClick={() => router.push(`/folder/${folder.id}`)}
+                          className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-2 text-xs text-left"
+                          style={{ color: "var(--text-secondary)" }}>
+                          <Folder size={11} className="shrink-0" />
+                          <span className="truncate">{folder.name}</span>
+                        </button>
+                      </div>
                       {folder.expanded && (
                         <div className="ml-3 space-y-0.5">
                           {folder.lists.map((list) => (
