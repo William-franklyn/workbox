@@ -130,6 +130,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   ];
 
   return (
+    <>
     <aside className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 border-r"
       style={{ width: w, minWidth: w, background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
 
@@ -381,6 +382,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
         </div>
       </div>
     )}
+    </>
   );
 }
 
