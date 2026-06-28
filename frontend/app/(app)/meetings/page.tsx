@@ -185,17 +185,11 @@ function ScheduleModal({ lists, onClose, onCreated }: {
 }
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
-function EventCard({ ev, synced, syncListId, lists, onSynced }: {
+function EventCard({ ev, synced }: {
   ev: GCalEvent;
   synced: boolean;
-  syncListId: string;
-  lists: TaskList[];
-  onSynced: (googleEventId: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [showListPicker, setShowListPicker] = useState(false);
-  const [pickedList, setPickedList] = useState(syncListId);
   const isAllDay = !ev.start.dateTime;
 
   function copyLink() {
@@ -204,38 +198,8 @@ function EventCard({ ev, synced, syncListId, lists, onSynced }: {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function addToTasks(listId: string) {
-    if (!listId || syncing || synced) return;
-    setSyncing(true);
-    setShowListPicker(false);
-    const dueDate = ev.start.dateTime
-      ? ev.start.dateTime.split("T")[0]
-      : ev.start.date ?? null;
-    const res = await fetch("/api/google-calendar/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        googleEventId: ev.id,
-        title: ev.summary,
-        description: ev.description,
-        startDateTime: ev.start.dateTime,
-        dueDate,
-        meetLink: ev.hangoutLink,
-        calendarLink: ev.htmlLink,
-        listId,
-      }),
-    });
-    if (res.ok) onSynced(ev.id);
-    setSyncing(false);
-  }
-
-  function handleAddToTasks() {
-    if (pickedList) { addToTasks(pickedList); return; }
-    setShowListPicker(true);
-  }
-
   return (
-    <div className="group flex items-start gap-3 px-4 py-3 rounded-xl border hover:border-purple-500/40 transition-colors relative"
+    <div className="group flex items-start gap-3 px-4 py-3 rounded-xl border hover:border-purple-500/40 transition-colors"
       style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
 
       {/* Time */}
@@ -270,22 +234,12 @@ function EventCard({ ev, synced, syncListId, lists, onSynced }: {
 
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
-        {/* Add to Tasks button — always visible, not just on hover */}
-        {synced ? (
+        {synced && (
           <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium"
             style={{ background: "#22c55e18", color: "#22c55e" }}>
             <Check size={11} /> In Tasks
           </span>
-        ) : (
-          <button onClick={handleAddToTasks} disabled={syncing}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border transition-colors hover:border-purple-500/60 disabled:opacity-50"
-            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-            title="Add to WorkBox tasks">
-            {syncing ? <Loader2 size={11} className="animate-spin" /> : <ClipboardList size={11} />}
-            {syncing ? "Adding…" : "Add to Tasks"}
-          </button>
         )}
-
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {ev.hangoutLink && (
             <a href={ev.hangoutLink} target="_blank" rel="noopener noreferrer"
@@ -305,26 +259,6 @@ function EventCard({ ev, synced, syncListId, lists, onSynced }: {
           </a>
         </div>
       </div>
-
-      {/* List picker dropdown */}
-      {showListPicker && (
-        <div className="absolute right-4 top-full mt-1 z-20 rounded-xl shadow-xl border overflow-hidden min-w-48"
-          style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-          <p className="px-3 py-2 text-xs font-semibold border-b" style={{ color: "var(--text-secondary)", borderColor: "var(--border)" }}>
-            Choose a list
-          </p>
-          {lists.map(l => (
-            <button key={l.id} onClick={() => { setPickedList(l.id); addToTasks(l.id); }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 transition-colors"
-              style={{ color: "var(--text-primary)" }}>
-              {l.space?.name ? <span className="opacity-50 mr-1">{l.space.name} /</span> : null}{l.name}
-            </button>
-          ))}
-          <button onClick={() => setShowListPicker(false)}
-            className="w-full text-left px-3 py-2 text-xs border-t hover:bg-white/5 transition-colors"
-            style={{ color: "var(--text-secondary)", borderColor: "var(--border)" }}>Cancel</button>
-        </div>
-      )}
     </div>
   );
 }
@@ -426,10 +360,6 @@ export default function MeetingsPage() {
         setSyncedIds(new Set(d.map(x => x.google_event_id)));
       })
       .catch(() => {});
-  }
-
-  function handleSynced(googleEventId: string) {
-    setSyncedIds(prev => new Set([...prev, googleEventId]));
   }
 
   async function disconnect() {
@@ -556,9 +486,6 @@ export default function MeetingsPage() {
                       key={ev.id}
                       ev={ev}
                       synced={syncedIds.has(ev.id)}
-                      syncListId={syncListId}
-                      lists={lists}
-                      onSynced={handleSynced}
                     />
                   ))}
                 </div>
