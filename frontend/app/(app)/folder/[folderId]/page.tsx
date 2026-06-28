@@ -1,7 +1,6 @@
 "use client";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   Upload, Link2, Trash2, ExternalLink, Download, FolderOpen,
   FileText, Film, ImageIcon, File, Plus, X, Loader2,
@@ -119,6 +118,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
   const [url, setUrl] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(true);
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -128,17 +128,19 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
 
   useEffect(() => {
     if (resource.storage_path) {
-      createClient().storage.from("documents")
-        .createSignedUrl(resource.storage_path, 3600)
-        .then(({ data }) => {
-          const signed = data?.signedUrl ?? null;
+      fetch(`/api/storage-url?path=${encodeURIComponent(resource.storage_path)}&bucket=documents`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.error) { setUrlError(d.error); setLoadingUrl(false); return; }
+          const signed: string = d.url;
           setUrl(signed);
           const t = (resource.file_type ?? resource.type).toLowerCase();
-          if (signed && (t === "txt" || t === "csv" || t === "md")) {
+          if (t === "txt" || t === "csv" || t === "md") {
             fetch(signed).then(r => r.text()).then(text => setTextContent(text));
           }
           setLoadingUrl(false);
-        });
+        })
+        .catch(err => { setUrlError(String(err)); setLoadingUrl(false); });
     } else {
       setUrl(resource.url ?? null);
       setLoadingUrl(false);
@@ -159,9 +161,19 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
         <Loader2 size={28} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
       </div>
     );
+    if (urlError) return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+        <File size={36} style={{ color: "var(--text-secondary)", opacity: 0.4 }} />
+        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Could not load file</p>
+        <p className="text-xs max-w-sm" style={{ color: "#ef4444" }}>{urlError}</p>
+        <p className="text-xs max-w-sm" style={{ color: "var(--text-secondary)" }}>
+          Make sure the <strong>documents</strong> storage bucket exists in Supabase: go to Storage → New bucket → name it <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 4px", borderRadius: 3 }}>documents</code> → set to Private.
+        </p>
+      </div>
+    );
     if (!url) return (
       <div className="flex-1 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>
-        Could not load preview.
+        No file URL found.
       </div>
     );
 
