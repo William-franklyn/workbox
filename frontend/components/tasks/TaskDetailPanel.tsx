@@ -519,9 +519,35 @@ export default function TaskDetailPanel() {
           </div>
         </Section>
 
-        <p className="text-xs pb-2" style={{ color: "var(--text-secondary)" }}>
-          Created {new Date(task.created_at).toLocaleDateString()}
-        </p>
+        {/* Activity feed */}
+        <Section title="Activity">
+          <div className="space-y-2">
+            {/* Status changes and comments merged as a timeline */}
+            {comments.length === 0 ? (
+              <p className="text-xs py-1" style={{ color: "var(--text-secondary)" }}>No activity yet.</p>
+            ) : comments.slice().reverse().slice(0, 5).map((c) => (
+              <div key={c.id} className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5"
+                  style={{ background: "var(--accent-purple)", fontSize: "9px" }}>
+                  {(c.profiles?.full_name?.[0] ?? "?").toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                    {c.profiles?.full_name ?? "You"}
+                  </span>
+                  <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>commented</span>
+                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>{c.content}</p>
+                </div>
+                <span className="text-xs shrink-0" style={{ color: "var(--text-secondary)" }}>
+                  {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              </div>
+            ))}
+            <p className="text-xs pt-1" style={{ color: "var(--text-secondary)" }}>
+              Task created {new Date(task.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+          </div>
+        </Section>
       </div>
     </div>
   );
