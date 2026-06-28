@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [
           { role: "system", content: "You are WorkBox AI, a helpful productivity assistant. Help users manage tasks, plan projects, and stay organized. Keep answers concise and actionable." },
           ...messages,

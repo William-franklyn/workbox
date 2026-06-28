@@ -14,12 +14,28 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
+      console.log("[login] attempting signIn for:", email);
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      if (authError) { setError(authError.message); setLoading(false); }
-      else { window.location.href = "/home"; }
+      console.log("[login] supabase client created");
+
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      console.log("[login] result:", {
+        userId: data?.user?.id,
+        session: !!data?.session,
+        error: authError ? { message: authError.message, status: authError.status, code: (authError as any).code } : null,
+      });
+
+      if (authError) {
+        setError(authError.message || JSON.stringify(authError));
+        setLoading(false);
+        return;
+      }
+
+      console.log("[login] success — redirecting to /home");
+      window.location.href = "/home";
     } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+      console.error("[login] caught exception:", err);
+      setError(err?.message || String(err) || "Unexpected error — check console.");
       setLoading(false);
     }
   }
@@ -52,7 +68,11 @@ export default function LoginPage() {
               </div>
             ))}
 
-            {error && <p className="text-xs p-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>{error}</p>}
+            {error && (
+              <p className="text-xs p-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>
+                {typeof error === "string" ? error : JSON.stringify(error)}
+              </p>
+            )}
 
             <button type="submit" disabled={loading}
               className="w-full py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
