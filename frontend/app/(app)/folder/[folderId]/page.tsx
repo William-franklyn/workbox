@@ -142,6 +142,8 @@ function parseCSV(raw: string): string[][] {
 
 // ── File Viewer Modal ─────────────────────────────────────────────────────────
 
+const CSV_PAGE_SIZE = 200;
+
 function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);
@@ -150,6 +152,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
   const [loadingText, setLoadingText] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [csvRaw, setCsvRaw] = useState(false);
+  const [csvPage, setCsvPage] = useState(0);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -169,13 +172,23 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
           const t = (resource.file_type ?? resource.type).toLowerCase();
           if (/^(txt|csv|md|json)$/.test(t)) {
             setLoadingText(true);
-            fetch(signed)
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 60000);
+            fetch(signed, { signal: controller.signal })
               .then(r => {
+                clearTimeout(timeout);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return r.text();
               })
               .then(text => { setTextContent(text); setLoadingText(false); })
-              .catch(err => { setTextError(String(err)); setLoadingText(false); });
+              .catch(err => {
+                clearTimeout(timeout);
+                const msg = err?.name === "AbortError"
+                  ? "File took too long to load. Try downloading it instead."
+                  : String(err);
+                setTextError(msg);
+                setLoadingText(false);
+              });
           }
         })
         .catch(err => { setUrlError(String(err)); setLoadingUrl(false); });
@@ -291,52 +304,100 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
 
       if (isCsv && !csvRaw) {
         const parsed = parseCSV(textContent);
+        const headers = parsed[0] ?? [];
+        const dataRows = parsed.slice(1);
+        const totalPages = Math.max(1, Math.ceil(dataRows.length / CSV_PAGE_SIZE));
+        const pageRows = dataRows.slice(csvPage * CSV_PAGE_SIZE, (csvPage + 1) * CSV_PAGE_SIZE);
+        const startRow = csvPage * CSV_PAGE_SIZE + 1;
+        const endRow = Math.min((csvPage + 1) * CSV_PAGE_SIZE, dataRows.length);
+
         return (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-4 py-2 border-b flex items-center justify-between shrink-0"
+            {/* Toolbar */}
+            <div className="px-4 py-2 border-b flex items-center gap-3 shrink-0"
               style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                {parsed.length > 0 ? `${parsed.length - 1} rows · ${parsed[0]?.length ?? 0} columns` : "Empty file"}
+              <span className="text-xs flex-1" style={{ color: "var(--text-secondary)" }}>
+                {dataRows.length > 0
+                  ? `Showing rows ${startRow}–${endRow} of ${dataRows.length.toLocaleString()} · ${headers.length} columns`
+                  : "Empty file"}
               </span>
-              <button onClick={() => setCsvRaw(true)} className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setCsvPage(0)} disabled={csvPage === 0}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                    style={{ color: "var(--text-secondary)" }}>«</button>
+                  <button onClick={() => setCsvPage(p => Math.max(0, p - 1))} disabled={csvPage === 0}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                    style={{ color: "var(--text-secondary)" }}>‹</button>
+                  <span className="text-xs px-2" style={{ color: "var(--text-secondary)" }}>
+                    Page {csvPage + 1} / {totalPages}
+                  </span>
+                  <button onClick={() => setCsvPage(p => Math.min(totalPages - 1, p + 1))} disabled={csvPage >= totalPages - 1}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                    style={{ color: "var(--text-secondary)" }}>›</button>
+                  <button onClick={() => setCsvPage(totalPages - 1)} disabled={csvPage >= totalPages - 1}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                    style={{ color: "var(--text-secondary)" }}>»</button>
+                </div>
+              )}
+              <button onClick={() => { setCsvRaw(true); setCsvPage(0); }}
+                className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>
                 View raw
               </button>
             </div>
+
+            {/* Table */}
             <div className="flex-1 overflow-auto">
               <table className="border-collapse text-xs w-full">
-                <thead className="sticky top-0" style={{ background: "var(--bg-secondary)" }}>
-                  {parsed[0] && (
-                    <tr>
-                      <th className="w-10 px-3 py-2 border-b border-r text-center"
-                        style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>#</th>
-                      {parsed[0].map((cell, ci) => (
-                        <th key={ci} className="px-3 py-2 border-b border-r text-left font-semibold"
-                          style={{ borderColor: "var(--border)", color: "var(--accent-purple)", whiteSpace: "nowrap" }}>
-                          {cell}
-                        </th>
-                      ))}
-                    </tr>
-                  )}
+                <thead className="sticky top-0 z-10" style={{ background: "var(--bg-secondary)" }}>
+                  <tr>
+                    <th className="w-12 px-3 py-2.5 border-b border-r text-center shrink-0"
+                      style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>#</th>
+                    {headers.map((cell, ci) => (
+                      <th key={ci} className="px-3 py-2.5 border-b border-r text-left font-semibold"
+                        style={{ borderColor: "var(--border)", color: "var(--accent-purple)", whiteSpace: "nowrap", minWidth: 100 }}>
+                        {cell || `Col ${ci + 1}`}
+                      </th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
-                  {parsed.slice(1).map((row, ri) => (
+                  {pageRows.map((row, ri) => (
                     <tr key={ri} className="hover:bg-white/3 transition-colors">
                       <td className="px-3 py-2 border-b border-r text-center"
-                        style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>{ri + 1}</td>
-                      {row.map((cell, ci) => (
+                        style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                        {startRow + ri}
+                      </td>
+                      {headers.map((_, ci) => (
                         <td key={ci} className="px-3 py-2 border-b border-r"
-                          style={{ borderColor: "var(--border)", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
-                          {cell}
+                          style={{ borderColor: "var(--border)", color: "var(--text-primary)", whiteSpace: "nowrap", maxWidth: 320 }}>
+                          <span className="block truncate">{row[ci] ?? ""}</span>
                         </td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {parsed.length <= 1 && (
+              {dataRows.length === 0 && (
                 <p className="text-center py-10 text-xs" style={{ color: "var(--text-secondary)" }}>No data rows found.</p>
               )}
             </div>
+
+            {/* Bottom pagination for large files */}
+            {totalPages > 1 && (
+              <div className="px-4 py-2 border-t flex items-center justify-center gap-2 shrink-0"
+                style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+                <button onClick={() => setCsvPage(p => Math.max(0, p - 1))} disabled={csvPage === 0}
+                  className="px-3 py-1.5 rounded-lg text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                  style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>← Prev</button>
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {csvPage + 1} of {totalPages} pages
+                </span>
+                <button onClick={() => setCsvPage(p => Math.min(totalPages - 1, p + 1))} disabled={csvPage >= totalPages - 1}
+                  className="px-3 py-1.5 rounded-lg text-xs disabled:opacity-30 hover:bg-white/10 transition-colors"
+                  style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>Next →</button>
+              </div>
+            )}
           </div>
         );
       }
