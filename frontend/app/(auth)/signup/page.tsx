@@ -23,7 +23,13 @@ export default function SignupPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
-        options: { data: { full_name: form.fullName, company_name: form.companyName } },
+        options: {
+          data: {
+            full_name: form.fullName,
+            company_name: form.companyName,
+            role: "admin",
+          },
+        },
       });
 
       if (signUpError) {
@@ -38,13 +44,19 @@ export default function SignupPage() {
         return;
       }
 
-      // Update profile with org info the trigger doesn't set
-      await supabase.from("profiles").upsert({
+      // Set organization_id now that we have the user ID — trigger sets role from metadata
+      const { error: upsertError } = await supabase.from("profiles").upsert({
         id: data.user!.id,
         full_name: form.fullName,
         role: "admin",
         organization_id: data.user!.id,
       });
+
+      if (upsertError) {
+        setError("Account created but profile setup failed: " + upsertError.message);
+        setLoading(false);
+        return;
+      }
 
       window.location.href = "/home";
     } catch (err: any) {
