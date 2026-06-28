@@ -1,16 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MessageSquare, Target, Clock, Users, Bot, CalendarDays } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Target, Clock, Users, Bot, CalendarDays, Plug } from "lucide-react";
 
 const NAV = [
-  { icon: LayoutDashboard, href: "/home",        label: "Home" },
-  { icon: MessageSquare,   href: "/team-chat",   label: "Team Chat" },
-  { icon: Bot,             href: "/chat/new",    label: "AI Assistant" },
-  { icon: CalendarDays,    href: "/meetings",    label: "Meetings" },
-  { icon: Target,          href: "/goals",       label: "Goals" },
+  { icon: LayoutDashboard, href: "/home",         label: "Home" },
+  { icon: MessageSquare,   href: "/team-chat",    label: "Team Chat" },
+  { icon: Bot,             href: "/chat/new",     label: "AI Assistant" },
+  { icon: CalendarDays,    href: "/meetings",     label: "Meetings" },
+  { icon: Target,          href: "/goals",        label: "Goals" },
   { icon: Users,           href: "/settings?tab=members", label: "Members" },
-  { icon: Clock,           href: "/timesheets",  label: "Timesheets" },
+  { icon: Clock,           href: "/timesheets",   label: "Timesheets" },
+  { icon: Plug,            href: "/integrations", label: "Integrations" },
 ];
 
 export default function IconRail({ userName }: { userName: string }) {

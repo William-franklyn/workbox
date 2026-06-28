@@ -1,14 +1,14 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore, Space, List } from "@/store/workspace";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, MessageSquare, Target, Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
-  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder, Users, X,
+  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder, Users, X, CheckCircle2,
 } from "lucide-react";
 
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
@@ -50,6 +50,14 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameType, setRenameType] = useState<"space" | "list" | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const [gcalConnected, setGcalConnected] = useState(false);
+  useEffect(() => {
+    fetch("/api/google-calendar/status")
+      .then(r => r.ok ? r.json() : { connected: false })
+      .then(d => setGcalConnected(d.connected))
+      .catch(() => {});
+  }, []);
 
   async function logout() {
     const supabase = createClient();
@@ -350,8 +358,50 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
         </div>
       )}
 
+      {/* Integrations quick panel */}
+      {!sidebarCollapsed && (
+        <div className="border-t px-2 pt-3 pb-2" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between px-2 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Integrations</span>
+            <Link href="/integrations" className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>Manage</Link>
+          </div>
+          <div className="space-y-0.5">
+            {/* Google Calendar */}
+            <Link href={gcalConnected ? "/meetings" : "/integrations"}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
+              style={{ color: "var(--text-secondary)" }}>
+              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
+                style={{ fontSize: 9, background: "#4285F4" }}>G</div>
+              <span className="flex-1 truncate">Google Calendar</span>
+              {gcalConnected
+                ? <CheckCircle2 size={11} style={{ color: "#22c55e" }} />
+                : <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)" }}>Connect</span>
+              }
+            </Link>
+            {/* Microsoft — coming soon */}
+            <Link href="/integrations"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
+              style={{ color: "var(--text-secondary)", opacity: 0.5 }}>
+              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
+                style={{ fontSize: 9, background: "#0078D4" }}>M</div>
+              <span className="flex-1 truncate">Microsoft Cal.</span>
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Soon</span>
+            </Link>
+            {/* Zoom — coming soon */}
+            <Link href="/integrations"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
+              style={{ color: "var(--text-secondary)", opacity: 0.5 }}>
+              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
+                style={{ fontSize: 9, background: "#2D8CFF" }}>Z</div>
+              <span className="flex-1 truncate">Zoom</span>
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Soon</span>
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <div className="mt-auto border-t px-2 py-2" style={{ borderColor: "var(--border)" }}>
+      <div className="border-t px-2 py-2" style={{ borderColor: "var(--border)" }}>
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2 px-2 py-2">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
