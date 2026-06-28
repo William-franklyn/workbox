@@ -72,6 +72,7 @@ export default function SettingsPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (tab === "members" && !membersLoaded) {
@@ -198,7 +199,25 @@ export default function SettingsPage() {
                 {inviteLink && (
                   <div className="mt-2 flex items-center gap-2">
                     <input readOnly value={inviteLink} className="flex-1 px-2 py-1 rounded text-xs outline-none" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }} />
-                    <button onClick={() => { navigator.clipboard.writeText(inviteLink); }} className="px-2 py-1 rounded text-xs font-medium text-white" style={{ background: "var(--accent-purple)" }}>Copy</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteLink).catch(() => {
+                          const el = document.createElement("textarea");
+                          el.value = inviteLink;
+                          document.body.appendChild(el);
+                          el.select();
+                          document.execCommand("copy");
+                          document.body.removeChild(el);
+                        });
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="px-2 py-1 rounded text-xs font-medium text-white shrink-0"
+                      style={{ background: "var(--accent-purple)" }}
+                    >
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
                   </div>
                 )}
               </div>
