@@ -61,6 +61,7 @@ export default function TableView({ listId }: { listId: string }) {
   ];
 
   return (
+    <>
     <div className="flex flex-col h-full overflow-hidden">
       {/* Bulk actions bar */}
       {selected.size > 0 && (
@@ -179,5 +180,6 @@ export default function TableView({ listId }: { listId: string }) {
       </div>
     </div>
     {showModal && <CreateTaskModal listId={listId} onClose={() => setShowModal(false)} />}
+    </>
   );
 }

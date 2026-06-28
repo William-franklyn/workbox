@@ -33,6 +33,7 @@ export default function KanbanBoard({ listId }: { listId: string }) {
   }
 
   return (
+    <>
     <div className="flex gap-4 p-6 overflow-x-auto h-full">
       {STATUSES.map(({ key, label, color }) => {
         const group = listTasks.filter((t) => t.status === key);
@@ -119,5 +120,6 @@ export default function KanbanBoard({ listId }: { listId: string }) {
       })}
     </div>
     {modal && <CreateTaskModal listId={listId} initialStatus={modal.status} onClose={() => setModal(null)} />}
+    </>
   );
 }

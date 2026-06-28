@@ -30,6 +30,7 @@ export default function TaskListView({ listId }: { listId: string }) {
   const [modal, setModal] = useState<{ status: Task["status"] } | null>(null);
 
   return (
+    <>
     <div className="flex h-full">
       <div className="flex-1 overflow-y-auto p-6">
         {STATUSES.map(({ key, label, color }) => {
@@ -106,5 +107,6 @@ export default function TaskListView({ listId }: { listId: string }) {
       </div>
     </div>
     {modal && <CreateTaskModal listId={listId} initialStatus={modal.status} onClose={() => setModal(null)} />}
+    </>
   );
 }
