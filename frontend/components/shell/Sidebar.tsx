@@ -159,21 +159,11 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: "var(--border)", height: "var(--topnav-height)" }}>
         {!sidebarCollapsed && (
-          // logo.png is 1024×1024 but content sits at x≈133–891, y≈379–645.
-          // Crop to that region with overflow:hidden + a scaled+offset img.
-          <div style={{ overflow: "hidden", position: "relative", height: "36px", width: "108px", flexShrink: 0 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="WorkBox"
-              style={{
-                position: "absolute",
-                height: "139px",   // 1024 × (36 / 266)
-                width:  "auto",
-                top:    "-51px",   // −(379 × 36 / 266)
-                left:   "-18px",   // −(133 × 36 / 266)
-              }}
-            />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
+              W
+            </div>
+            <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>Workspace</span>
           </div>
         )}
         <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0" style={{ color: "var(--text-secondary)" }}>
