@@ -112,13 +112,44 @@ function formatSize(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
+// ── CSV parser (handles quoted fields and CRLF) ───────────────────────────────
+
+function parseCSV(raw: string): string[][] {
+  const rows: string[][] = [];
+  const text = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cells: string[] = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === "," && !inQ) {
+        cells.push(cur); cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur);
+    rows.push(cells);
+  }
+  return rows;
+}
+
 // ── File Viewer Modal ─────────────────────────────────────────────────────────
 
 function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);
+  const [textError, setTextError] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(true);
+  const [loadingText, setLoadingText] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [csvRaw, setCsvRaw] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -134,11 +165,18 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
           if (d.error) { setUrlError(d.error); setLoadingUrl(false); return; }
           const signed: string = d.url;
           setUrl(signed);
-          const t = (resource.file_type ?? resource.type).toLowerCase();
-          if (t === "txt" || t === "csv" || t === "md") {
-            fetch(signed).then(r => r.text()).then(text => setTextContent(text));
-          }
           setLoadingUrl(false);
+          const t = (resource.file_type ?? resource.type).toLowerCase();
+          if (/^(txt|csv|md|json)$/.test(t)) {
+            setLoadingText(true);
+            fetch(signed)
+              .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.text();
+              })
+              .then(text => { setTextContent(text); setLoadingText(false); })
+              .catch(err => { setTextError(String(err)); setLoadingText(false); });
+          }
         })
         .catch(err => { setUrlError(String(err)); setLoadingUrl(false); });
     } else {
@@ -153,6 +191,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
   const isPdf    = fileType === "pdf";
   const isOffice = /^(docx?|xlsx?|pptx?|odt|ods)$/.test(fileType);
   const isText   = /^(txt|md|csv|json)$/.test(fileType);
+  const isCsv    = fileType === "csv";
   const isLink   = !resource.storage_path;
 
   function renderBody() {
@@ -167,7 +206,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Could not load file</p>
         <p className="text-xs max-w-sm" style={{ color: "#ef4444" }}>{urlError}</p>
         <p className="text-xs max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Make sure the <strong>documents</strong> storage bucket exists in Supabase: go to Storage → New bucket → name it <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 4px", borderRadius: 3 }}>documents</code> → set to Private.
+          Make sure the <strong>documents</strong> bucket exists in Supabase Storage and is set to Private.
         </p>
       </div>
     );
@@ -179,7 +218,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
 
     if (isLink) return (
       <div className="flex-1 flex flex-col items-center justify-center gap-5 p-10 text-center">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
           style={{ background: typeMeta(resource.type).bg }}>
           <TypeIcon type={resource.type} size={32} />
         </div>
@@ -196,7 +235,7 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
           </button>
         </div>
         <a href={url} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
           style={{ background: "var(--accent-purple)" }}>
           <ExternalLink size={14} /> Open in new tab
         </a>
@@ -210,51 +249,115 @@ function FileViewerModal({ resource, onClose }: { resource: Resource; onClose: (
     );
 
     if (isVideo) return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-black">
+      <div className="flex-1 flex items-center justify-center p-4" style={{ background: "#000" }}>
         <video src={url} controls autoPlay className="max-w-full max-h-full rounded-lg" />
       </div>
     );
 
     if (isPdf) return (
-      <iframe src={url} title={resource.name} className="flex-1 border-0 w-full" />
+      <iframe src={url} title={resource.name} className="flex-1 border-0 w-full" style={{ minHeight: 0 }} />
     );
 
     if (isOffice) return (
       <iframe
         src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
-        title={resource.name} className="flex-1 border-0 w-full"
+        title={resource.name} className="flex-1 border-0 w-full" style={{ minHeight: 0 }}
       />
     );
 
-    if (isText) return (
-      <div className="flex-1 overflow-auto p-6">
-        {textContent !== null ? (
-          fileType === "csv" ? (
-            <div className="overflow-x-auto">
-              <table className="border-collapse text-xs w-full">
-                {textContent.split("\n").filter(Boolean).map((row, ri) => (
-                  <tr key={ri} style={{ borderBottom: "1px solid var(--border)" }}>
-                    {row.split(",").map((cell, ci) => (
-                      <td key={ci} className="px-3 py-1.5 border-r" style={{ borderColor: "var(--border)", color: ri === 0 ? "var(--accent-purple)" : "var(--text-primary)", fontWeight: ri === 0 ? 600 : 400 }}>
-                        {cell.replace(/^"|"$/g, "")}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </table>
+    if (isText) {
+      if (loadingText) return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <Loader2 size={22} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Loading content…</p>
+        </div>
+      );
+      if (textError) return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Could not read file content</p>
+          <p className="text-xs" style={{ color: "#ef4444" }}>{textError}</p>
+          <a href={url} download={resource.name}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: "var(--accent-purple)" }}>
+            <Download size={13} /> Download instead
+          </a>
+        </div>
+      );
+      if (textContent === null) return (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={22} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+        </div>
+      );
+
+      if (isCsv && !csvRaw) {
+        const parsed = parseCSV(textContent);
+        return (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-4 py-2 border-b flex items-center justify-between shrink-0"
+              style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {parsed.length > 0 ? `${parsed.length - 1} rows · ${parsed[0]?.length ?? 0} columns` : "Empty file"}
+              </span>
+              <button onClick={() => setCsvRaw(true)} className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>
+                View raw
+              </button>
             </div>
-          ) : (
-            <pre className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-primary)", fontFamily: "monospace" }}>
-              {textContent}
-            </pre>
-          )
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} />
+            <div className="flex-1 overflow-auto">
+              <table className="border-collapse text-xs w-full">
+                <thead className="sticky top-0" style={{ background: "var(--bg-secondary)" }}>
+                  {parsed[0] && (
+                    <tr>
+                      <th className="w-10 px-3 py-2 border-b border-r text-center"
+                        style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>#</th>
+                      {parsed[0].map((cell, ci) => (
+                        <th key={ci} className="px-3 py-2 border-b border-r text-left font-semibold"
+                          style={{ borderColor: "var(--border)", color: "var(--accent-purple)", whiteSpace: "nowrap" }}>
+                          {cell}
+                        </th>
+                      ))}
+                    </tr>
+                  )}
+                </thead>
+                <tbody>
+                  {parsed.slice(1).map((row, ri) => (
+                    <tr key={ri} className="hover:bg-white/3 transition-colors">
+                      <td className="px-3 py-2 border-b border-r text-center"
+                        style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>{ri + 1}</td>
+                      {row.map((cell, ci) => (
+                        <td key={ci} className="px-3 py-2 border-b border-r"
+                          style={{ borderColor: "var(--border)", color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {parsed.length <= 1 && (
+                <p className="text-center py-10 text-xs" style={{ color: "var(--text-secondary)" }}>No data rows found.</p>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    );
+        );
+      }
+
+      return (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isCsv && (
+            <div className="px-4 py-2 border-b flex items-center justify-end shrink-0"
+              style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+              <button onClick={() => setCsvRaw(false)} className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>
+                View as table
+              </button>
+            </div>
+          )}
+          <pre className="flex-1 overflow-auto p-6 text-sm leading-relaxed"
+            style={{ color: "var(--text-primary)", fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {textContent}
+          </pre>
+        </div>
+      );
+    }
 
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
