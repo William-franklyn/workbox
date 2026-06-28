@@ -20,10 +20,19 @@ interface Props {
 
 export default function AppShell({ userId, orgId, orgName, userRole, userName, userEmail, children }: Props) {
   const { searchOpen, setSearchOpen, sidebarCollapsed, setSidebarCollapsed, toggleSidebar, setUserRole } = useUIStore();
-  const { loadSpaces } = useWorkspaceStore();
+  const { loadSpaces, setPersonalListId } = useWorkspaceStore();
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  useEffect(() => { loadSpaces(); }, []);
+  useEffect(() => {
+    // Ensure personal workspace exists first, then load all spaces
+    fetch("/api/personal-workspace")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.list?.id) setPersonalListId(d.list.id);
+      })
+      .catch(() => {})
+      .finally(() => loadSpaces());
+  }, []);
   useEffect(() => { setUserRole(userRole); }, [userRole]);
 
   // Apply saved accent color

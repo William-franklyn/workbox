@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useWorkspaceStore } from "@/store/workspace";
 import {
   Calendar, Plus, RefreshCw, Video, Users,
   Loader2, X, Check, AlertCircle, ExternalLink, Copy, ClipboardList,
@@ -321,6 +322,7 @@ function EventCard({ ev, synced }: {
 export default function MeetingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { personalListId } = useWorkspaceStore();
 
   const [connected, setConnected] = useState<boolean | null>(null);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
@@ -362,10 +364,20 @@ export default function MeetingsPage() {
       .then(d => {
         const ls = d.lists ?? [];
         setLists(ls);
-        if (ls.length > 0) setSyncListId(ls[0].id);
+        // Prefer personal "My Tasks" list, then fall back to first list
+        const preferred = personalListId && ls.find((l: TaskList) => l.id === personalListId);
+        setSyncListId(preferred ? preferred.id : (ls[0]?.id ?? ""));
       })
       .catch(() => {});
   }, []);
+
+  // Once personalListId is resolved (async), apply it if syncListId hasn't been set yet
+  useEffect(() => {
+    if (personalListId && lists.length > 0 && !syncListId) {
+      const found = lists.find(l => l.id === personalListId);
+      if (found) setSyncListId(found.id);
+    }
+  }, [personalListId, lists]);
 
   // Auto-sync all unsynced events whenever events + lists are ready
   useEffect(() => {

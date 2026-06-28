@@ -49,9 +49,11 @@ interface WorkspaceState {
   selectedTaskId: string | null;
   view: "list" | "board" | "calendar" | "table" | "gantt";
   loaded: boolean;
+  personalListId: string | null;
 
   // Read
   loadSpaces: () => Promise<void>;
+  setPersonalListId: (id: string) => void;
 
   // Write (optimistic + persist)
   setSpaces: (spaces: Space[]) => void;
@@ -84,6 +86,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   selectedTaskId: null,
   view: "list",
   loaded: false,
+  personalListId: null,
 
   loadSpaces: async () => {
     if (get().loaded) return;
@@ -169,6 +172,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     deleteFromAPI("list", id);
   },
 
+  setPersonalListId: (id) => set({ personalListId: id }),
   setActiveSpace: (id) => set({ activeSpaceId: id }),
   setActiveList: (id) => set({ activeListId: id }),
   setSelectedTask: (id) => set({ selectedTaskId: id }),
