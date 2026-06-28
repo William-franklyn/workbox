@@ -334,7 +334,7 @@ export default function MeetingsPage() {
   const [justConnected, setJustConnected] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [autoSyncing, setAutoSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ count: number; listName: string } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ count: number; listName: string; listId: string } | null>(null);
 
   useEffect(() => {
     if (searchParams.get("connected") === "1") {
@@ -393,15 +393,19 @@ export default function MeetingsPage() {
         }).then(async r => {
           if (!r.ok) return null;
           const data = await r.json();
-          return data.alreadySynced ? null : ev.id;
+          // Return ev.id for both new and already-synced so badge shows correctly
+          return ev.id;
         })
       )
     ).then(results => {
-      const newlySynced = results.filter(Boolean) as string[];
-      setSyncedIds(prev => new Set([...prev, ...unsynced.map(e => e.id)]));
-      if (newlySynced.length > 0) {
-        setSyncResult({ count: newlySynced.length, listName });
-        setTimeout(() => setSyncResult(null), 6000);
+      const confirmed = results.filter(Boolean) as string[];
+      // Only mark as synced what the API confirmed (new or already-existing)
+      if (confirmed.length > 0) setSyncedIds(prev => new Set([...prev, ...confirmed]));
+      // Count only truly new ones (not alreadySynced) for the banner
+      const newCount = confirmed.filter(id => !syncedIds.has(id)).length;
+      if (newCount > 0) {
+        setSyncResult({ count: newCount, listName, listId: syncListId });
+        setTimeout(() => setSyncResult(null), 8000);
       }
     }).finally(() => setAutoSyncing(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -483,7 +487,13 @@ export default function MeetingsPage() {
         <div className="mx-4 mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
           style={{ background: "#22c55e22", color: "#22c55e", border: "1px solid #22c55e44" }}>
           <Check size={14} />
-          {syncResult.count} meeting{syncResult.count !== 1 ? "s" : ""} added as tasks in <strong>&nbsp;{syncResult.listName}</strong>
+          <span className="flex-1">
+            {syncResult.count} meeting{syncResult.count !== 1 ? "s" : ""} added as tasks in <strong>{syncResult.listName}</strong>
+          </span>
+          <button onClick={() => router.push(`/tasks/${syncResult.listId}?view=calendar`)}
+            className="text-xs underline hover:opacity-70 transition-opacity shrink-0">
+            View in Calendar →
+          </button>
         </div>
       )}
 

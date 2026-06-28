@@ -1,5 +1,6 @@
 "use client";
 import { use, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
 import { useUIStore } from "@/store/ui";
@@ -25,6 +26,7 @@ const VIEWS: { key: View; icon: React.ReactNode; label: string }[] = [
 
 export default function TasksPage({ params }: { params: Promise<{ listId: string }> }) {
   const { listId } = use(params);
+  const searchParams = useSearchParams();
   const { view, setView, selectedTaskId } = useWorkspaceStore();
   const { loadTasks, loadedLists } = useTasksStore();
   const userRole = useUIStore((s) => s.userRole);
@@ -33,6 +35,11 @@ export default function TasksPage({ params }: { params: Promise<{ listId: string
 
   useEffect(() => { loadTasks(listId); }, [listId]);
   useRealtimeTasks(listId);
+
+  // Switch to calendar view if navigated here with ?view=calendar
+  useEffect(() => {
+    if (searchParams.get("view") === "calendar") setView("calendar");
+  }, [searchParams, setView]);
 
   if (!isLoaded) {
     return (
