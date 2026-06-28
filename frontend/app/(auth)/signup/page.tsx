@@ -47,6 +47,7 @@ export default function SignupPage() {
       // Set organization_id now that we have the user ID — trigger sets role from metadata
       const { error: upsertError } = await supabase.from("profiles").upsert({
         id: data.user!.id,
+        email: form.email,
         full_name: form.fullName,
         role: "admin",
         organization_id: data.user!.id,

@@ -18,33 +18,51 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Check if this email already has an account
-  const { data: existing } = await admin
-    .from("profiles")
-    .select("id, organization_id")
-    .eq("email", email.trim())
-    .maybeSingle();
+  async function addExistingUser(userId: string) {
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", userId)
+      .maybeSingle();
 
-  if (existing) {
-    if (existing.organization_id === profile.organization_id) {
+    if (existingProfile?.organization_id === profile!.organization_id) {
       return NextResponse.json({ error: "This person is already in your workspace." }, { status: 400 });
     }
-    // Existing user — add them to this workspace directly
+
     const { error: updateError } = await admin
       .from("profiles")
-      .update({ organization_id: profile.organization_id, role: "member" })
-      .eq("id", existing.id);
+      .update({ organization_id: profile!.organization_id, role: "member" })
+      .eq("id", userId);
+
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     return NextResponse.json({ ok: true, existing: true });
   }
 
-  // New user — generate an invite link
+  // Check profiles table first (fast path)
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("id, organization_id")
+    .ilike("email", email.trim())
+    .maybeSingle();
+
+  if (existingProfile) return addExistingUser(existingProfile.id);
+
+  // Try to generate invite link for new user
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
     email: email.trim(),
     options: { data: { organization_id: profile.organization_id, role: "member" } },
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    // User exists in auth but has no profile email — find them via auth users list
+    if (error.message.toLowerCase().includes("already")) {
+      const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const found = users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+      if (found) return addExistingUser(found.id);
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   return NextResponse.json({ ok: true, link: data.properties?.action_link });
 }
