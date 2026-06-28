@@ -177,10 +177,10 @@ export default function TaskDetailPanel() {
           {isAdmin && (
             <button
               onClick={() => updateTask(taskId, { locked: !task.locked })}
-              title={task.locked ? "Unlock task" : "Lock task for members"}
-              className="p-1 rounded hover:bg-white/10"
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs hover:bg-white/10"
               style={{ color: task.locked ? "#f59e0b" : "var(--text-secondary)" }}>
-              {task.locked ? <Lock size={13} /> : <Unlock size={13} />}
+              {task.locked ? <Lock size={11} /> : <Unlock size={11} />}
+              {task.locked ? "Locked" : "Lock"}
             </button>
           )}
           <button onClick={handleDelete} className="p-1 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
