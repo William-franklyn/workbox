@@ -86,8 +86,12 @@ export default function SettingsPage() {
     const res = await fetch("/api/members/invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: inviteEmail }) });
     const d = await res.json();
     if (res.ok) {
-      setInviteMsg("Invite sent! Share this link if they don't receive the email:");
-      setInviteLink(d.link || "");
+      if (d.existing) {
+        setInviteMsg("Added to your workspace! They can log in and access it now.");
+      } else {
+        setInviteMsg("Invite sent! Share this link if they don't receive the email:");
+        setInviteLink(d.link || "");
+      }
       setInviteEmail("");
     } else {
       setInviteMsg(d.error || "Failed to send invite");

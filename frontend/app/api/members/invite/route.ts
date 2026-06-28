@@ -18,7 +18,27 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Generate a signup link via admin API (magic link style invite)
+  // Check if this email already has an account
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id, organization_id")
+    .eq("email", email.trim())
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.organization_id === profile.organization_id) {
+      return NextResponse.json({ error: "This person is already in your workspace." }, { status: 400 });
+    }
+    // Existing user — add them to this workspace directly
+    const { error: updateError } = await admin
+      .from("profiles")
+      .update({ organization_id: profile.organization_id, role: "member" })
+      .eq("id", existing.id);
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+    return NextResponse.json({ ok: true, existing: true });
+  }
+
+  // New user — generate an invite link
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
     email: email.trim(),
