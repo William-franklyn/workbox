@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
   const meetLine = meetLink ? `Meet link: ${meetLink}` : "";
   const parts = [cleanDesc, meetLine, `Calendar: ${calendarLink}`].filter(Boolean);
 
+  const { count: existingCount } = await supabase
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("list_id", listId);
+
   const { data: task, error } = await supabase.from("tasks").insert({
     title: `📅 ${title}`,
     description: parts.join("\n"),
@@ -41,7 +46,7 @@ export async function POST(req: NextRequest) {
     priority: "normal",
     list_id: listId,
     due_date: dueDate ?? null,
-    position: 0,
+    position: (existingCount ?? 0) * 1000,
     created_by: user.id,
   }).select().single();
 

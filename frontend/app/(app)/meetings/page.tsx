@@ -280,6 +280,7 @@ export default function MeetingsPage() {
   const [justConnected, setJustConnected] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [autoSyncing, setAutoSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ count: number; listName: string } | null>(null);
 
   useEffect(() => {
     if (searchParams.get("connected") === "1") {
@@ -317,6 +318,7 @@ export default function MeetingsPage() {
     if (events.length === 0 || !syncListId) return;
     const unsynced = events.filter(ev => !syncedIds.has(ev.id));
     if (unsynced.length === 0) return;
+    const listName = lists.find(l => l.id === syncListId)?.name ?? "your task list";
     setAutoSyncing(true);
     Promise.all(
       unsynced.map(ev =>
@@ -333,15 +335,20 @@ export default function MeetingsPage() {
             calendarLink: ev.htmlLink,
             listId: syncListId,
           }),
-        }).then(r => r.ok ? ev.id : null)
+        }).then(async r => {
+          if (!r.ok) return null;
+          const data = await r.json();
+          return data.alreadySynced ? null : ev.id;
+        })
       )
     ).then(results => {
-      const synced = results.filter(Boolean) as string[];
-      if (synced.length > 0) {
-        setSyncedIds(prev => new Set([...prev, ...synced]));
+      const newlySynced = results.filter(Boolean) as string[];
+      setSyncedIds(prev => new Set([...prev, ...unsynced.map(e => e.id)]));
+      if (newlySynced.length > 0) {
+        setSyncResult({ count: newlySynced.length, listName });
+        setTimeout(() => setSyncResult(null), 6000);
       }
     }).finally(() => setAutoSyncing(false));
-  // Only run when events first load or syncListId changes — not on every syncedIds update
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, syncListId]);
 
@@ -414,6 +421,14 @@ export default function MeetingsPage() {
         <div className="mx-4 mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
           style={{ background: "#22c55e22", color: "#22c55e", border: "1px solid #22c55e44" }}>
           <Check size={14} /> Google Calendar connected! Your upcoming meetings are shown below.
+        </div>
+      )}
+
+      {syncResult && (
+        <div className="mx-4 mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
+          style={{ background: "#22c55e22", color: "#22c55e", border: "1px solid #22c55e44" }}>
+          <Check size={14} />
+          {syncResult.count} meeting{syncResult.count !== 1 ? "s" : ""} added as tasks in <strong>&nbsp;{syncResult.listName}</strong>
         </div>
       )}
 
