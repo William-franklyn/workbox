@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+function stripHtml(raw: string): string {
+  return (raw ?? "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -9,7 +21,6 @@ export async function POST(req: NextRequest) {
   const { googleEventId, title, description, startDateTime, dueDate, meetLink, calendarLink, listId } = await req.json();
   if (!listId) return NextResponse.json({ error: "listId required" }, { status: 400 });
 
-  // Check if already synced
   const { data: existing } = await supabase
     .from("calendar_sync")
     .select("task_id")
@@ -19,10 +30,13 @@ export async function POST(req: NextRequest) {
 
   if (existing) return NextResponse.json({ alreadySynced: true, task_id: existing.task_id });
 
-  const meetLine = meetLink ? `\nMeet link: ${meetLink}` : "";
+  const cleanDesc = stripHtml(description ?? "");
+  const meetLine = meetLink ? `Meet link: ${meetLink}` : "";
+  const parts = [cleanDesc, meetLine, `Calendar: ${calendarLink}`].filter(Boolean);
+
   const { data: task, error } = await supabase.from("tasks").insert({
     title: `📅 ${title}`,
-    description: `${description ?? ""}${meetLine}\nCalendar: ${calendarLink}`.trim(),
+    description: parts.join("\n"),
     status: "todo",
     priority: "normal",
     list_id: listId,

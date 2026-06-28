@@ -28,6 +28,17 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+function stripHtml(raw: string): string {
+  return (raw ?? "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function groupByDay(events: GCalEvent[]) {
   const groups: Record<string, GCalEvent[]> = {};
   for (const ev of events) {
@@ -253,7 +264,7 @@ function EventCard({ ev, synced, syncListId, lists, onSynced }: {
           </div>
         )}
         {ev.description && (
-          <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--text-secondary)" }}>{ev.description}</p>
+          <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--text-secondary)" }}>{stripHtml(ev.description)}</p>
         )}
       </div>
 
@@ -334,6 +345,7 @@ export default function MeetingsPage() {
   const [showModal, setShowModal] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [autoSyncing, setAutoSyncing] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("connected") === "1") {
@@ -365,6 +377,39 @@ export default function MeetingsPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-sync all unsynced events whenever events + lists are ready
+  useEffect(() => {
+    if (events.length === 0 || !syncListId) return;
+    const unsynced = events.filter(ev => !syncedIds.has(ev.id));
+    if (unsynced.length === 0) return;
+    setAutoSyncing(true);
+    Promise.all(
+      unsynced.map(ev =>
+        fetch("/api/google-calendar/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            googleEventId: ev.id,
+            title: ev.summary,
+            description: ev.description,
+            startDateTime: ev.start.dateTime,
+            dueDate: (ev.start.dateTime ?? ev.start.date ?? "").split("T")[0] || null,
+            meetLink: ev.hangoutLink,
+            calendarLink: ev.htmlLink,
+            listId: syncListId,
+          }),
+        }).then(r => r.ok ? ev.id : null)
+      )
+    ).then(results => {
+      const synced = results.filter(Boolean) as string[];
+      if (synced.length > 0) {
+        setSyncedIds(prev => new Set([...prev, ...synced]));
+      }
+    }).finally(() => setAutoSyncing(false));
+  // Only run when events first load or syncListId changes — not on every syncedIds update
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, syncListId]);
 
   function loadEvents(quiet = false) {
     if (!quiet) setLoading(true); else setRefreshing(true);
@@ -468,6 +513,11 @@ export default function MeetingsPage() {
                 {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
+          )}
+          {autoSyncing && (
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <Loader2 size={12} className="animate-spin" /> Syncing…
+            </span>
           )}
           <button onClick={() => loadEvents(true)} disabled={refreshing}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors"
