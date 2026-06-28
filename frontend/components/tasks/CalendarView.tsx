@@ -34,6 +34,8 @@ export default function CalendarView({ listId }: { listId: string }) {
   const [calEvents, setCalEvents] = useState<UnifiedCalendarEvent[]>([]);
   const [activeSources, setActiveSources] = useState<Set<string>>(new Set());
   const [availableSources, setAvailableSources] = useState<UnifiedCalendarEvent["source"][]>([]);
+  const [calLoading, setCalLoading] = useState(true);
+  const [calError, setCalError] = useState<string | null>(null);
 
   const year  = current.getFullYear();
   const month = current.getMonth();
@@ -47,14 +49,17 @@ export default function CalendarView({ listId }: { listId: string }) {
   while (cells.length % 7 !== 0) cells.push(null);
 
   useEffect(() => {
-    fetch("/api/calendar-events?days=90")
-      .then(r => r.ok ? r.json() : { events: [], sources: [] })
+    setCalLoading(true);
+    setCalError(null);
+    fetch("/api/calendar-events?days=180")
+      .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
       .then(({ events, sources }: { events: UnifiedCalendarEvent[]; sources: UnifiedCalendarEvent["source"][] }) => {
         setCalEvents(events);
         setAvailableSources(sources);
-        setActiveSources(new Set(sources)); // all on by default
+        setActiveSources(new Set(sources));
       })
-      .catch(() => {});
+      .catch(e => setCalError(String(e)))
+      .finally(() => setCalLoading(false));
   }, []);
 
   function toggleSource(src: string) {
@@ -73,11 +78,18 @@ export default function CalendarView({ listId }: { listId: string }) {
     return listTasks.filter(t => t.due_date === dateKey(day));
   }
 
+  function localDateStr(isoOrDate: string): string {
+    // Converts ISO datetime (any timezone) to YYYY-MM-DD in the user's local timezone
+    const d = new Date(isoOrDate);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
   function eventsOnDay(day: number): UnifiedCalendarEvent[] {
     const key = dateKey(day);
     return calEvents.filter(ev => {
       if (!activeSources.has(ev.source)) return false;
-      return (ev.start.split("T")[0] === key);
+      const evKey = ev.allDay ? ev.start.split("T")[0] : localDateStr(ev.start);
+      return evKey === key;
     });
   }
 
@@ -134,6 +146,26 @@ export default function CalendarView({ listId }: { listId: string }) {
           </button>
         </div>
       </div>
+
+      {/* Calendar integration status */}
+      {calLoading && (
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Loading calendar events…</p>
+      )}
+      {calError && (
+        <p className="text-xs mb-3 px-3 py-1.5 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+          Could not load calendar events: {calError}
+        </p>
+      )}
+      {!calLoading && !calError && availableSources.length === 0 && (
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          No calendars connected. Go to <a href="/integrations" className="underline">Integrations</a> to connect Google Calendar.
+        </p>
+      )}
+      {!calLoading && calEvents.length > 0 && (
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          {calEvents.length} upcoming meeting{calEvents.length !== 1 ? "s" : ""} from {availableSources.map(s => SOURCE_META[s].label).join(", ")}
+        </p>
+      )}
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-2">

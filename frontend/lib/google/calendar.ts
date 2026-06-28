@@ -57,12 +57,15 @@ export async function getValidToken(userId: string, supabase: SupabaseClient): P
 }
 
 export async function listEvents(accessToken: string, days = 30): Promise<GCalEvent[]> {
+  // Start from beginning of today (not current time) so today's past events still appear
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const params = new URLSearchParams({
-    timeMin: new Date().toISOString(),
+    timeMin: startOfToday.toISOString(),
     timeMax: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
     singleEvents: "true",
     orderBy: "startTime",
-    maxResults: "100",
+    maxResults: "250",
   });
 
   const res = await fetch(
