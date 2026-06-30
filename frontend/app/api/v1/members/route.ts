@@ -11,16 +11,26 @@ export async function GET(req: NextRequest) {
     .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
   const orgId = profile?.organization_id;
 
-  const q = supabase
-    .from("profiles")
-    .select("id, email, full_name, role, created_at")
-    .order("created_at", { ascending: true });
+  if (orgId) {
+    const { data: members } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, role, created_at")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: true });
+    return NextResponse.json({ members: members ?? [] });
+  }
 
-  const { data: members } = orgId
-    ? await q.eq("organization_id", orgId)
-    : await q.eq("id", userId);  // no org — return at least the current user
-
-  return NextResponse.json({ members: members ?? [] });
+  // No org — fall back to listing all auth users
+  const { data: { users }, error: authErr } = await supabase.auth.admin.listUsers();
+  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
+  const members = users.map(u => ({
+    id: u.id,
+    email: u.email,
+    full_name: u.user_metadata?.full_name ?? u.email?.split("@")[0] ?? "Unknown",
+    role: u.user_metadata?.role ?? "member",
+    created_at: u.created_at,
+  }));
+  return NextResponse.json({ members });
 }
 
 export async function POST(req: NextRequest) {
