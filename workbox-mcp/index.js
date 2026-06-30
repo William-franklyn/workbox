@@ -337,6 +337,110 @@ const TOOLS = [
     },
   },
 
+  // ── Team Chat ──
+  {
+    name: "workbox_get_messages",
+    description: "Read team chat messages. Returns all recent messages and highlights any that mention you.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Number of messages to fetch (default 50)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "workbox_send_message",
+    description: "Send a message to the team chat. Use mention_names to @mention teammates by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content:       { type: "string", description: "Message content" },
+        mention_names: { type: "array", items: { type: "string" }, description: "Names to @mention, e.g. ['Joseph', 'all']" },
+      },
+      required: ["content"],
+    },
+  },
+
+  // ── Docs (enhanced) ──
+  {
+    name: "workbox_read_doc",
+    description: "Read the full content of a document by ID. Returns text content and a portal link to view it in the browser.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Document ID" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "workbox_update_doc",
+    description: "Update the title or content of a document.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:      { type: "string" },
+        title:   { type: "string" },
+        content: { type: "string", description: "New text content (replaces existing)" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "workbox_delete_doc",
+    description: "Delete a document by ID.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+
+  // ── Spreadsheets ──
+  {
+    name: "workbox_list_spreadsheets",
+    description: "List all spreadsheets in the workspace with their portal links.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_create_spreadsheet",
+    description: "Create a new spreadsheet with column headers and rows of data. I can generate the dataset for you — just describe what you need.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title:       { type: "string", description: "Spreadsheet title" },
+        headers:     { type: "array", items: { type: "string" }, description: "Column headers" },
+        rows:        { type: "array", items: { type: "array", items: { type: "string" } }, description: "Rows of data (array of arrays)" },
+        description: { type: "string", description: "Optional description of the spreadsheet" },
+      },
+      required: ["title", "headers"],
+    },
+  },
+  {
+    name: "workbox_read_spreadsheet",
+    description: "Read the full data of a spreadsheet by ID.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "workbox_update_spreadsheet",
+    description: "Update the rows or headers of a spreadsheet.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:      { type: "string" },
+        headers: { type: "array", items: { type: "string" } },
+        rows:    { type: "array", items: { type: "array", items: { type: "string" } } },
+        title:   { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+
   // ── Meetings ──
   {
     name: "workbox_list_meetings",
@@ -565,6 +669,91 @@ async function callTool(name, args) {
       return `✅ Logged ${args.duration_minutes} minutes on task ${args.task_id}`;
     }
 
+    case "workbox_get_messages": {
+      const d = await api("GET", `/messages?limit=${args.limit ?? 50}`);
+      const lines = [];
+      if (d.mentions_count > 0) {
+        lines.push(`🔔 You have ${d.mentions_count} message(s) mentioning you:\n`);
+        d.mentions_me.forEach(m => {
+          lines.push(`  From @${m.sender_name}: "${m.content}"`);
+        });
+        lines.push("");
+      }
+      if (!d.messages?.length) return d.mentions_count > 0 ? lines.join("\n") : "No messages in team chat yet.";
+      lines.push(`📨 Last ${d.messages.length} messages:`);
+      d.messages.slice(-10).forEach(m => {
+        const time = new Date(m.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+        lines.push(`  [${time}] ${m.sender_name}: ${m.content}`);
+      });
+      return lines.join("\n");
+    }
+
+    case "workbox_send_message": {
+      const d = await api("POST", "/messages", args);
+      return `✅ Message sent: "${d.message.content}"`;
+    }
+
+    case "workbox_read_doc": {
+      const d = await api("GET", `/docs/${args.id}`);
+      return [
+        `📄 ${d.title}`,
+        `🔗 View: ${d.portal_link}`,
+        `Updated: ${new Date(d.updated_at).toLocaleDateString()}`,
+        ``,
+        d.content || "(empty document)",
+      ].join("\n");
+    }
+
+    case "workbox_update_doc": {
+      const { id, ...patch } = args;
+      const d = await api("PATCH", `/docs/${id}`, patch);
+      return `✅ Document "${d.doc.title}" updated.\n🔗 View: ${d.doc.portal_link}`;
+    }
+
+    case "workbox_delete_doc": {
+      await api("DELETE", `/docs/${args.id}`, {});
+      return `✅ Document deleted.`;
+    }
+
+    case "workbox_list_spreadsheets": {
+      const d = await api("GET", "/spreadsheets");
+      if (!d.spreadsheets?.length) return "No spreadsheets yet.";
+      return d.spreadsheets.map(s =>
+        `📊 ${s.title} (id: ${s.id}) — ${s.row_count} rows, columns: ${(s.headers ?? []).join(", ")}\n   🔗 ${s.portal_link}`
+      ).join("\n\n");
+    }
+
+    case "workbox_create_spreadsheet": {
+      const d = await api("POST", "/spreadsheets", args);
+      return [
+        `✅ Spreadsheet "${d.spreadsheet.title}" created`,
+        `   Columns: ${(d.spreadsheet.headers ?? []).join(", ")}`,
+        `   Rows: ${d.spreadsheet.row_count}`,
+        `   🔗 View: ${d.spreadsheet.portal_link}`,
+      ].join("\n");
+    }
+
+    case "workbox_read_spreadsheet": {
+      const d = await api("GET", `/spreadsheets/${args.id}`);
+      const header = (d.headers ?? []).join(" | ");
+      const divider = (d.headers ?? []).map(() => "---").join(" | ");
+      const rows = (d.rows ?? []).map((r: string[]) => r.join(" | ")).join("\n");
+      return [
+        `📊 ${d.title}`,
+        `🔗 View: ${d.portal_link}`,
+        ``,
+        header,
+        divider,
+        rows || "(no rows)",
+      ].join("\n");
+    }
+
+    case "workbox_update_spreadsheet": {
+      const { id, ...patch } = args;
+      const d = await api("PATCH", `/spreadsheets/${id}`, patch);
+      return `✅ Spreadsheet "${d.spreadsheet.title}" updated.\n🔗 View: ${d.spreadsheet.portal_link}`;
+    }
+
     case "workbox_list_meetings": {
       const days = args.days ?? 14;
       const d = await api("GET", `/meetings?days=${days}`);
@@ -589,7 +778,7 @@ async function callTool(name, args) {
 // ─── MCP Server bootstrap ─────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "workbox", version: "2.0.0" },
+  { name: "workbox", version: "3.0.0" },
   { capabilities: { tools: {} } }
 );
 

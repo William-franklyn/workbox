@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
+/** Spreadsheets are stored as docs with a special table block as the first block.
+ *  Title prefix "__sheet__" marks them as spreadsheets for filtering.
+ */
+
 export async function GET(req: NextRequest) {
   const userId = await validateApiKey(req.headers.get("authorization"));
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,58 +18,81 @@ export async function GET(req: NextRequest) {
 
   const q = supabase
     .from("docs")
-    .select("id, title, created_at, updated_at")
+    .select("id, title, blocks, created_at, updated_at")
+    .like("title", "__sheet__%")
     .order("updated_at", { ascending: false });
 
   const { data } = profile?.organization_id
     ? await q.eq("org_id", profile.organization_id)
     : await q;
 
-  const docs = (data ?? []).map(d => ({
-    ...d,
-    portal_link: `${BASE_URL}/docs/${d.id}`,
-  }));
+  const sheets = (data ?? []).map(d => {
+    const tableBlock = (d.blocks as Array<Record<string, unknown>> ?? []).find(b => b.type === "table");
+    return {
+      id: d.id,
+      title: (d.title as string).replace("__sheet__", ""),
+      headers: tableBlock?.headers ?? [],
+      row_count: (tableBlock?.rows as unknown[][] ?? []).length,
+      portal_link: `${BASE_URL}/docs/${d.id}`,
+      created_at: d.created_at,
+      updated_at: d.updated_at,
+    };
+  });
 
-  return NextResponse.json({ docs });
+  return NextResponse.json({ spreadsheets: sheets });
 }
 
 export async function POST(req: NextRequest) {
   const userId = await validateApiKey(req.headers.get("authorization"));
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title = "Untitled", content = "", sections = [] } = await req.json();
+  const { title, headers = [], rows = [], description } = await req.json();
+  if (!title) return NextResponse.json({ error: "title is required" }, { status: 400 });
 
   const supabase = createServiceClient();
   const { data: profile } = await supabase
     .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
 
-  // Build blocks from content string or sections array
-  let blocks: unknown[] = [];
-  if (sections.length) {
-    blocks = sections.map((s: { heading?: string; text: string }) => {
-      const b: unknown[] = [];
-      if (s.heading) {
-        b.push({ id: crypto.randomUUID(), type: "heading", level: 2, content: [{ type: "text", text: s.heading }] });
-      }
-      b.push({ id: crypto.randomUUID(), type: "paragraph", content: [{ type: "text", text: s.text }] });
-      return b;
-    }).flat();
-  } else if (content) {
-    blocks = content.split("\n\n").filter(Boolean).map((para: string) => ({
+  const blocks: unknown[] = [
+    // Table block with the data
+    {
+      id: crypto.randomUUID(),
+      type: "table",
+      headers,
+      rows,
+    },
+  ];
+
+  if (description) {
+    blocks.push({
       id: crypto.randomUUID(),
       type: "paragraph",
-      content: [{ type: "text", text: para }],
-    }));
+      content: [{ type: "text", text: description }],
+    });
   }
 
   const docId = crypto.randomUUID();
   const { data, error } = await supabase
     .from("docs")
-    .insert({ id: docId, title, blocks, org_id: profile?.organization_id, created_by: userId })
+    .insert({
+      id: docId,
+      title: `__sheet__${title}`,
+      blocks,
+      org_id: profile?.organization_id,
+      created_by: userId,
+    })
     .select("id, title, created_at").single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
   return NextResponse.json({
-    doc: { ...data, portal_link: `${BASE_URL}/docs/${docId}` },
+    spreadsheet: {
+      id: data.id,
+      title,
+      headers,
+      row_count: rows.length,
+      portal_link: `${BASE_URL}/docs/${docId}`,
+      created_at: data.created_at,
+    },
   }, { status: 201 });
 }
