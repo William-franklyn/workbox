@@ -1,18 +1,7 @@
 #!/usr/bin/env node
-/**
- * WorkBox MCP Server
- * Connects Claude Code to your WorkBox account via the /api/v1 REST API.
- *
- * Required env vars:
- *   WORKBOX_API_KEY   — generated from WorkBox > Settings > API Keys
- *   WORKBOX_BASE_URL  — e.g. https://workbox-blue.vercel.app
- */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 const API_KEY  = process.env.WORKBOX_API_KEY;
 const BASE_URL = (process.env.WORKBOX_BASE_URL ?? "").replace(/\/$/, "");
@@ -28,8 +17,7 @@ function headers() {
 
 async function api(method, path, body) {
   const res = await fetch(`${BASE_URL}/api/v1${path}`, {
-    method,
-    headers: headers(),
+    method, headers: headers(),
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -40,26 +28,62 @@ async function api(method, path, body) {
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
 const TOOLS = [
+  // ── Core ──
   {
     name: "workbox_status",
-    description: "Check your WorkBox connection and see who you are logged in as.",
+    description: "Check WorkBox connection and see who you are logged in as.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
-    name: "workbox_list_spaces",
-    description: "List all workspaces and their task lists in WorkBox.",
+    name: "workbox_get_account",
+    description: "Get a full overview of the WorkBox account: profile, spaces, task stats, goals count, docs count, time logged, unread notifications, and active API keys. Use this as the starting point to understand the full state of the workspace.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
+
+  // ── Spaces & Lists ──
+  {
+    name: "workbox_list_spaces",
+    description: "List all spaces and their task lists in WorkBox.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_create_space",
+    description: "Create a new space (project area) in WorkBox.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name:  { type: "string", description: "Space name" },
+        icon:  { type: "string", description: "Emoji icon (default: 🚀)" },
+        color: { type: "string", description: "Hex color (default: #7c3aed)" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "workbox_create_list",
+    description: "Create a new task list inside a space.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name:     { type: "string", description: "List name" },
+        space_id: { type: "string", description: "The space to create the list in" },
+        color:    { type: "string", description: "Hex color (default: #7c3aed)" },
+      },
+      required: ["name", "space_id"],
+    },
+  },
+
+  // ── Tasks ──
   {
     name: "workbox_list_tasks",
     description: "List tasks from WorkBox. Filter by list, space, status, or due date.",
     inputSchema: {
       type: "object",
       properties: {
-        list_id:  { type: "string",  description: "Filter by list ID" },
-        space_id: { type: "string",  description: "Filter by space ID (all lists in space)" },
-        status:   { type: "string",  enum: ["todo", "in_progress", "in_review", "done"], description: "Filter by status" },
-        due:      { type: "string",  description: "Show tasks due on or before this date (YYYY-MM-DD)" },
+        list_id:  { type: "string", description: "Filter by list ID" },
+        space_id: { type: "string", description: "Filter by space ID" },
+        status:   { type: "string", enum: ["todo", "in_progress", "in_review", "done"] },
+        due:      { type: "string", description: "Tasks due on or before YYYY-MM-DD" },
       },
       required: [],
     },
@@ -70,26 +94,25 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        title:       { type: "string",  description: "Task title" },
-        list_id:     { type: "string",  description: "The list to add the task to" },
-        status:      { type: "string",  enum: ["todo", "in_progress", "in_review", "done"], description: "Initial status (default: todo)" },
-        priority:    { type: "string",  enum: ["urgent", "high", "normal", "low"], description: "Priority (default: normal)" },
-        due_date:    { type: "string",  description: "Due date in YYYY-MM-DD format" },
-        description: { type: "string",  description: "Optional task description / notes" },
-        tags:        { type: "array", items: { type: "string" }, description: "Optional tags" },
+        title:       { type: "string" },
+        list_id:     { type: "string" },
+        status:      { type: "string", enum: ["todo", "in_progress", "in_review", "done"] },
+        priority:    { type: "string", enum: ["urgent", "high", "normal", "low"] },
+        due_date:    { type: "string", description: "YYYY-MM-DD" },
+        description: { type: "string" },
+        tags:        { type: "array", items: { type: "string" } },
       },
       required: ["title", "list_id"],
     },
   },
   {
     name: "workbox_create_plan",
-    description: "Create multiple tasks at once — use this to push a full week plan or feature breakdown into WorkBox in one shot.",
+    description: "Create multiple tasks at once — push a full week plan or feature breakdown in one shot.",
     inputSchema: {
       type: "object",
       properties: {
         tasks: {
           type: "array",
-          description: "Array of tasks to create",
           items: {
             type: "object",
             properties: {
@@ -110,11 +133,11 @@ const TOOLS = [
   },
   {
     name: "workbox_update_task",
-    description: "Update a task — change its status, title, priority, due date, or description.",
+    description: "Update a task's status, title, priority, due date, or description.",
     inputSchema: {
       type: "object",
       properties: {
-        id:          { type: "string", description: "Task ID" },
+        id:          { type: "string" },
         title:       { type: "string" },
         status:      { type: "string", enum: ["todo", "in_progress", "in_review", "done"] },
         priority:    { type: "string", enum: ["urgent", "high", "normal", "low"] },
@@ -129,20 +152,198 @@ const TOOLS = [
     description: "Delete a task by ID.",
     inputSchema: {
       type: "object",
-      properties: {
-        id: { type: "string", description: "Task ID to delete" },
-      },
+      properties: { id: { type: "string" } },
       required: ["id"],
     },
   },
+
+  // ── Subtasks ──
   {
-    name: "workbox_list_meetings",
-    description: "List upcoming meetings from your connected Google Calendar.",
+    name: "workbox_list_subtasks",
+    description: "List all subtasks for a given task.",
+    inputSchema: {
+      type: "object",
+      properties: { task_id: { type: "string" } },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "workbox_add_subtask",
+    description: "Add a subtask to an existing task.",
     inputSchema: {
       type: "object",
       properties: {
-        days: { type: "number", description: "How many days ahead to look (default 14)" },
+        task_id: { type: "string" },
+        title:   { type: "string" },
       },
+      required: ["task_id", "title"],
+    },
+  },
+  {
+    name: "workbox_complete_subtask",
+    description: "Mark a subtask as complete or incomplete.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:        { type: "string", description: "Subtask ID" },
+        completed: { type: "boolean" },
+      },
+      required: ["id", "completed"],
+    },
+  },
+
+  // ── Comments ──
+  {
+    name: "workbox_list_comments",
+    description: "Get all comments on a task.",
+    inputSchema: {
+      type: "object",
+      properties: { task_id: { type: "string" } },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "workbox_add_comment",
+    description: "Add a comment to a task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string" },
+        content: { type: "string" },
+      },
+      required: ["task_id", "content"],
+    },
+  },
+
+  // ── Goals ──
+  {
+    name: "workbox_list_goals",
+    description: "List all goals/OKRs with their key results and progress percentage.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_create_goal",
+    description: "Create a new goal with optional key results.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title:       { type: "string" },
+        description: { type: "string" },
+        due_date:    { type: "string", description: "YYYY-MM-DD" },
+        key_results: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title:        { type: "string" },
+              target_value: { type: "number" },
+              unit:         { type: "string", description: "e.g. %, tasks, users" },
+            },
+            required: ["title"],
+          },
+        },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "workbox_update_goal_progress",
+    description: "Update the current value of a key result to track goal progress.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goal_id:       { type: "string" },
+        kr_id:         { type: "string", description: "Key result ID" },
+        current_value: { type: "number" },
+      },
+      required: ["goal_id", "kr_id", "current_value"],
+    },
+  },
+
+  // ── Docs ──
+  {
+    name: "workbox_list_docs",
+    description: "List all documents in the workspace.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_create_doc",
+    description: "Create a new document in the workspace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title:   { type: "string" },
+        content: { type: "string", description: "Plain text content for the document" },
+      },
+      required: ["title"],
+    },
+  },
+
+  // ── Members ──
+  {
+    name: "workbox_list_members",
+    description: "List all members in the workspace with their roles.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_invite_member",
+    description: "Invite a new member to the workspace by email.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        email: { type: "string" },
+        role:  { type: "string", enum: ["admin", "member"], description: "Default: member" },
+      },
+      required: ["email"],
+    },
+  },
+
+  // ── Notifications ──
+  {
+    name: "workbox_get_notifications",
+    description: "Get recent notifications and unread count.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_mark_notifications_read",
+    description: "Mark notifications as read (one or all).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:            { type: "string", description: "Specific notification ID (omit for all)" },
+        mark_all_read: { type: "boolean", description: "Set true to mark all as read" },
+      },
+      required: [],
+    },
+  },
+
+  // ── Time tracking ──
+  {
+    name: "workbox_get_time_summary",
+    description: "Get a summary of time logged across all tasks.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "workbox_log_time",
+    description: "Log time spent on a task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id:          { type: "string" },
+        duration_minutes: { type: "number" },
+        note:             { type: "string" },
+      },
+      required: ["task_id", "duration_minutes"],
+    },
+  },
+
+  // ── Meetings ──
+  {
+    name: "workbox_list_meetings",
+    description: "List upcoming meetings from Google Calendar.",
+    inputSchema: {
+      type: "object",
+      properties: { days: { type: "number", description: "Days ahead to look (default 14)" } },
       required: [],
     },
   },
@@ -152,25 +353,47 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        title:         { type: "string",  description: "Meeting title" },
-        start:         { type: "string",  description: "Start datetime ISO 8601, e.g. 2026-07-10T14:00:00-04:00" },
-        end:           { type: "string",  description: "End datetime ISO 8601" },
-        attendees:     { type: "array",   items: { type: "string" }, description: "List of attendee email addresses" },
-        description:   { type: "string",  description: "Meeting description / agenda" },
-        add_meet_link: { type: "boolean", description: "Add a Google Meet link (default true)" },
+        title:         { type: "string" },
+        start:         { type: "string", description: "ISO 8601, e.g. 2026-07-10T14:00:00-04:00" },
+        end:           { type: "string", description: "ISO 8601" },
+        attendees:     { type: "array", items: { type: "string" }, description: "Email addresses" },
+        description:   { type: "string" },
+        add_meet_link: { type: "boolean", description: "Add Google Meet link (default true)" },
       },
       required: ["title", "start", "end"],
     },
   },
 ];
 
-// ─── Tool handlers ───────────────────────────────────────────────────────────
+// ─── Tool handlers ────────────────────────────────────────────────────────────
 
 async function callTool(name, args) {
   switch (name) {
+
     case "workbox_status": {
       const d = await api("GET", "/status");
-      return `Connected as ${d.name} (${d.user_id})\nOrg: ${d.org_id ?? "none"}\nAPI version: ${d.api_version}`;
+      return `Connected as ${d.name} (${d.user_id})\nAPI version: ${d.api_version}`;
+    }
+
+    case "workbox_get_account": {
+      const d = await api("GET", "/account");
+      return [
+        `👤 ${d.user.name} (${d.user.email}) — ${d.user.role}`,
+        `🏢 Org ID: ${d.user.organization_id}`,
+        `📅 Member since: ${new Date(d.user.member_since).toLocaleDateString()}`,
+        ``,
+        `📁 Spaces: ${d.workspace.spaces_count}  |  Lists: ${d.workspace.lists_count}`,
+        d.workspace.spaces.map(s => `   • ${s.icon} ${s.name} (id: ${s.id})`).join("\n"),
+        ``,
+        `✅ Tasks: ${d.tasks.total} total`,
+        `   Todo: ${d.tasks.todo}  |  In Progress: ${d.tasks.in_progress}  |  In Review: ${d.tasks.in_review}  |  Done: ${d.tasks.done}`,
+        ``,
+        `🎯 Goals: ${d.goals_count}`,
+        `📄 Docs: ${d.docs_count}`,
+        `🔔 Unread notifications: ${d.unread_notifications}`,
+        `⏱  Time logged: ${d.time_logged_hours}h`,
+        `🔑 Active API keys: ${d.active_api_keys}`,
+      ].join("\n");
     }
 
     case "workbox_list_spaces": {
@@ -182,6 +405,16 @@ async function callTool(name, args) {
       ).join("\n\n");
     }
 
+    case "workbox_create_space": {
+      const d = await api("POST", "/spaces", args);
+      return `✅ Created space "${d.space.name}" (id: ${d.space.id})`;
+    }
+
+    case "workbox_create_list": {
+      const d = await api("POST", "/lists", args);
+      return `✅ Created list "${d.list.name}" (id: ${d.list.id}) in space ${args.space_id}`;
+    }
+
     case "workbox_list_tasks": {
       const params = new URLSearchParams();
       if (args.list_id)  params.set("list_id",  args.list_id);
@@ -189,9 +422,9 @@ async function callTool(name, args) {
       if (args.status)   params.set("status",   args.status);
       if (args.due)      params.set("due",       args.due);
       const d = await api("GET", `/tasks?${params}`);
-      if (!d.tasks?.length) return "No tasks found matching the filters.";
+      if (!d.tasks?.length) return "No tasks found.";
       return d.tasks.map(t =>
-        `[${t.status}] ${t.title} (id: ${t.id})` +
+        `[${t.status}] ${t.title} (id: ${t.id}, list_id: ${t.list_id})` +
         (t.due_date ? ` — due ${t.due_date}` : "") +
         (t.priority !== "normal" ? ` [${t.priority}]` : "")
       ).join("\n");
@@ -211,12 +444,125 @@ async function callTool(name, args) {
     case "workbox_update_task": {
       const { id, ...patch } = args;
       const d = await api("PATCH", `/tasks/${id}`, patch);
-      return `✅ Updated task "${d.task.title}" — status: ${d.task.status}`;
+      return `✅ Updated "${d.task.title}" — status: ${d.task.status}`;
     }
 
     case "workbox_delete_task": {
       await api("DELETE", `/tasks/${args.id}`, {});
       return `✅ Task ${args.id} deleted.`;
+    }
+
+    case "workbox_list_subtasks": {
+      const d = await api("GET", `/subtasks?task_id=${args.task_id}`);
+      if (!d.subtasks?.length) return "No subtasks found.";
+      return d.subtasks.map(s =>
+        `[${s.completed ? "✓" : " "}] ${s.title} (id: ${s.id})`
+      ).join("\n");
+    }
+
+    case "workbox_add_subtask": {
+      const d = await api("POST", "/subtasks", args);
+      return `✅ Added subtask "${d.subtask.title}" (id: ${d.subtask.id})`;
+    }
+
+    case "workbox_complete_subtask": {
+      const d = await api("PATCH", "/subtasks", args);
+      return `✅ Subtask "${d.subtask.title}" marked ${d.subtask.completed ? "complete" : "incomplete"}`;
+    }
+
+    case "workbox_list_comments": {
+      const d = await api("GET", `/comments?task_id=${args.task_id}`);
+      if (!d.comments?.length) return "No comments yet.";
+      return d.comments.map(c =>
+        `[${new Date(c.created_at).toLocaleString()}] ${c.content}`
+      ).join("\n\n");
+    }
+
+    case "workbox_add_comment": {
+      const d = await api("POST", "/comments", args);
+      return `✅ Comment added (id: ${d.comment.id})`;
+    }
+
+    case "workbox_list_goals": {
+      const d = await api("GET", "/goals");
+      if (!d.goals?.length) return "No goals found.";
+      return d.goals.map(g => {
+        const krs = (g.key_results ?? []).map(kr =>
+          `     • ${kr.title}: ${kr.current_value}/${kr.target_value}${kr.unit}`
+        ).join("\n");
+        return `🎯 ${g.title} — ${g.progress_pct}% complete (id: ${g.id})` +
+          (g.due_date ? `\n   Due: ${g.due_date}` : "") +
+          (krs ? `\n${krs}` : "");
+      }).join("\n\n");
+    }
+
+    case "workbox_create_goal": {
+      const d = await api("POST", "/goals", args);
+      return `✅ Created goal "${d.goal.title}" (id: ${d.goal.id})\n` +
+        (d.goal.key_results?.length ? `   Key results: ${d.goal.key_results.length}` : "");
+    }
+
+    case "workbox_update_goal_progress": {
+      const d = await api("PATCH", `/goals/${args.goal_id}`, {
+        kr_id: args.kr_id, current_value: args.current_value,
+      });
+      return `✅ Key result updated: ${d.key_result.current_value}/${d.key_result.target_value}${d.key_result.unit}`;
+    }
+
+    case "workbox_list_docs": {
+      const d = await api("GET", "/docs");
+      if (!d.docs?.length) return "No documents found.";
+      return d.docs.map(doc =>
+        `📄 ${doc.title} (id: ${doc.id}) — updated ${new Date(doc.updated_at).toLocaleDateString()}`
+      ).join("\n");
+    }
+
+    case "workbox_create_doc": {
+      const d = await api("POST", "/docs", args);
+      return `✅ Created doc "${d.doc.title}" (id: ${d.doc.id})`;
+    }
+
+    case "workbox_list_members": {
+      const d = await api("GET", "/members");
+      if (!d.members?.length) return "No members found.";
+      return d.members.map(m =>
+        `👤 ${m.full_name ?? m.email} — ${m.role} (id: ${m.id})\n   ${m.email}`
+      ).join("\n\n");
+    }
+
+    case "workbox_invite_member": {
+      const d = await api("POST", "/members", args);
+      return `✅ Invite sent to ${d.email}`;
+    }
+
+    case "workbox_get_notifications": {
+      const d = await api("GET", "/notifications");
+      if (!d.notifications?.length) return "No notifications.";
+      const lines = [`🔔 ${d.unread_count} unread\n`];
+      d.notifications.slice(0, 10).forEach(n => {
+        lines.push(`[${n.read ? "read" : "NEW"}] ${n.title}${n.body ? ` — ${n.body}` : ""}`);
+      });
+      return lines.join("\n");
+    }
+
+    case "workbox_mark_notifications_read": {
+      await api("PATCH", "/notifications", args);
+      return "✅ Notifications marked as read.";
+    }
+
+    case "workbox_get_time_summary": {
+      const d = await api("GET", "/time-logs");
+      return `⏱ Total time logged: ${d.total_hours}h (${d.total_minutes} minutes)\n` +
+        (d.time_logs?.length
+          ? `Recent entries:\n` + d.time_logs.slice(0, 5).map(t =>
+              `  • ${t.duration_minutes}min on task ${t.task_id}${t.note ? ` — ${t.note}` : ""}`
+            ).join("\n")
+          : "No time logs yet.");
+    }
+
+    case "workbox_log_time": {
+      const d = await api("POST", "/time-logs", args);
+      return `✅ Logged ${args.duration_minutes} minutes on task ${args.task_id}`;
     }
 
     case "workbox_list_meetings": {
@@ -232,9 +578,7 @@ async function callTool(name, args) {
 
     case "workbox_schedule_meeting": {
       const d = await api("POST", "/meetings", args);
-      return `✅ Meeting scheduled: "${d.meeting.title}"\n` +
-        `   Start: ${d.meeting.start}\n` +
-        `   Link: ${d.meeting.meet_link ?? d.meeting.html_link}`;
+      return `✅ Meeting scheduled: "${d.meeting.title}"\n   Start: ${d.meeting.start}\n   Link: ${d.meeting.meet_link ?? d.meeting.html_link}`;
     }
 
     default:
@@ -242,10 +586,10 @@ async function callTool(name, args) {
   }
 }
 
-// ─── MCP Server bootstrap ────────────────────────────────────────────────────
+// ─── MCP Server bootstrap ─────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "workbox", version: "1.0.0" },
+  { name: "workbox", version: "2.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -257,10 +601,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const text = await callTool(name, args ?? {});
     return { content: [{ type: "text", text }] };
   } catch (err) {
-    return {
-      content: [{ type: "text", text: `Error: ${err.message}` }],
-      isError: true,
-    };
+    return { content: [{ type: "text", text: `Error: ${err.message}` }], isError: true };
   }
 });
 

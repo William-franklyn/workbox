@@ -38,3 +38,26 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ spaces: result });
 }
+
+export async function POST(req: NextRequest) {
+  const userId = await validateApiKey(req.headers.get("authorization"));
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { name, icon = "🚀", color = "#7c3aed" } = await req.json();
+  if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const supabase = createServiceClient();
+  const { data: profile } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
+  const { count } = await supabase
+    .from("spaces").select("id", { count: "exact", head: true }).eq("org_id", profile?.organization_id ?? "");
+
+  const { data, error } = await supabase
+    .from("spaces")
+    .insert({ id: `s${Date.now()}`, name, icon, color, org_id: profile?.organization_id, position: count ?? 0 })
+    .select().single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ space: data }, { status: 201 });
+}
