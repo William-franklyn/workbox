@@ -22,11 +22,14 @@ export async function GET(req: NextRequest) {
     .eq("org_id", orgId)
     .order("position", { ascending: true });
 
-  const { data: lists } = await supabase
-    .from("lists")
-    .select("id, name, space_id, position")
-    .eq("org_id", orgId)
-    .order("position", { ascending: true });
+  const spaceIds = (spaces ?? []).map(s => s.id);
+  const { data: lists } = spaceIds.length
+    ? await supabase
+        .from("lists")
+        .select("id, name, space_id, position")
+        .in("space_id", spaceIds)
+        .order("position", { ascending: true })
+    : { data: [] };
 
   const result = (spaces ?? []).map(s => ({
     ...s,
