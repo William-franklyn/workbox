@@ -10,13 +10,15 @@ export async function GET(req: NextRequest) {
   const { data: profile } = await supabase
     .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
   const orgId = profile?.organization_id;
-  if (!orgId) return NextResponse.json({ members: [] });
 
-  const { data: members } = await supabase
+  const q = supabase
     .from("profiles")
     .select("id, email, full_name, role, created_at")
-    .eq("organization_id", orgId)
     .order("created_at", { ascending: true });
+
+  const { data: members } = orgId
+    ? await q.eq("organization_id", orgId)
+    : await q.eq("id", userId);  // no org — return at least the current user
 
   return NextResponse.json({ members: members ?? [] });
 }
