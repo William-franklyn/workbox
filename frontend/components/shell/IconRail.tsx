@@ -6,7 +6,7 @@ import { LayoutDashboard, MessageSquare, Target, Clock, Users, Bot, CalendarDays
 const NAV = [
   { icon: LayoutDashboard, href: "/home",                  label: "Home" },
   { icon: MessageSquare,   href: "/team-chat",             label: "Team Chat" },
-  { icon: Bot,             href: "/chat/new",              label: "AI Assistant" },
+  { icon: Bot,             href: "/chat/new",              label: "WorkBox Agent" },
   { icon: CalendarDays,    href: "/meetings",              label: "Meetings" },
   { icon: Target,          href: "/goals",                 label: "Goals" },
   { icon: Users,           href: "/settings?tab=members",  label: "Members" },
