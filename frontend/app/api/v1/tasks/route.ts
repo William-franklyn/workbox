@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabase
     .from("tasks")
-    .select("id, title, status, priority, due_date, tags, list_id, position, created_at")
+    .select("id, title, status, priority, due_date, tags, list_id, position, created_at, assignee_id, description")
     .in("list_id", allowedListIds)
     .order("position", { ascending: true });
 
