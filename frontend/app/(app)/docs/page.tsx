@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, FileText, Trash2, Loader2, Search } from "lucide-react";
 
 interface Doc { id: string; title: string; updated_at: string; blocks?: Block[]; }
@@ -11,14 +12,31 @@ function newBlock(type: BlockType = "paragraph"): Block {
 }
 
 export default function DocsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DocsPageInner />
+    </Suspense>
+  );
+}
+
+function DocsPageInner() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDoc, setActiveDoc] = useState<Doc | null>(null);
   const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetch("/api/docs").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setDocs(d); }).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId) return;
+    fetch(`/api/docs/${openId}`).then((r) => r.ok ? r.json() : null).then((full) => {
+      if (full) setActiveDoc(full);
+    });
+  }, [searchParams]);
 
   async function createDoc() {
     const doc = { id: `d${Date.now()}`, title: "Untitled Document", blocks: [newBlock()] };
