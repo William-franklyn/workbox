@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     due_date: t.due_date ?? null,
     tags: t.tags ?? [],
     description: t.description ?? null,
-    org_id: orgId,
+    created_by: userId,
     position: i,
     created_at: new Date().toISOString(),
   }));

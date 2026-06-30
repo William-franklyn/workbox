@@ -18,22 +18,33 @@ export async function GET(req: NextRequest) {
   const orgId = profile?.organization_id;
   if (!orgId) return NextResponse.json({ tasks: [] });
 
+  // Resolve which list IDs the user can see
+  let allowedListIds: string[] | null = null;
+
+  if (listId) {
+    allowedListIds = [listId];
+  } else if (spaceId) {
+    const { data: lists } = await supabase.from("lists").select("id").eq("space_id", spaceId);
+    allowedListIds = (lists ?? []).map(l => l.id);
+    if (allowedListIds.length === 0) return NextResponse.json({ tasks: [] });
+  } else {
+    // All lists in the org
+    const { data: spaces } = await supabase.from("spaces").select("id").eq("org_id", orgId);
+    const spaceIds = (spaces ?? []).map(s => s.id);
+    if (spaceIds.length === 0) return NextResponse.json({ tasks: [] });
+    const { data: lists } = await supabase.from("lists").select("id").in("space_id", spaceIds);
+    allowedListIds = (lists ?? []).map(l => l.id);
+    if (allowedListIds.length === 0) return NextResponse.json({ tasks: [] });
+  }
+
   let q = supabase
     .from("tasks")
     .select("id, title, status, priority, due_date, tags, list_id, position, created_at")
-    .eq("org_id", orgId)
+    .in("list_id", allowedListIds)
     .order("position", { ascending: true });
 
-  if (listId)  q = q.eq("list_id", listId);
-  if (status)  q = q.eq("status", status);
-  if (due)     q = q.lte("due_date", due);
-
-  if (spaceId && !listId) {
-    const { data: lists } = await supabase.from("lists").select("id").eq("space_id", spaceId);
-    const ids = (lists ?? []).map(l => l.id);
-    if (ids.length === 0) return NextResponse.json({ tasks: [] });
-    q = q.in("list_id", ids);
-  }
+  if (status) q = q.eq("status", status);
+  if (due)    q = q.lte("due_date", due);
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -68,7 +79,7 @@ export async function POST(req: NextRequest) {
       due_date: due_date ?? null,
       tags: tags ?? [],
       description: description ?? null,
-      org_id: orgId,
+      created_by: userId,
       position: count ?? 0,
       created_at: new Date().toISOString(),
     })
