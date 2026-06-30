@@ -8,17 +8,17 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, organization_id, created_at")
-    .eq("id", userId)
-    .maybeSingle();
+  const [{ data: profile }, { data: { user: authUser } }] = await Promise.all([
+    supabase.from("profiles").select("id, email, full_name, role, organization_id, created_at").eq("id", userId).maybeSingle(),
+    supabase.auth.admin.getUserById(userId),
+  ]);
 
   const orgId = profile?.organization_id;
 
-  // Spaces
-  const { data: spaces } = await supabase
-    .from("spaces").select("id, name, icon, color").eq("org_id", orgId ?? "");
+  // Spaces — if orgId is null, fetch all spaces (single-user workspace)
+  const { data: spaces } = orgId
+    ? await supabase.from("spaces").select("id, name, icon, color").eq("org_id", orgId)
+    : await supabase.from("spaces").select("id, name, icon, color");
 
   const spaceIds = (spaces ?? []).map(s => s.id);
 
@@ -43,12 +43,12 @@ export async function GET(req: NextRequest) {
   };
 
   // Goals
-  const { count: goalsCount } = await supabase
-    .from("goals").select("id", { count: "exact", head: true }).eq("org_id", orgId ?? "");
+  const goalsQ = supabase.from("goals").select("id", { count: "exact", head: true });
+  const { count: goalsCount } = orgId ? await goalsQ.eq("org_id", orgId) : await goalsQ;
 
   // Docs
-  const { count: docsCount } = await supabase
-    .from("docs").select("id", { count: "exact", head: true }).eq("org_id", orgId ?? "");
+  const docsQ = supabase.from("docs").select("id", { count: "exact", head: true });
+  const { count: docsCount } = orgId ? await docsQ.eq("org_id", orgId) : await docsQ;
 
   // Unread notifications
   const { count: unreadCount } = await supabase
@@ -69,12 +69,12 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     user: {
-      id: profile?.id,
-      name: profile?.full_name,
-      email: profile?.email,
-      role: profile?.role,
+      id: userId,
+      name: profile?.full_name ?? authUser?.user_metadata?.full_name ?? authUser?.email?.split("@")[0],
+      email: profile?.email ?? authUser?.email,
+      role: profile?.role ?? "member",
       organization_id: orgId,
-      member_since: profile?.created_at,
+      member_since: profile?.created_at ?? authUser?.created_at,
     },
     workspace: {
       spaces: spaces ?? [],
