@@ -5,10 +5,10 @@ import { Bot, Send, Loader2, Trash2 } from "lucide-react";
 interface Message { role: "user" | "assistant"; content: string; }
 
 const SUGGESTIONS = [
-  "Help me plan my sprint tasks",
-  "What's a good daily standup format?",
-  "How do I prioritize my backlog?",
-  "Draft a project status update",
+  "What tasks do I have this week?",
+  "Do I have any messages from the team?",
+  "Show me my upcoming meetings",
+  "Create a doc summarizing my goals",
 ];
 
 export default function ChatPage() {
@@ -55,7 +55,7 @@ export default function ChatPage() {
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>WorkBox AI</p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Powered by Groq · llama3-8b</p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Full workspace access · llama-3.3-70b</p>
           </div>
         </div>
         {messages.length > 0 && (
@@ -74,7 +74,7 @@ export default function ChatPage() {
             </div>
             <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>WorkBox AI</h2>
             <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-              Your intelligent workspace assistant. Ask me anything about tasks, planning, or productivity.
+              Your AI brain with full workspace access. Ask me to read, create, or update anything — tasks, docs, messages, meetings, goals, and more.
             </p>
             <div className="grid grid-cols-2 gap-2 w-full">
               {SUGGESTIONS.map((s) => (
