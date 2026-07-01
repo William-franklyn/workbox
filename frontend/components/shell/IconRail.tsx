@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MessageSquare, Target, Clock, Users, Bot, CalendarDays, Plug, KeyRound } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Target, Clock, Users, Bot, CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3, Briefcase, UserCheck, Activity, FormInput } from "lucide-react";
 
 const NAV = [
   { icon: LayoutDashboard, href: "/home",                  label: "Home" },
@@ -9,6 +9,13 @@ const NAV = [
   { icon: Bot,             href: "/chat/new",              label: "WorkBox Agent" },
   { icon: CalendarDays,    href: "/meetings",              label: "Meetings" },
   { icon: Target,          href: "/goals",                 label: "Goals" },
+  { icon: BarChart3,       href: "/portfolio",             label: "Portfolio" },
+  { icon: Briefcase,       href: "/workload",              label: "Workload" },
+  { icon: Zap,             href: "/automations",           label: "Automations" },
+  { icon: Layout,          href: "/templates",             label: "Templates" },
+  { icon: FormInput,       href: "/forms",                 label: "Forms" },
+  { icon: Activity,        href: "/activity",              label: "Activity Log" },
+  { icon: UserCheck,       href: "/guests",                label: "Guest Access" },
   { icon: Users,           href: "/settings?tab=members",  label: "Members" },
   { icon: Clock,           href: "/timesheets",            label: "Timesheets" },
   { icon: Plug,            href: "/integrations",          label: "Integrations" },
