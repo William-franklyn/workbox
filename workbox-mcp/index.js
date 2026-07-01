@@ -25,6 +25,29 @@ async function api(method, path, body) {
   return data;
 }
 
+// ─── Confirmation helpers ─────────────────────────────────────────────────────
+
+async function resolveSpaceName(listId) {
+  try {
+    const d = await api("GET", "/spaces");
+    const space = (d.spaces ?? []).find(s => (s.lists ?? []).some(l => l.id === listId));
+    return space?.name ?? null;
+  } catch { return null; }
+}
+
+function confirmBlock(action, workspace, extra = "") {
+  return [
+    `⚠️  CONFIRMATION REQUIRED`,
+    ``,
+    `Action : ${action}`,
+    `Workspace : ${workspace}`,
+    extra ? `Details : ${extra}` : "",
+    ``,
+    `If this is correct, call the same tool again with  confirmed: true  to proceed.`,
+    `To cancel, simply don't re-call the tool.`,
+  ].filter(l => l !== undefined && !(l === "" && !extra)).join("\n");
+}
+
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -52,9 +75,10 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        name:  { type: "string", description: "Space name" },
-        icon:  { type: "string", description: "Emoji icon (default: 🚀)" },
-        color: { type: "string", description: "Hex color (default: #7c3aed)" },
+        name:      { type: "string", description: "Space name" },
+        icon:      { type: "string", description: "Emoji icon (default: 🚀)" },
+        color:     { type: "string", description: "Hex color (default: #7c3aed)" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["name"],
     },
@@ -65,9 +89,10 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        name:     { type: "string", description: "List name" },
-        space_id: { type: "string", description: "The space to create the list in" },
-        color:    { type: "string", description: "Hex color (default: #7c3aed)" },
+        name:      { type: "string", description: "List name" },
+        space_id:  { type: "string", description: "The space to create the list in" },
+        color:     { type: "string", description: "Hex color (default: #7c3aed)" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["name", "space_id"],
     },
@@ -90,7 +115,7 @@ const TOOLS = [
   },
   {
     name: "workbox_create_task",
-    description: "Create a single task in WorkBox.",
+    description: "Create a single task in WorkBox. Will ask for confirmation before creating, showing which workspace it will go into.",
     inputSchema: {
       type: "object",
       properties: {
@@ -101,13 +126,14 @@ const TOOLS = [
         due_date:    { type: "string", description: "YYYY-MM-DD" },
         description: { type: "string" },
         tags:        { type: "array", items: { type: "string" } },
+        confirmed:   { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["title", "list_id"],
     },
   },
   {
     name: "workbox_create_plan",
-    description: "Create multiple tasks at once — push a full week plan or feature breakdown in one shot.",
+    description: "Create multiple tasks at once — push a full week plan or feature breakdown in one shot. Will ask for confirmation before creating.",
     inputSchema: {
       type: "object",
       properties: {
@@ -127,6 +153,7 @@ const TOOLS = [
             required: ["title", "list_id"],
           },
         },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["tasks"],
     },
@@ -149,10 +176,13 @@ const TOOLS = [
   },
   {
     name: "workbox_delete_task",
-    description: "Delete a task by ID.",
+    description: "Delete a task by ID. Will ask for confirmation before deleting.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" } },
+      properties: {
+        id:        { type: "string" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
+      },
       required: ["id"],
     },
   },
@@ -223,13 +253,14 @@ const TOOLS = [
   },
   {
     name: "workbox_create_goal",
-    description: "Create a new goal with optional key results.",
+    description: "Create a new goal with optional key results. Will ask for confirmation before creating.",
     inputSchema: {
       type: "object",
       properties: {
         title:       { type: "string" },
         description: { type: "string" },
         due_date:    { type: "string", description: "YYYY-MM-DD" },
+        confirmed:   { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
         key_results: {
           type: "array",
           items: {
@@ -268,12 +299,13 @@ const TOOLS = [
   },
   {
     name: "workbox_create_doc",
-    description: "Create a new document in the workspace.",
+    description: "Create a new document in the workspace. Will ask for confirmation before creating.",
     inputSchema: {
       type: "object",
       properties: {
-        title:   { type: "string" },
-        content: { type: "string", description: "Plain text content for the document" },
+        title:     { type: "string" },
+        content:   { type: "string", description: "Plain text content for the document" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["title"],
     },
@@ -298,12 +330,13 @@ const TOOLS = [
   },
   {
     name: "workbox_invite_member",
-    description: "Invite a new member to the workspace by email.",
+    description: "Invite a new member to the workspace by email. Will ask for confirmation before sending the invite.",
     inputSchema: {
       type: "object",
       properties: {
-        email: { type: "string" },
-        role:  { type: "string", enum: ["admin", "member"], description: "Default: member" },
+        email:     { type: "string" },
+        role:      { type: "string", enum: ["admin", "member"], description: "Default: member" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["email"],
     },
@@ -362,12 +395,13 @@ const TOOLS = [
   },
   {
     name: "workbox_send_message",
-    description: "Send a message to the team chat. Use mention_names to @mention teammates by name.",
+    description: "Send a message to the team chat. Use mention_names to @mention teammates by name. Will ask for confirmation before sending.",
     inputSchema: {
       type: "object",
       properties: {
         content:       { type: "string", description: "Message content" },
         mention_names: { type: "array", items: { type: "string" }, description: "Names to @mention, e.g. ['Joseph', 'all']" },
+        confirmed:     { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["content"],
     },
@@ -387,23 +421,27 @@ const TOOLS = [
   },
   {
     name: "workbox_update_doc",
-    description: "Update the title or content of a document.",
+    description: "Update the title or content of a document. Will ask for confirmation before updating.",
     inputSchema: {
       type: "object",
       properties: {
-        id:      { type: "string" },
-        title:   { type: "string" },
-        content: { type: "string", description: "New text content (replaces existing)" },
+        id:        { type: "string" },
+        title:     { type: "string" },
+        content:   { type: "string", description: "New text content (replaces existing)" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["id"],
     },
   },
   {
     name: "workbox_delete_doc",
-    description: "Delete a document by ID.",
+    description: "Delete a document by ID. Will ask for confirmation before deleting.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" } },
+      properties: {
+        id:        { type: "string" },
+        confirmed: { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
+      },
       required: ["id"],
     },
   },
@@ -416,7 +454,7 @@ const TOOLS = [
   },
   {
     name: "workbox_create_spreadsheet",
-    description: "Create a new spreadsheet with column headers and rows of data. I can generate the dataset for you — just describe what you need.",
+    description: "Create a new spreadsheet with column headers and rows of data. Will ask for confirmation before creating.",
     inputSchema: {
       type: "object",
       properties: {
@@ -424,6 +462,7 @@ const TOOLS = [
         headers:     { type: "array", items: { type: "string" }, description: "Column headers" },
         rows:        { type: "array", items: { type: "array", items: { type: "string" } }, description: "Rows of data (array of arrays)" },
         description: { type: "string", description: "Optional description of the spreadsheet" },
+        confirmed:   { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["title", "headers"],
     },
@@ -464,7 +503,7 @@ const TOOLS = [
   },
   {
     name: "workbox_schedule_meeting",
-    description: "Schedule a new Google Calendar meeting with an optional Google Meet link.",
+    description: "Schedule a new Google Calendar meeting with an optional Google Meet link. Will ask for confirmation before scheduling.",
     inputSchema: {
       type: "object",
       properties: {
@@ -474,6 +513,7 @@ const TOOLS = [
         attendees:     { type: "array", items: { type: "string" }, description: "Email addresses" },
         description:   { type: "string" },
         add_meet_link: { type: "boolean", description: "Add Google Meet link (default true)" },
+        confirmed:     { type: "boolean", description: "Set true after reviewing the confirmation prompt." },
       },
       required: ["title", "start", "end"],
     },
@@ -521,11 +561,17 @@ async function callTool(name, args) {
     }
 
     case "workbox_create_space": {
+      if (!args.confirmed) return confirmBlock("Create new space", "Your WorkBox account", `Name: "${args.name}"`);
       const d = await api("POST", "/spaces", args);
       return `✅ Created space "${d.space.name}" (id: ${d.space.id})`;
     }
 
     case "workbox_create_list": {
+      if (!args.confirmed) {
+        const spaces = await api("GET", "/spaces");
+        const space = (spaces.spaces ?? []).find(s => s.id === args.space_id);
+        return confirmBlock("Create new list", space?.name ?? args.space_id, `List name: "${args.name}"`);
+      }
       const d = await api("POST", "/lists", args);
       return `✅ Created list "${d.list.name}" (id: ${d.list.id}) in space ${args.space_id}`;
     }
@@ -546,11 +592,29 @@ async function callTool(name, args) {
     }
 
     case "workbox_create_task": {
+      if (!args.confirmed) {
+        const spaceName = await resolveSpaceName(args.list_id);
+        return confirmBlock(
+          `Create task "${args.title}"`,
+          spaceName ?? `list ${args.list_id}`,
+          [args.due_date ? `Due: ${args.due_date}` : "", args.priority ? `Priority: ${args.priority}` : ""].filter(Boolean).join(" · ") || undefined,
+        );
+      }
       const d = await api("POST", "/tasks", args);
       return `✅ Created task "${d.task.title}" (id: ${d.task.id})`;
     }
 
     case "workbox_create_plan": {
+      if (!args.confirmed) {
+        const listIds = [...new Set((args.tasks ?? []).map(t => t.list_id))];
+        const spaceNames = await Promise.all(listIds.map(resolveSpaceName));
+        const unique = [...new Set(spaceNames.filter(Boolean))];
+        return confirmBlock(
+          `Create ${(args.tasks ?? []).length} tasks`,
+          unique.join(", ") || "your workspace",
+          (args.tasks ?? []).map(t => `"${t.title}"`).join(", "),
+        );
+      }
       const d = await api("POST", "/tasks/batch", { tasks: args.tasks });
       return `✅ Created ${d.created} task${d.created !== 1 ? "s" : ""}:\n` +
         (d.tasks ?? []).map(t => `  • ${t.title} (id: ${t.id})`).join("\n");
@@ -563,6 +627,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_delete_task": {
+      if (!args.confirmed) return confirmBlock(`Delete task ${args.id}`, "your workspace", "⚠️ This cannot be undone.");
       await api("DELETE", `/tasks/${args.id}`, {});
       return `✅ Task ${args.id} deleted.`;
     }
@@ -612,6 +677,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_create_goal": {
+      if (!args.confirmed) return confirmBlock(`Create goal "${args.title}"`, "your workspace", args.due_date ? `Due: ${args.due_date}` : undefined);
       const d = await api("POST", "/goals", args);
       return `✅ Created goal "${d.goal.title}" (id: ${d.goal.id})\n` +
         (d.goal.key_results?.length ? `   Key results: ${d.goal.key_results.length}` : "");
@@ -633,6 +699,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_create_doc": {
+      if (!args.confirmed) return confirmBlock(`Create document "${args.title}"`, "your workspace");
       const d = await api("POST", "/docs", args);
       return `✅ Created doc "${d.doc.title}" (id: ${d.doc.id})`;
     }
@@ -654,6 +721,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_invite_member": {
+      if (!args.confirmed) return confirmBlock(`Invite ${args.email} to workspace`, "your workspace", `Role: ${args.role ?? "member"} · ⚠️ They will receive an email invite immediately.`);
       const d = await api("POST", "/members", args);
       return `✅ Invite sent to ${d.email}`;
     }
@@ -708,6 +776,10 @@ async function callTool(name, args) {
     }
 
     case "workbox_send_message": {
+      if (!args.confirmed) {
+        const mentions = (args.mention_names ?? []).length ? `Mentioning: ${args.mention_names.join(", ")}` : "No mentions";
+        return confirmBlock(`Send message to team chat`, "team chat (visible to all workspace members)", `"${args.content}" · ${mentions}`);
+      }
       const d = await api("POST", "/messages", args);
       return `✅ Message sent: "${d.message.content}"`;
     }
@@ -724,12 +796,14 @@ async function callTool(name, args) {
     }
 
     case "workbox_update_doc": {
-      const { id, ...patch } = args;
+      if (!args.confirmed) return confirmBlock(`Update document (id: ${args.id})`, "your workspace", args.title ? `New title: "${args.title}"` : "Content update");
+      const { id, confirmed: _c, ...patch } = args;
       const d = await api("PATCH", `/docs/${id}`, patch);
       return `✅ Document "${d.doc.title}" updated.\n🔗 View: ${d.doc.portal_link}`;
     }
 
     case "workbox_delete_doc": {
+      if (!args.confirmed) return confirmBlock(`Delete document (id: ${args.id})`, "your workspace", "⚠️ This cannot be undone.");
       await api("DELETE", `/docs/${args.id}`, {});
       return `✅ Document deleted.`;
     }
@@ -743,6 +817,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_create_spreadsheet": {
+      if (!args.confirmed) return confirmBlock(`Create spreadsheet "${args.title}"`, "your workspace", `Columns: ${(args.headers ?? []).join(", ")} · Rows: ${(args.rows ?? []).length}`);
       const d = await api("POST", "/spreadsheets", args);
       return [
         `✅ Spreadsheet "${d.spreadsheet.title}" created`,
@@ -785,6 +860,7 @@ async function callTool(name, args) {
     }
 
     case "workbox_schedule_meeting": {
+      if (!args.confirmed) return confirmBlock(`Schedule meeting "${args.title}"`, "Google Calendar", `${args.start} → ${args.end}${(args.attendees ?? []).length ? ` · Attendees: ${args.attendees.join(", ")}` : ""}`);
       const d = await api("POST", "/meetings", args);
       return `✅ Meeting scheduled: "${d.meeting.title}"\n   Start: ${d.meeting.start}\n   Link: ${d.meeting.meet_link ?? d.meeting.html_link}`;
     }
@@ -797,7 +873,7 @@ async function callTool(name, args) {
 // ─── MCP Server bootstrap ─────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "workbox", version: "3.0.0" },
+  { name: "workbox", version: "4.0.0" },
   { capabilities: { tools: {} } }
 );
 
