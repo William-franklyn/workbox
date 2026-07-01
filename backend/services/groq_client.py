@@ -4,7 +4,7 @@ from typing import Generator
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.1-8b-instant"
+MODEL = "qwen-qwq-32b"
 MAX_RESPONSE_TOKENS = 1024
 
 BASE_SYSTEM_PROMPT = (
