@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { useMembers, getMemberName } from "@/hooks/useMembers";
-import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send, Lock, Unlock } from "lucide-react";
+import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send, Lock, Unlock, Link2, Search } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 
 const PRIORITY_COLOR: Record<Task["priority"], string> = {
@@ -19,6 +19,7 @@ const STATUSES: { key: Task["status"]; label: string; color: string }[] = [
 interface TimeLog { id: string; duration_minutes: number; note: string; logged_at: string; }
 interface Subtask { id: string; task_id: string; title: string; completed: boolean; position: number; }
 interface Comment { id: string; task_id: string; user_id: string; content: string; created_at: string; profiles?: { full_name: string }; }
+interface DepTask { id: string; title: string; status: Task["status"]; priority: Task["priority"]; list_id: string; }
 
 function fmtTime(mins: number): string {
   const h = Math.floor(mins / 60), m = mins % 60;
@@ -63,6 +64,14 @@ export default function TaskDetailPanel() {
   const [manualNote, setManualNote] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Dependencies
+  const [depBlocks, setDepBlocks] = useState<DepTask[]>([]);
+  const [depBlockedBy, setDepBlockedBy] = useState<DepTask[]>([]);
+  const [showDepSearch, setShowDepSearch] = useState(false);
+  const [depSearchQuery, setDepSearchQuery] = useState("");
+  const [depSearchResults, setDepSearchResults] = useState<DepTask[]>([]);
+  const [depSearching, setDepSearching] = useState(false);
+
   // Extension requests
   interface ExtRequest { id: string; requested_by: string; message: string | null; days_requested: number; status: string; created_at: string; profiles?: { full_name: string } | null; }
   const [extRequests, setExtRequests] = useState<ExtRequest[]>([]);
@@ -80,9 +89,18 @@ export default function TaskDetailPanel() {
     setExtRequests([]);
     setShowExtForm(false);
     setExtSubmitted(false);
+    setDepBlocks([]);
+    setDepBlockedBy([]);
+    setShowDepSearch(false);
+    setDepSearchQuery("");
+    setDepSearchResults([]);
     fetch(`/api/subtasks?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setSubtasks(d)).catch(() => {});
     fetch(`/api/comments?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setComments(d)).catch(() => {});
     fetch(`/api/time-logs?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setTimeLogs(d)).catch(() => {});
+    fetch(`/api/tasks/dependencies?task_id=${selectedTaskId}`).then((r) => r.json()).then((d) => {
+      if (d && Array.isArray(d.blocks)) setDepBlocks(d.blocks);
+      if (d && Array.isArray(d.blocked_by)) setDepBlockedBy(d.blocked_by);
+    }).catch(() => {});
   }, [selectedTaskId]);
 
   useEffect(() => {
@@ -204,6 +222,44 @@ export default function TaskDetailPanel() {
     if (!mins || mins < 1) return;
     await logTime(mins, manualNote || "Manual entry");
     setManualMins(""); setManualNote("");
+  }
+
+  async function searchTasksForDep(q: string) {
+    if (!q.trim()) { setDepSearchResults([]); return; }
+    setDepSearching(true);
+    try {
+      // Search all lists in the current tasks store for matching task titles
+      const allTasks = Object.values(tasks).flat() as Task[];
+      const lower = q.toLowerCase();
+      const results = allTasks.filter(
+        (t) => t.id !== taskId && t.title.toLowerCase().includes(lower) &&
+          !depBlocks.find((d) => d.id === t.id) &&
+          !depBlockedBy.find((d) => d.id === t.id)
+      ).slice(0, 8);
+      setDepSearchResults(results as DepTask[]);
+    } finally {
+      setDepSearching(false);
+    }
+  }
+
+  async function addDependency(dependsOnId: string) {
+    const res = await fetch("/api/tasks/dependencies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: taskId, depends_on_id: dependsOnId }),
+    });
+    if (res.ok) {
+      const dep = depSearchResults.find((t) => t.id === dependsOnId);
+      if (dep) setDepBlockedBy((prev) => [...prev, dep]);
+      setShowDepSearch(false);
+      setDepSearchQuery("");
+      setDepSearchResults([]);
+    }
+  }
+
+  async function removeDependency(dependsOnId: string) {
+    await fetch(`/api/tasks/dependencies?task_id=${taskId}&depends_on_id=${dependsOnId}`, { method: "DELETE" });
+    setDepBlockedBy((prev) => prev.filter((t) => t.id !== dependsOnId));
   }
 
   return (
@@ -414,6 +470,106 @@ export default function TaskDetailPanel() {
               <button onClick={addSubtask} className="text-xs px-2 py-1.5 rounded-lg" style={{ background: "var(--accent-purple)", color: "white" }}>
                 <Plus size={12} />
               </button>
+            </div>
+          )}
+        </Section>
+
+        {/* Dependencies */}
+        <Section title="Dependencies">
+          {/* Blocked by */}
+          {depBlockedBy.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs mb-1 font-medium" style={{ color: "var(--text-secondary)" }}>Blocked by</p>
+              <div className="space-y-1">
+                {depBlockedBy.map((dep) => {
+                  const depStatus = STATUSES.find((s) => s.key === dep.status);
+                  return (
+                    <div key={dep.id} className="flex items-center gap-2 group px-2 py-1.5 rounded-lg" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: depStatus?.color ?? "#94a3b8" }} />
+                      <span className="text-xs flex-1 truncate" style={{ color: "var(--text-primary)" }}>{dep.title}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-md capitalize flex-shrink-0"
+                        style={{ background: `${depStatus?.color ?? "#94a3b8"}22`, color: depStatus?.color ?? "#94a3b8" }}>
+                        {dep.status.replace("_", " ")}
+                      </span>
+                      {!isLocked && (
+                        <button onClick={() => removeDependency(dep.id)} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" style={{ color: "var(--danger)" }}>
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* Blocking */}
+          {depBlocks.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs mb-1 font-medium" style={{ color: "var(--text-secondary)" }}>Blocking</p>
+              <div className="space-y-1">
+                {depBlocks.map((dep) => {
+                  const depStatus = STATUSES.find((s) => s.key === dep.status);
+                  return (
+                    <div key={dep.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: depStatus?.color ?? "#94a3b8" }} />
+                      <span className="text-xs flex-1 truncate" style={{ color: "var(--text-primary)" }}>{dep.title}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-md capitalize flex-shrink-0"
+                        style={{ background: `${depStatus?.color ?? "#94a3b8"}22`, color: depStatus?.color ?? "#94a3b8" }}>
+                        {dep.status.replace("_", " ")}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {depBlockedBy.length === 0 && depBlocks.length === 0 && !showDepSearch && (
+            <p className="text-xs py-1" style={{ color: "var(--text-secondary)" }}>No dependencies</p>
+          )}
+          {/* Add dependency */}
+          {!isLocked && !showDepSearch && (
+            <button onClick={() => setShowDepSearch(true)}
+              className="flex items-center gap-1.5 text-xs mt-1 hover:opacity-80"
+              style={{ color: "var(--accent-purple)" }}>
+              <Plus size={12} /> Add dependency
+            </button>
+          )}
+          {showDepSearch && (
+            <div className="mt-2">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "var(--bg-primary)", border: "1px solid var(--accent-purple)" }}>
+                <Search size={11} style={{ color: "var(--text-secondary)" }} />
+                <input
+                  autoFocus
+                  value={depSearchQuery}
+                  onChange={(e) => { setDepSearchQuery(e.target.value); searchTasksForDep(e.target.value); }}
+                  onKeyDown={(e) => e.key === "Escape" && setShowDepSearch(false)}
+                  placeholder="Search tasks..."
+                  className="flex-1 text-xs bg-transparent outline-none"
+                  style={{ color: "var(--text-primary)" }}
+                />
+                <button onClick={() => { setShowDepSearch(false); setDepSearchQuery(""); setDepSearchResults([]); }} style={{ color: "var(--text-secondary)" }}>
+                  <X size={11} />
+                </button>
+              </div>
+              {depSearchResults.length > 0 && (
+                <div className="mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                  {depSearchResults.map((t) => {
+                    const tStatus = STATUSES.find((s) => s.key === t.status);
+                    return (
+                      <button key={t.id} onClick={() => addDependency(t.id)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-white/5 transition-colors"
+                        style={{ background: "var(--bg-primary)" }}>
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tStatus?.color ?? "#94a3b8" }} />
+                        <span className="text-xs flex-1 truncate" style={{ color: "var(--text-primary)" }}>{t.title}</span>
+                        <span className="text-xs capitalize flex-shrink-0" style={{ color: "var(--text-secondary)" }}>{t.status.replace("_", " ")}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {depSearchQuery && !depSearching && depSearchResults.length === 0 && (
+                <p className="text-xs mt-1 px-1" style={{ color: "var(--text-secondary)" }}>No tasks found</p>
+              )}
             </div>
           )}
         </Section>
