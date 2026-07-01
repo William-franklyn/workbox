@@ -29,41 +29,37 @@ def build_prompt(context_chunks: list[str]) -> str:
         "If the answer is not in the context, say so clearly and offer general guidance."
     )
 
-def _stream_model(messages: list[dict], model: str, client: httpx.Client):
+def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
     import json
-    payload = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": MAX_RESPONSE_TOKENS,
-        "stream": True,
-    }
-    headers = {
+    req_headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    with client.stream("POST", GROQ_URL, headers=headers, json=payload) as response:
-        if response.status_code == 429 or not response.is_success:
-            return False, []
-        tokens = []
-        for line in response.iter_lines():
-            if line.startswith("data: "):
-                data = line[6:]
-                if data == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data)
-                    token = chunk["choices"][0]["delta"].get("content", "")
-                    if token:
-                        tokens.append(token)
-                except Exception:
-                    continue
-        return True, tokens
-
-def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
-    with httpx.Client(timeout=30) as client:
-        for model in (PRIMARY_MODEL, FALLBACK_MODEL):
-            ok, tokens = _stream_model(messages, model, client)
-            if ok:
-                yield from tokens
-                return
-        yield "I'm having trouble responding right now — please try again in a moment."
+    for model in (PRIMARY_MODEL, FALLBACK_MODEL):
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": MAX_RESPONSE_TOKENS,
+            "stream": True,
+        }
+        try:
+            with httpx.Client(timeout=30) as client:
+                with client.stream("POST", GROQ_URL, headers=req_headers, json=payload) as response:
+                    if response.status_code == 429 or not response.is_success:
+                        continue
+                    for line in response.iter_lines():
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            if data == "[DONE]":
+                                return
+                            try:
+                                chunk = json.loads(data)
+                                token = chunk["choices"][0]["delta"].get("content", "")
+                                if token:
+                                    yield token
+                            except Exception:
+                                continue
+                    return
+        except Exception:
+            continue
+    yield "I'm having trouble responding right now — please try again in a moment."
