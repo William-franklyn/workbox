@@ -258,7 +258,7 @@ export default function ActivityPage() {
                         </div>
                       </div>
                       {/* Show value change if present */}
-                      {entry.action === "status_changed" && entry.old_value && entry.new_value && (
+                      {entry.action === "status_changed" && !!entry.old_value && !!entry.new_value && (
                         <div className="flex items-center gap-2 mt-1.5">
                           <span
                             className="text-xs px-2 py-0.5 rounded-md"
