@@ -286,6 +286,17 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "workbox_list_space_members",
+    description: "List members of a specific space/workspace — shows everyone assigned to tasks or who created tasks in that space.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        space_id: { type: "string", description: "The space ID to look up members for" },
+      },
+      required: ["space_id"],
+    },
+  },
+  {
     name: "workbox_invite_member",
     description: "Invite a new member to the workspace by email.",
     inputSchema: {
@@ -631,6 +642,14 @@ async function callTool(name, args) {
       if (!d.members?.length) return "No members found.";
       return d.members.map(m =>
         `👤 ${m.full_name ?? m.email} — ${m.role} (id: ${m.id})\n   ${m.email}`
+      ).join("\n\n");
+    }
+
+    case "workbox_list_space_members": {
+      const d = await api("GET", `/spaces/${args.space_id}/members`);
+      if (!d.members?.length) return "No members found in this space.";
+      return d.members.map(m =>
+        `👤 ${m.full_name ?? m.email}${m.is_you ? " (you)" : ""} — ${m.role}\n   ${m.email}`
       ).join("\n\n");
     }
 
