@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/calendar";
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.3-70b-versatile";
+const MODELS = ["qwen2.5-72b-instruct", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
 const MAX_ROUNDS = 6;
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -483,18 +483,18 @@ export async function POST(req: NextRequest) {
     ];
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const res = await fetch(GROQ_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-        body: JSON.stringify({ model: MODEL, messages: groqMessages, tools: TOOLS, tool_choice: "auto", max_tokens: 1024, temperature: 0.3 }),
-      });
-
-      if (!res.ok) {
-        if (res.status === 429) {
-          return NextResponse.json({ content: "I'm handling a lot of requests right now — give me a few seconds and try again." });
-        }
-        return NextResponse.json({ content: "Something went wrong on my end. Please try again." }, { status: res.status });
+      let res: Response | null = null;
+      for (const model of MODELS) {
+        const r = await fetch(GROQ_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({ model, messages: groqMessages, tools: TOOLS, tool_choice: "auto", max_tokens: 1024, temperature: 0.3 }),
+        });
+        if (r.status !== 429 && r.ok) { res = r; break; }
+        if (r.status !== 429) { res = r; break; }
       }
+      if (!res) return NextResponse.json({ content: "I'm a little busy right now — please try again in a moment." });
+      if (!res.ok) return NextResponse.json({ content: "Something went wrong on my end. Please try again." }, { status: res.status });
 
       const data = await res.json();
       const choice = data.choices?.[0];
