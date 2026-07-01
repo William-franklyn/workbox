@@ -5,7 +5,7 @@ import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/cal
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const MODELS = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama-3.1-8b-instant"];
-const MAX_ROUNDS = 6;
+const MAX_ROUNDS = 3;
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
 function blocksToText(blocks: unknown[]): string {
@@ -492,7 +492,8 @@ export async function POST(req: NextRequest) {
         });
         if (r.ok) { res = r; break; }
         if (r.status === 401 || r.status === 403) { res = r; break; }
-        // 429 (rate limit) or other errors — try next model
+        // 429 (rate limit) or other errors — wait briefly then try next model
+        await new Promise(r => setTimeout(r, 800));
       }
       if (!res) return NextResponse.json({ content: "I'm a little busy right now — please try again in a moment." });
       if (!res.ok) return NextResponse.json({ content: "Something went wrong. Please try again." }, { status: res.status });
