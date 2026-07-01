@@ -439,7 +439,12 @@ export async function POST(req: NextRequest) {
       const msg = choice?.message;
 
       if (!msg?.tool_calls?.length) {
-        return NextResponse.json({ content: msg?.content ?? "" });
+        const content = msg?.content;
+        if (!content) {
+          console.error("[agent] empty content from Groq:", JSON.stringify(data));
+          return NextResponse.json({ content: "I didn't get a response. Please try again." });
+        }
+        return NextResponse.json({ content });
       }
 
       groqMessages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
@@ -454,6 +459,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ content: "I've completed the requested actions." });
   } catch (e: unknown) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[agent] unhandled error:", msg);
+    return NextResponse.json({ error: msg || "Unexpected error" }, { status: 500 });
   }
 }
