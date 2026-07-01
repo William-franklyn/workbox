@@ -36,10 +36,7 @@ async function v1<T = Record<string, unknown>>(
   }
 }
 
-async function executeTool(
-  name: string,
-  args: Record<string, unknown>,
-): Promise<string> {
+async function executeTool(name: string, args: Record<string, unknown>): Promise<string> {
   switch (name) {
     case "list_tasks": {
       const { data, error } = await v1("GET", "tasks", undefined, {
@@ -432,7 +429,11 @@ export async function POST(req: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, 800));
       }
       if (!res) return NextResponse.json({ content: "I'm a little busy right now — please try again in a moment." });
-      if (!res.ok) return NextResponse.json({ content: "Something went wrong. Please try again." }, { status: res.status });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = (err as Record<string, { message?: string }>).error?.message ?? `HTTP ${res.status}`;
+        return NextResponse.json({ content: `Something went wrong: ${msg}` });
+      }
 
       const data = await res.json();
       const choice = data.choices?.[0];
@@ -441,8 +442,8 @@ export async function POST(req: NextRequest) {
       if (!msg?.tool_calls?.length) {
         const content = msg?.content;
         if (!content) {
-          console.error("[agent] empty content from Groq:", JSON.stringify(data));
-          return NextResponse.json({ content: "I didn't get a response. Please try again." });
+          console.error("[agent] empty Groq response:", JSON.stringify(data));
+          return NextResponse.json({ content: "I didn't get a response — please try again." });
         }
         return NextResponse.json({ content });
       }
@@ -460,7 +461,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ content: "I've completed the requested actions." });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[agent] unhandled error:", msg);
+    console.error("[agent] error:", msg);
     return NextResponse.json({ error: msg || "Unexpected error" }, { status: 500 });
   }
 }
