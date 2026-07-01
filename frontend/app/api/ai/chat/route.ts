@@ -1,206 +1,185 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/calendar";
 
 const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const MODELS = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama-3.1-8b-instant"];
 const MAX_ROUNDS = 3;
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
+const AGENT_API_KEY = process.env.WORKBOX_AGENT_API_KEY ?? "";
 
-function blocksToText(blocks: unknown[]): string {
-  if (!Array.isArray(blocks)) return "";
-  return blocks.map(b => {
-    const block = b as Record<string, unknown>;
-    if (block.type === "table") {
-      const headers = (block.headers as string[] ?? []).join(" | ");
-      const rows = (block.rows as string[][] ?? []).map(r => r.join(" | ")).join("\n");
-      return `${headers}\n${rows}`;
+async function v1<T = Record<string, unknown>>(
+  method: string,
+  path: string,
+  body?: unknown,
+  params?: Record<string, string | number | undefined>,
+): Promise<{ data: T | null; error: string | null }> {
+  const url = new URL(`${BASE_URL}/api/v1/${path}`);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
     }
-    const content = block.content as Array<{ text?: string }> ?? [];
-    return content.map(c => c.text ?? "").join("");
-  }).filter(Boolean).join("\n\n");
-}
-
-async function getAllowedListIds(supabase: ReturnType<typeof createServiceClient>, orgId: string | null): Promise<string[]> {
-  const q = supabase.from("spaces").select("id");
-  const { data: spaces } = orgId ? await q.eq("org_id", orgId) : await q;
-  const spaceIds = (spaces ?? []).map((s: Record<string, string>) => s.id);
-  if (!spaceIds.length) return [];
-  const { data: lists } = await supabase.from("lists").select("id").in("space_id", spaceIds);
-  return (lists ?? []).map((l: Record<string, string>) => l.id);
+  }
+  try {
+    const res = await fetch(url.toString(), {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${AGENT_API_KEY}`,
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: json.error ?? `HTTP ${res.status}` };
+    return { data: json as T, error: null };
+  } catch (e) {
+    return { data: null, error: (e as Error).message };
+  }
 }
 
 async function executeTool(
   name: string,
   args: Record<string, unknown>,
-  userId: string,
-  orgId: string | null,
-  senderName: string,
 ): Promise<string> {
-  const supabase = createServiceClient();
-
   switch (name) {
     case "list_tasks": {
-      const ids = args.list_id ? [args.list_id as string] : await getAllowedListIds(supabase, orgId);
-      if (!ids.length) return "No tasks found.";
-      let q = supabase.from("tasks").select("id, title, status, priority, due_date").in("list_id", ids).order("position");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (args.status) q = (q as any).eq("status", args.status as string);
-      const { data } = await q;
-      if (!data?.length) return "No tasks found.";
-      return (data as Record<string, string>[]).map(t =>
+      const { data, error } = await v1("GET", "tasks", undefined, {
+        list_id: args.list_id as string | undefined,
+        status: args.status as string | undefined,
+      });
+      if (error) return `Error: ${error}`;
+      const tasks = (data as Record<string, unknown>).tasks as Record<string, string>[] ?? [];
+      if (!tasks.length) return "No tasks found.";
+      return tasks.map(t =>
         `• [${t.id}] ${t.title} — ${t.status}${t.priority ? ` (${t.priority})` : ""}${t.due_date ? ` · due ${t.due_date}` : ""}`
       ).join("\n");
     }
 
     case "create_task": {
-      const { title, list_id, status = "todo", priority = "normal", due_date, description, assignee_id } = args as Record<string, string>;
-      const { data, error } = await supabase.from("tasks").insert({
-        id: `t${Date.now()}`, title, list_id, status, priority,
-        due_date: due_date || null, description: description || null,
-        assignee_id: assignee_id || null, created_by: userId, position: 0,
-      }).select("id, title").single();
-      if (error) return `Error: ${error.message}`;
-      return `Created task "${(data as Record<string, string>).title}" (ID: ${(data as Record<string, string>).id})`;
+      const { data, error } = await v1("POST", "tasks", args);
+      if (error) return `Error: ${error}`;
+      const task = (data as Record<string, unknown>).task as Record<string, string>;
+      return `Created task "${task.title}" (ID: ${task.id})`;
     }
 
     case "update_task": {
-      const { task_id, ...patch } = args as Record<string, unknown>;
-      const { error } = await supabase.from("tasks").update(patch).eq("id", task_id as string);
-      if (error) return `Error: ${error.message}`;
-      return `Task updated.`;
+      const { task_id, ...patch } = args;
+      const { error } = await v1("PATCH", `tasks/${task_id}`, patch);
+      if (error) return `Error: ${error}`;
+      return "Task updated.";
     }
 
     case "delete_task": {
-      const { error } = await supabase.from("tasks").delete().eq("id", args.task_id as string);
-      if (error) return `Error: ${error.message}`;
+      const { error } = await v1("DELETE", `tasks/${args.task_id}`);
+      if (error) return `Error: ${error}`;
       return "Task deleted.";
     }
 
     case "list_spaces": {
-      const q = supabase.from("spaces").select("id, name, icon, lists(id, name)").order("position");
-      const { data } = orgId ? await q.eq("org_id", orgId) : await q;
-      if (!data?.length) return "No spaces found.";
-      return (data as Record<string, unknown>[]).map(s => {
+      const { data, error } = await v1("GET", "spaces");
+      if (error) return `Error: ${error}`;
+      const spaces = (data as Record<string, unknown>).spaces as Record<string, unknown>[] ?? [];
+      if (!spaces.length) return "No spaces found.";
+      return spaces.map(s => {
         const lists = (s.lists as Record<string, string>[] ?? []);
-        return `[${s.id}] ${s.icon} ${s.name}\n  Lists: ${lists.map(l => `${l.name} (${l.id})`).join(", ") || "none"}`;
+        return `[${s.id}] ${s.name}\n  Lists: ${lists.map(l => `${l.name} (${l.id})`).join(", ") || "none"}`;
       }).join("\n");
     }
 
     case "create_space": {
-      const { name, icon = "🚀", color = "#7c3aed" } = args as Record<string, string>;
-      const { count } = await supabase.from("spaces").select("id", { count: "exact", head: true });
-      const { data, error } = await supabase.from("spaces")
-        .insert({ id: `s${Date.now()}`, name, icon, color, org_id: orgId, position: count ?? 0 })
-        .select("id, name").single();
-      if (error) return `Error: ${error.message}`;
-      return `Created space "${(data as Record<string, string>).name}" (ID: ${(data as Record<string, string>).id})`;
+      const { data, error } = await v1("POST", "spaces", args);
+      if (error) return `Error: ${error}`;
+      const space = (data as Record<string, unknown>).space as Record<string, string>;
+      return `Created space "${space.name}" (ID: ${space.id})`;
     }
 
     case "create_list": {
-      const { name, space_id } = args as Record<string, string>;
-      const { data, error } = await supabase.from("lists")
-        .insert({ id: `l${Date.now()}`, name, space_id, position: 0 })
-        .select("id, name").single();
-      if (error) return `Error: ${error.message}`;
-      return `Created list "${(data as Record<string, string>).name}" (ID: ${(data as Record<string, string>).id})`;
+      const { data, error } = await v1("POST", "lists", args);
+      if (error) return `Error: ${error}`;
+      const list = (data as Record<string, unknown>).list as Record<string, string>;
+      return `Created list "${list.name}" (ID: ${list.id})`;
     }
 
     case "list_docs": {
-      const q = supabase.from("docs").select("id, title, updated_at")
-        .not("title", "like", "__sheet__%").order("updated_at", { ascending: false });
-      const { data } = orgId ? await q.eq("org_id", orgId) : await q;
-      if (!data?.length) return "No documents found.";
-      return (data as Record<string, string>[]).map(d => `• ${d.title} — ${BASE_URL}/docs/${d.id}`).join("\n");
+      const { data, error } = await v1("GET", "docs");
+      if (error) return `Error: ${error}`;
+      const docs = (data as Record<string, unknown>).docs as Record<string, string>[] ?? [];
+      if (!docs.length) return "No documents found.";
+      return docs.map(d => `• ${d.title} — ${d.portal_link}`).join("\n");
     }
 
     case "create_doc": {
-      const { title, content = "" } = args as Record<string, string>;
-      const blocks = (content as string).split("\n\n").filter(Boolean).map((p: string) => ({
-        id: crypto.randomUUID(), type: "paragraph", content: [{ type: "text", text: p }],
-      }));
-      const docId = crypto.randomUUID();
-      const { error } = await supabase.from("docs").insert({ id: docId, title, blocks, org_id: orgId, created_by: userId });
-      if (error) return `Error: ${error.message}`;
-      return `Created document "${title}" — ${BASE_URL}/docs/${docId}`;
+      const { data, error } = await v1("POST", "docs", args);
+      if (error) return `Error: ${error}`;
+      const doc = (data as Record<string, unknown>).doc as Record<string, string>;
+      return `Created document "${doc.title}" — ${doc.portal_link}`;
     }
 
     case "read_doc": {
-      const { data } = await supabase.from("docs").select("title, blocks").eq("id", args.doc_id as string).maybeSingle();
-      if (!data) return "Document not found.";
-      const text = blocksToText((data as Record<string, unknown>).blocks as unknown[] ?? []);
-      return `"${(data as Record<string, string>).title}"\n\n${text || "(empty)"}`;
+      const { data, error } = await v1("GET", `docs/${args.doc_id}`);
+      if (error) return `Document not found or error: ${error}`;
+      const doc = data as Record<string, string>;
+      return `"${doc.title}"\n\n${doc.content || "(empty)"}`;
     }
 
     case "update_doc": {
-      const { doc_id, title, content } = args as Record<string, string>;
-      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (title) patch.title = title;
-      if (content) patch.blocks = content.split("\n\n").filter(Boolean).map((p: string) => ({
-        id: crypto.randomUUID(), type: "paragraph", content: [{ type: "text", text: p }],
-      }));
-      const { error } = await supabase.from("docs").update(patch).eq("id", doc_id);
-      if (error) return `Error: ${error.message}`;
+      const { doc_id, ...patch } = args;
+      const { error } = await v1("PATCH", `docs/${doc_id}`, patch);
+      if (error) return `Error: ${error}`;
       return "Document updated.";
     }
 
     case "delete_doc": {
-      await supabase.from("docs").delete().eq("id", args.doc_id as string);
+      const { error } = await v1("DELETE", `docs/${args.doc_id}`);
+      if (error) return `Error: ${error}`;
       return "Document deleted.";
     }
 
     case "list_goals": {
-      const q = supabase.from("goals").select("id, title, due_date, key_results(id, title, current_value, target_value, unit)");
-      const { data } = orgId ? await q.eq("org_id", orgId) : await q;
-      if (!data?.length) return "No goals found.";
-      return (data as Record<string, unknown>[]).map(g => {
-        const krs = g.key_results as Record<string, number>[] ?? [];
-        const pct = krs.length
-          ? Math.round(krs.reduce((a, kr) => a + (kr.target_value ? kr.current_value / kr.target_value : 0), 0) / krs.length * 100)
-          : 0;
+      const { data, error } = await v1("GET", "goals");
+      if (error) return `Error: ${error}`;
+      const goals = (data as Record<string, unknown>).goals as Record<string, unknown>[] ?? [];
+      if (!goals.length) return "No goals found.";
+      return goals.map(g => {
+        const krs = g.key_results as Record<string, unknown>[] ?? [];
         const krLines = krs.map(kr => `\n  • ${kr.title}: ${kr.current_value}/${kr.target_value} ${kr.unit}`).join("");
-        return `[${g.id}] ${g.title} — ${pct}%${g.due_date ? ` (due ${g.due_date})` : ""}${krLines}`;
+        return `[${g.id}] ${g.title} — ${g.progress_pct}%${g.due_date ? ` (due ${g.due_date})` : ""}${krLines}`;
       }).join("\n\n");
     }
 
     case "create_goal": {
-      const { title, description, due_date } = args as Record<string, string>;
-      const key_results = args.key_results as Record<string, unknown>[] ?? [];
-      const goalId = crypto.randomUUID();
-      const { error } = await supabase.from("goals").insert({ id: goalId, title, description, due_date, org_id: orgId, created_by: userId });
-      if (error) return `Error: ${error.message}`;
-      if (key_results.length) {
-        await supabase.from("key_results").insert(key_results.map(kr => ({
-          id: crypto.randomUUID(), goal_id: goalId, title: kr.title, current_value: 0, target_value: kr.target_value, unit: kr.unit,
-        })));
-      }
-      return `Created goal "${title}" (ID: ${goalId})`;
+      const { data, error } = await v1("POST", "goals", args);
+      if (error) return `Error: ${error}`;
+      const goal = (data as Record<string, unknown>).goal as Record<string, string>;
+      return `Created goal "${goal.title}" (ID: ${goal.id})`;
     }
 
     case "update_goal_progress": {
-      const { goal_id, kr_id, current_value } = args as Record<string, unknown>;
-      const { error } = await supabase.from("key_results").update({ current_value }).eq("id", kr_id as string).eq("goal_id", goal_id as string);
-      if (error) return `Error: ${error.message}`;
-      return `Progress updated to ${current_value}.`;
+      const { goal_id, ...patch } = args;
+      const { error } = await v1("PATCH", `goals/${goal_id}`, patch);
+      if (error) return `Error: ${error}`;
+      return `Progress updated to ${args.current_value}.`;
     }
 
     case "list_members": {
-      const q = supabase.from("profiles").select("id, full_name, email, role");
-      const { data } = orgId ? await q.eq("organization_id", orgId) : await q;
-      if (!data?.length) return "No members found.";
-      return (data as Record<string, string>[]).map(m => `[${m.id}] ${m.full_name ?? m.email} — ${m.role}`).join("\n");
+      const { data, error } = await v1("GET", "members");
+      if (error) return `Error: ${error}`;
+      const members = (data as Record<string, unknown>).members as Record<string, string>[] ?? [];
+      if (!members.length) return "No members found.";
+      return members.map(m => `[${m.id}] ${m.full_name ?? m.email} — ${m.role}`).join("\n");
     }
 
     case "get_messages": {
-      const limit = (args.limit as number) ?? 20;
-      const q = supabase.from("team_messages").select("id, user_id, sender_name, content, mentions, created_at")
-        .order("created_at", { ascending: false }).limit(limit);
-      const { data: raw } = orgId ? await q.eq("organization_id", orgId) : await q;
-      const all = (raw ?? []).reverse() as Record<string, unknown>[];
+      const { data, error } = await v1("GET", "messages", undefined, {
+        limit: args.limit as number | undefined,
+      });
+      if (error) return `Error: ${error}`;
+      const d = data as Record<string, unknown>;
+      const all = d.messages as Record<string, unknown>[] ?? [];
+      const mentions = d.mentions_me as Record<string, unknown>[] ?? [];
       if (!all.length) return "No messages yet.";
-      const mine = all.filter(m => m.user_id !== userId && ((m.mentions as string[] ?? []).includes(userId) || (m.mentions as string[] ?? []).includes("all")));
-      let out = mine.length ? `🔔 ${mine.length} message(s) mentioning you:\n${mine.map(m => `  @${m.sender_name}: "${m.content}"`).join("\n")}\n\n` : "";
+      let out = mentions.length
+        ? `🔔 ${mentions.length} message(s) mentioning you:\n${mentions.map(m => `  @${m.sender_name}: "${m.content}"`).join("\n")}\n\n`
+        : "";
       out += `Recent messages:\n${all.slice(-10).map(m => {
         const t = new Date(m.created_at as string).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
         return `  [${t}] ${m.sender_name}: ${m.content}`;
@@ -209,179 +188,143 @@ async function executeTool(
     }
 
     case "send_message": {
-      const { content, mention_names = [] } = args as { content: string; mention_names: string[] };
-      const mentions: string[] = [];
-      let finalContent = content;
-      for (const mname of mention_names) {
-        if (mname.toLowerCase() === "all") {
-          mentions.push("all");
-          finalContent = `@all ${finalContent}`;
-        } else {
-          const { data: mp } = await supabase.from("profiles").select("id, full_name").ilike("full_name", `%${mname}%`).maybeSingle();
-          if (mp) {
-            mentions.push((mp as Record<string, string>).id);
-            finalContent = `@${(mp as Record<string, string>).full_name} ${finalContent}`;
-          }
-        }
-      }
-      const { error } = await supabase.from("team_messages").insert({
-        id: crypto.randomUUID(), organization_id: orgId, user_id: userId,
-        sender_name: senderName, content: finalContent, mentions,
-      });
-      if (error) return `Error: ${error.message}`;
-      return `Message sent${mentions.length ? ` (mentioned: ${mention_names.join(", ")})` : ""}.`;
+      const { error } = await v1("POST", "messages", args);
+      if (error) return `Error: ${error}`;
+      return "Message sent.";
     }
 
     case "get_notifications": {
-      const limit = (args.limit as number) ?? 20;
-      const { data } = await supabase.from("notifications").select("type, title, body, read, created_at")
-        .eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
-      if (!data?.length) return "No notifications.";
-      return (data as Record<string, unknown>[]).map(n => `[${n.read ? "read" : "UNREAD"}] ${n.title}: ${n.body}`).join("\n");
+      const { data, error } = await v1("GET", "notifications");
+      if (error) return `Error: ${error}`;
+      const notifications = (data as Record<string, unknown>).notifications as Record<string, unknown>[] ?? [];
+      if (!notifications.length) return "No notifications.";
+      return notifications.slice(0, (args.limit as number) ?? 20)
+        .map(n => `[${n.read ? "read" : "UNREAD"}] ${n.title}: ${n.body}`).join("\n");
     }
 
     case "mark_notifications_read": {
-      const q = supabase.from("notifications").update({ read: true }).eq("user_id", userId);
-      await (args.id ? q.eq("id", args.id as string) : q);
+      const body = args.id ? { id: args.id } : { mark_all_read: true };
+      const { error } = await v1("PATCH", "notifications", body);
+      if (error) return `Error: ${error}`;
       return "Marked as read.";
     }
 
     case "list_meetings": {
-      const days = (args.days as number) ?? 14;
-      const token = await getValidToken(userId, supabase);
-      if (!token) return "Google Calendar not connected. Go to Settings → Integrations to connect.";
-      const events = await listEvents(token, days);
-      if (!events.length) return "No upcoming meetings.";
-      return events.map(e => {
-        const start = e.start.dateTime ?? e.start.date;
-        return `• ${e.summary} — ${start}${e.hangoutLink ? `\n  Meet: ${e.hangoutLink}` : ""}`;
-      }).join("\n");
+      const { data, error } = await v1("GET", "meetings", undefined, {
+        days: args.days as number | undefined,
+      });
+      if (error) {
+        if (error.includes("not connected")) return "Google Calendar not connected. Go to Settings → Integrations to connect.";
+        return `Error: ${error}`;
+      }
+      const meetings = (data as Record<string, unknown>).meetings as Record<string, unknown>[] ?? [];
+      if (!meetings.length) return "No upcoming meetings.";
+      return meetings.map(e =>
+        `• ${e.title} — ${e.start}${e.meet_link ? `\n  Meet: ${e.meet_link}` : ""}`
+      ).join("\n");
     }
 
     case "schedule_meeting": {
-      const { title, start, end, description, add_meet_link = true } = args as Record<string, unknown>;
-      const attendees = (args.attendees as string[]) ?? [];
-      const token = await getValidToken(userId, supabase);
-      if (!token) return "Google Calendar not connected. Go to Settings → Integrations to connect.";
-      const event = await createCalendarEvent(token, {
-        title: title as string, description: description as string,
-        startDateTime: start as string, endDateTime: end as string,
-        attendeeEmails: attendees, addMeetLink: add_meet_link as boolean,
-      });
-      if (!event) return "Failed to create meeting.";
-      return `Scheduled "${event.summary}" on ${event.start.dateTime}${event.hangoutLink ? `\nMeet link: ${event.hangoutLink}` : ""}`;
+      const { data, error } = await v1("POST", "meetings", args);
+      if (error) {
+        if (error.includes("not connected")) return "Google Calendar not connected. Go to Settings → Integrations to connect.";
+        return `Error: ${error}`;
+      }
+      const meeting = (data as Record<string, unknown>).meeting as Record<string, string>;
+      return `Scheduled "${meeting.title}" on ${meeting.start}${meeting.meet_link ? `\nMeet link: ${meeting.meet_link}` : ""}`;
     }
 
     case "get_time_summary": {
+      const { data, error } = await v1("GET", "time-logs");
+      if (error) return `Error: ${error}`;
+      const d = data as Record<string, unknown>;
+      const logs = d.time_logs as Record<string, unknown>[] ?? [];
       const days = (args.days as number) ?? 7;
-      const since = new Date(Date.now() - days * 86_400_000).toISOString();
-      const { data } = await supabase.from("time_logs").select("duration_minutes, note, logged_at")
-        .eq("user_id", userId).gte("logged_at", since).order("logged_at", { ascending: false });
-      if (!data?.length) return `No time logged in the last ${days} days.`;
-      const total = (data as Record<string, number>[]).reduce((s, l) => s + l.duration_minutes, 0);
+      const since = new Date(Date.now() - days * 86_400_000);
+      const recent = logs.filter(l => new Date(l.logged_at as string) >= since);
+      if (!recent.length) return `No time logged in the last ${days} days.`;
+      const total = recent.reduce((s, l) => s + (l.duration_minutes as number), 0);
       return `${(total / 60).toFixed(1)}h logged in last ${days} days:\n${
-        (data as Record<string, unknown>[]).slice(0, 10).map(l => `• ${Math.round(l.duration_minutes as number)}min${l.note ? ` — ${l.note}` : ""}`).join("\n")
+        recent.slice(0, 10).map(l => `• ${Math.round(l.duration_minutes as number)}min${l.note ? ` — ${l.note}` : ""}`).join("\n")
       }`;
     }
 
     case "log_time": {
-      const { task_id, duration_minutes, note } = args as Record<string, unknown>;
-      const { error } = await supabase.from("time_logs").insert({
-        id: crypto.randomUUID(), task_id, user_id: userId, duration_minutes, note: note || null, logged_at: new Date().toISOString(),
-      });
-      if (error) return `Error: ${error.message}`;
-      return `Logged ${duration_minutes} minutes.`;
+      const { error } = await v1("POST", "time-logs", args);
+      if (error) return `Error: ${error}`;
+      return `Logged ${args.duration_minutes} minutes.`;
     }
 
     case "list_subtasks": {
-      const { data } = await supabase.from("task_subtasks").select("id, title, completed")
-        .eq("task_id", args.task_id as string).order("position");
-      if (!data?.length) return "No subtasks.";
-      return (data as Record<string, unknown>[]).map(s => `[${s.id}] ${s.completed ? "✓" : "○"} ${s.title}`).join("\n");
+      const { data, error } = await v1("GET", "subtasks", undefined, {
+        task_id: args.task_id as string,
+      });
+      if (error) return `Error: ${error}`;
+      const subtasks = (data as Record<string, unknown>).subtasks as Record<string, unknown>[] ?? [];
+      if (!subtasks.length) return "No subtasks.";
+      return subtasks.map(s => `[${s.id}] ${s.completed ? "✓" : "○"} ${s.title}`).join("\n");
     }
 
     case "add_subtask": {
-      const { task_id, title } = args as Record<string, string>;
-      const { data, error } = await supabase.from("task_subtasks")
-        .insert({ id: crypto.randomUUID(), task_id, title, completed: false, position: 0 })
-        .select("id").single();
-      if (error) return `Error: ${error.message}`;
-      return `Added subtask "${title}" (ID: ${(data as Record<string, string>).id})`;
+      const { data, error } = await v1("POST", "subtasks", args);
+      if (error) return `Error: ${error}`;
+      const subtask = (data as Record<string, unknown>).subtask as Record<string, string>;
+      return `Added subtask "${subtask.title}" (ID: ${subtask.id})`;
     }
 
     case "complete_subtask": {
-      const { subtask_id, completed = true } = args as Record<string, unknown>;
-      const { error } = await supabase.from("task_subtasks").update({ completed }).eq("id", subtask_id as string);
-      if (error) return `Error: ${error.message}`;
+      const { subtask_id, completed = true } = args;
+      const { error } = await v1("PATCH", "subtasks", { id: subtask_id, completed });
+      if (error) return `Error: ${error}`;
       return `Subtask ${completed ? "completed" : "uncompleted"}.`;
     }
 
     case "list_comments": {
-      const { data } = await supabase.from("task_comments").select("id, content, created_at")
-        .eq("task_id", args.task_id as string).order("created_at");
-      if (!data?.length) return "No comments.";
-      return (data as Record<string, string>[]).map(c =>
-        `[${new Date(c.created_at).toLocaleString()}] ${c.content}`
-      ).join("\n");
+      const { data, error } = await v1("GET", "comments", undefined, {
+        task_id: args.task_id as string,
+      });
+      if (error) return `Error: ${error}`;
+      const comments = (data as Record<string, unknown>).comments as Record<string, string>[] ?? [];
+      if (!comments.length) return "No comments.";
+      return comments.map(c => `[${new Date(c.created_at).toLocaleString()}] ${c.content}`).join("\n");
     }
 
     case "add_comment": {
-      const { task_id, content } = args as Record<string, string>;
-      const { error } = await supabase.from("task_comments")
-        .insert({ id: crypto.randomUUID(), task_id, user_id: userId, content });
-      if (error) return `Error: ${error.message}`;
+      const { error } = await v1("POST", "comments", args);
+      if (error) return `Error: ${error}`;
       return "Comment added.";
     }
 
     case "list_spreadsheets": {
-      const q = supabase.from("docs").select("id, title, blocks, updated_at")
-        .like("title", "__sheet__%").order("updated_at", { ascending: false });
-      const { data } = orgId ? await q.eq("org_id", orgId) : await q;
-      if (!data?.length) return "No spreadsheets found.";
-      return (data as Record<string, unknown>[]).map(d => {
-        const tb = (d.blocks as Record<string, unknown>[] ?? []).find(b => b.type === "table");
-        const rows = (tb?.rows as unknown[] ?? []).length;
-        return `• ${(d.title as string).replace("__sheet__", "")} (${rows} rows) — ${BASE_URL}/docs/${d.id} [ID: ${d.id}]`;
-      }).join("\n");
+      const { data, error } = await v1("GET", "spreadsheets");
+      if (error) return `Error: ${error}`;
+      const sheets = (data as Record<string, unknown>).spreadsheets as Record<string, unknown>[] ?? [];
+      if (!sheets.length) return "No spreadsheets found.";
+      return sheets.map(d =>
+        `• ${d.title} (${d.row_count} rows) — ${d.portal_link} [ID: ${d.id}]`
+      ).join("\n");
     }
 
     case "create_spreadsheet": {
-      const { title, headers = [], rows = [], description } = args as Record<string, unknown>;
-      const blocks: unknown[] = [{ id: crypto.randomUUID(), type: "table", headers, rows }];
-      if (description) blocks.push({ id: crypto.randomUUID(), type: "paragraph", content: [{ type: "text", text: description }] });
-      const docId = crypto.randomUUID();
-      const { error } = await supabase.from("docs").insert({ id: docId, title: `__sheet__${title}`, blocks, org_id: orgId, created_by: userId });
-      if (error) return `Error: ${error.message}`;
-      return `Created spreadsheet "${title}" — ${BASE_URL}/docs/${docId} [ID: ${docId}]`;
+      const { data, error } = await v1("POST", "spreadsheets", args);
+      if (error) return `Error: ${error}`;
+      const sheet = (data as Record<string, unknown>).spreadsheet as Record<string, string>;
+      return `Created spreadsheet "${sheet.title}" — ${sheet.portal_link} [ID: ${sheet.id}]`;
     }
 
     case "read_spreadsheet": {
-      const { data } = await supabase.from("docs").select("title, blocks").eq("id", args.spreadsheet_id as string).maybeSingle();
-      if (!data) return "Spreadsheet not found.";
-      const tb = (((data as Record<string, unknown>).blocks) as Record<string, unknown>[] ?? []).find(b => b.type === "table");
-      if (!tb) return "No table data.";
-      const title = ((data as Record<string, string>).title).replace("__sheet__", "");
-      const header = (tb.headers as string[] ?? []).join(" | ");
-      const rowLines = (tb.rows as string[][] ?? []).map(r => r.join(" | ")).join("\n");
-      return `"${title}"\n${header}\n${rowLines || "(empty)"}`;
+      const { data, error } = await v1("GET", `spreadsheets/${args.spreadsheet_id}`);
+      if (error) return `Spreadsheet not found: ${error}`;
+      const sheet = data as Record<string, unknown>;
+      const header = (sheet.headers as string[] ?? []).join(" | ");
+      const rowLines = (sheet.rows as string[][] ?? []).map(r => r.join(" | ")).join("\n");
+      return `"${sheet.title}"\n${header}\n${rowLines || "(empty)"}`;
     }
 
     case "update_spreadsheet": {
-      const { spreadsheet_id, rows, headers, title } = args as Record<string, unknown>;
-      const { data: doc } = await supabase.from("docs").select("blocks, title").eq("id", spreadsheet_id as string).maybeSingle();
-      if (!doc) return "Spreadsheet not found.";
-      const blocks = ((doc as Record<string, unknown>).blocks as Record<string, unknown>[] ?? []);
-      const ti = blocks.findIndex(b => b.type === "table");
-      if (ti >= 0) {
-        if (headers) blocks[ti].headers = headers;
-        if (rows) blocks[ti].rows = rows;
-      } else {
-        blocks.unshift({ id: crypto.randomUUID(), type: "table", headers: headers ?? [], rows: rows ?? [] });
-      }
-      const patch: Record<string, unknown> = { blocks, updated_at: new Date().toISOString() };
-      if (title) patch.title = `__sheet__${title}`;
-      const { error } = await supabase.from("docs").update(patch).eq("id", spreadsheet_id as string);
-      if (error) return `Error: ${error.message}`;
+      const { spreadsheet_id, ...patch } = args;
+      const { error } = await v1("PATCH", `spreadsheets/${spreadsheet_id}`, patch);
+      if (error) return `Error: ${error}`;
       return "Spreadsheet updated.";
     }
 
@@ -464,17 +407,11 @@ export async function POST(req: NextRequest) {
   try {
     const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) return NextResponse.json({ error: "GROQ_API_KEY not set" }, { status: 500 });
+    if (!AGENT_API_KEY) return NextResponse.json({ error: "WORKBOX_AGENT_API_KEY not set" }, { status: 500 });
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const userId = user.id;
-    const svcClient = createServiceClient();
-    const { data: profile } = await svcClient.from("profiles")
-      .select("organization_id, full_name").eq("id", userId).maybeSingle();
-    const orgId = (profile as Record<string, unknown> | null)?.organization_id as string | null ?? null;
-    const senderName = (profile as Record<string, string> | null)?.full_name ?? user.email?.split("@")[0] ?? "User";
 
     const { messages } = await req.json();
     const groqMessages: Record<string, unknown>[] = [
@@ -492,8 +429,7 @@ export async function POST(req: NextRequest) {
         });
         if (r.ok) { res = r; break; }
         if (r.status === 401 || r.status === 403) { res = r; break; }
-        // 429 (rate limit) or other errors — wait briefly then try next model
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
       if (!res) return NextResponse.json({ content: "I'm a little busy right now — please try again in a moment." });
       if (!res.ok) return NextResponse.json({ content: "Something went wrong. Please try again." }, { status: res.status });
@@ -511,7 +447,7 @@ export async function POST(req: NextRequest) {
       for (const tc of msg.tool_calls) {
         let args: Record<string, unknown> = {};
         try { args = JSON.parse(tc.function.arguments); } catch { /* ignore */ }
-        const result = await executeTool(tc.function.name, args, userId, orgId, senderName);
+        const result = await executeTool(tc.function.name, args);
         groqMessages.push({ role: "tool", tool_call_id: tc.id, content: result });
       }
     }
