@@ -4,7 +4,8 @@ from typing import Generator
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "qwen2.5-72b-instruct"
+PRIMARY_MODEL  = "qwen2.5-72b-instruct"
+FALLBACK_MODEL = "llama-3.1-8b-instant"
 MAX_RESPONSE_TOKENS = 1024
 
 BASE_SYSTEM_PROMPT = (
@@ -28,35 +29,41 @@ def build_prompt(context_chunks: list[str]) -> str:
         "If the answer is not in the context, say so clearly and offer general guidance."
     )
 
-def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
+def _stream_model(messages: list[dict], model: str, client: httpx.Client):
     import json
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
     payload = {
-        "model": MODEL,
+        "model": model,
         "messages": messages,
         "max_tokens": MAX_RESPONSE_TOKENS,
         "stream": True,
     }
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    with client.stream("POST", GROQ_URL, headers=headers, json=payload) as response:
+        if response.status_code == 429 or not response.is_success:
+            return False, []
+        tokens = []
+        for line in response.iter_lines():
+            if line.startswith("data: "):
+                data = line[6:]
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                    token = chunk["choices"][0]["delta"].get("content", "")
+                    if token:
+                        tokens.append(token)
+                except Exception:
+                    continue
+        return True, tokens
+
+def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
     with httpx.Client(timeout=30) as client:
-        with client.stream("POST", GROQ_URL, headers=headers, json=payload) as response:
-            if response.status_code == 429:
-                yield "I'm a little busy right now — please try again in a moment."
+        for model in (PRIMARY_MODEL, FALLBACK_MODEL):
+            ok, tokens = _stream_model(messages, model, client)
+            if ok:
+                yield from tokens
                 return
-            if not response.is_success:
-                yield "Something went wrong on my end. Please try again."
-                return
-            for line in response.iter_lines():
-                if line.startswith("data: "):
-                    data = line[6:]
-                    if data == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                        token = chunk["choices"][0]["delta"].get("content", "")
-                        if token:
-                            yield token
-                    except Exception:
-                        continue
+        yield "I'm having trouble responding right now — please try again in a moment."
