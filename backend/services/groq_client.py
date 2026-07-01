@@ -29,6 +29,7 @@ def build_prompt(context_chunks: list[str]) -> str:
     )
 
 def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
+    import json
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
@@ -41,12 +42,17 @@ def stream_chat(messages: list[dict]) -> Generator[str, None, None]:
     }
     with httpx.Client(timeout=30) as client:
         with client.stream("POST", GROQ_URL, headers=headers, json=payload) as response:
+            if response.status_code == 429:
+                yield "I'm a little busy right now — please try again in a moment."
+                return
+            if not response.is_success:
+                yield "Something went wrong on my end. Please try again."
+                return
             for line in response.iter_lines():
                 if line.startswith("data: "):
                     data = line[6:]
                     if data == "[DONE]":
                         break
-                    import json
                     try:
                         chunk = json.loads(data)
                         token = chunk["choices"][0]["delta"].get("content", "")
