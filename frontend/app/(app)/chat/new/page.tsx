@@ -36,7 +36,7 @@ export default function ChatPage() {
         body: JSON.stringify({ messages: next }),
       });
       const data = await res.json();
-      setMessages((m) => [...m, { role: "assistant", content: data.content || "Sorry, something went wrong." }]);
+      setMessages((m) => [...m, { role: "assistant", content: data.content || data.error || "Sorry, something went wrong." }]);
     } catch {
       setMessages((m) => [...m, { role: "assistant", content: "Failed to connect. Please try again." }]);
     } finally {
