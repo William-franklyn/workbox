@@ -48,8 +48,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    return NextResponse.json({ error: err }, { status: res.status });
+    if (res.status === 429) {
+      return NextResponse.json({ content: "I'm a little busy right now — please try again in a few seconds." });
+    }
+    return NextResponse.json({ content: "Something went wrong. Please try again." }, { status: res.status });
   }
 
   const data = await res.json();

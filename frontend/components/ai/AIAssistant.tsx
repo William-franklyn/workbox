@@ -65,7 +65,7 @@ export default function AIAssistant() {
 
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: agentData.content || agentData.error || "Sorry, something went wrong.", escalated: true },
+          { role: "assistant", content: agentData.content || "Sorry, something went wrong. Please try again.", escalated: true },
         ]);
       } else {
         setMessages((prev) => [
