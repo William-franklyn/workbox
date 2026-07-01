@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PublicChatWidget from "@/components/ai/PublicChatWidget";
 
 export default function LandingPage() {
   return (
@@ -53,8 +54,13 @@ export default function LandingPage() {
         ))}
       </section>
 
+      <PublicChatWidget />
+
       <footer className="text-center text-xs py-8 border-t" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-        © {new Date().getFullYear()} WorkBox. Built for modern teams.
+        <p>© {new Date().getFullYear()} WorkBox. Built for modern teams.</p>
+        <div className="flex justify-center gap-6 mt-2">
+          <Link href="/privacy" style={{ color: "var(--text-secondary)" }} className="hover:underline">Privacy Policy</Link>
+        </div>
       </footer>
     </main>
   );
