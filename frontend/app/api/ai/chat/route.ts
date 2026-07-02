@@ -514,7 +514,11 @@ export async function POST(req: NextRequest) {
 
       for (const tc of msg.tool_calls) {
         let args: Record<string, unknown> = {};
-        try { args = JSON.parse(tc.function.arguments); } catch { /* ignore */ }
+        try {
+          const raw = tc.function.arguments;
+          const parsed = raw ? JSON.parse(raw) : {};
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) args = parsed;
+        } catch { /* ignore */ }
         const result = await executeTool(tc.function.name, args, userId, orgId, senderName);
         groqMessages.push({ role: "tool", tool_call_id: tc.id, content: result });
       }
