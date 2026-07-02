@@ -28,7 +28,15 @@ const INTEGRATIONS: Integration[] = [
     live: true,
     connectHref: "/api/auth/google/redirect",
   },
-  { name: "Outlook Calendar", description: "Connect your Microsoft calendar", category: "Calendar", color: "#0078D4", letter: "C" },
+  {
+    name: "Outlook Calendar",
+    description: "Connect your Microsoft calendar",
+    category: "Calendar",
+    color: "#0078D4",
+    letter: "C",
+    live: true,
+    connectHref: "/api/auth/microsoft/redirect",
+  },
 
   // Video
   { name: "Zoom", description: "Access meeting recordings and transcripts", category: "Video & Calls", color: "#2D8CFF", letter: "Z" },
@@ -65,12 +73,18 @@ export default function IntegrationsClient() {
   const [notified, setNotified] = useState<string | null>(null);
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
   const [gcalEmail, setGcalEmail] = useState<string | null>(null);
+  const [outlookConnected, setOutlookConnected] = useState<boolean | null>(null);
+  const [outlookEmail, setOutlookEmail] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/google-calendar/status")
       .then(r => r.json())
       .then(d => { setGcalConnected(d.connected); setGcalEmail(d.email); })
       .catch(() => setGcalConnected(false));
+    fetch("/api/outlook-calendar/status")
+      .then(r => r.json())
+      .then(d => { setOutlookConnected(d.connected); setOutlookEmail(d.email); })
+      .catch(() => setOutlookConnected(false));
   }, []);
 
   async function disconnectGcal() {
@@ -78,6 +92,13 @@ export default function IntegrationsClient() {
     await fetch("/api/google-calendar/status", { method: "DELETE" });
     setGcalConnected(false);
     setGcalEmail(null);
+  }
+
+  async function disconnectOutlook() {
+    if (!confirm("Disconnect Outlook Calendar?")) return;
+    await fetch("/api/outlook-calendar/status", { method: "DELETE" });
+    setOutlookConnected(false);
+    setOutlookEmail(null);
   }
 
   const filtered = INTEGRATIONS.filter(
@@ -123,6 +144,34 @@ export default function IntegrationsClient() {
       return (
         <button onClick={() => handleConnect(integration)}
           className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#4285F4] hover:text-[#4285F4] transition-colors">
+          Connect
+        </button>
+      );
+    }
+
+    if (integration.name === "Outlook Calendar") {
+      if (outlookConnected === null) return null;
+      if (outlookConnected) {
+        return (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg"
+              style={{ background: "#22c55e22", color: "#22c55e" }}>
+              <Check size={11} /> Connected
+            </span>
+            <button onClick={() => router.push("/meetings")}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#0078D4] hover:text-[#0078D4] transition-colors">
+              View Meetings
+            </button>
+            <button onClick={disconnectOutlook}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              Disconnect
+            </button>
+          </div>
+        );
+      }
+      return (
+        <button onClick={() => handleConnect(integration)}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#0078D4] hover:text-[#0078D4] transition-colors">
           Connect
         </button>
       );
@@ -197,6 +246,9 @@ export default function IntegrationsClient() {
                       <p className="text-xs text-gray-400 mt-0.5 leading-snug">{integration.description}</p>
                       {gcalEmail && integration.name === "Google Calendar" && (
                         <p className="text-xs mt-1" style={{ color: "#4285F4" }}>{gcalEmail}</p>
+                      )}
+                      {outlookEmail && integration.name === "Outlook Calendar" && (
+                        <p className="text-xs mt-1" style={{ color: "#0078D4" }}>{outlookEmail}</p>
                       )}
                       {renderAction(integration)}
                     </div>

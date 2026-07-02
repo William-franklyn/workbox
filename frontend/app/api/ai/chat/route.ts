@@ -475,13 +475,15 @@ export async function POST(req: NextRequest) {
     const senderName = (profile as Record<string, string> | null)?.full_name ?? user.email?.split("@")[0] ?? "User";
 
     const { messages } = await req.json();
+    const recentMessages = (messages as unknown[]).slice(-12);
     const groqMessages: Record<string, unknown>[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
+      ...recentMessages,
     ];
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       let res: Response | null = null;
+      let lastErrMsg = "";
       for (const model of MODELS) {
         const r = await fetch(GROQ_API, {
           method: "POST",
@@ -490,10 +492,18 @@ export async function POST(req: NextRequest) {
         });
         if (r.ok) { res = r; break; }
         if (r.status === 401 || r.status === 403) { res = r; break; }
-        await new Promise(resolve => setTimeout(resolve, 800));
+        const errBody = await r.json().catch(() => ({}));
+        lastErrMsg = (errBody as Record<string, Record<string, string>>).error?.message ?? `HTTP ${r.status}`;
+        const delay = r.status === 429 ? 3000 : 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      if (!res) return NextResponse.json({ content: "I'm a little busy right now — please try again in a moment." });
+      if (!res) {
+        const hint = lastErrMsg.includes("rate") || lastErrMsg.includes("limit") || lastErrMsg.includes("429")
+          ? "The AI is rate-limited — please wait 30 seconds and try again."
+          : `AI error: ${lastErrMsg || "all models unavailable"}`;
+        return NextResponse.json({ content: hint });
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const errMsg = (err as Record<string, Record<string, string>>).error?.message ?? `HTTP ${res.status}`;
