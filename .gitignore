@@ -4,6 +4,9 @@
 .env.*.local
 backend/.env
 
+# MCP config contains API keys - use .mcp.json.example as template
+.mcp.json
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.3-70b-versatile";
+const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-haiku-4-5-20251001";
 
 const SUPPORT_PROMPT = `You are WorkBox Support — a friendly, concise assistant that helps users understand and use WorkBox, a project management and productivity platform.
 
@@ -31,19 +31,25 @@ Escalate when the user asks to:
 - Do not answer questions unrelated to work or WorkBox — gently redirect to what you can help with.`;
 
 export async function POST(req: NextRequest) {
-  const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) return NextResponse.json({ error: "GROQ_API_KEY not set" }, { status: 500 });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey === "your_anthropic_api_key_here") {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+  }
 
   const { messages } = await req.json();
 
-  const res = await fetch(GROQ_API, {
+  const res = await fetch(ANTHROPIC_API, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
     body: JSON.stringify({
       model: MODEL,
-      messages: [{ role: "system", content: SUPPORT_PROMPT }, ...messages],
       max_tokens: 512,
-      temperature: 0.4,
+      system: SUPPORT_PROMPT,
+      messages,
     }),
   });
 
@@ -55,7 +61,8 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json();
-  const content: string = data.choices?.[0]?.message?.content ?? "";
+  const content: string = (data.content as Array<{ type: string; text?: string }>)
+    ?.find(b => b.type === "text")?.text ?? "";
 
   if (content.startsWith("[ESCALATE]")) {
     const reason = content.replace("[ESCALATE]", "").trim();

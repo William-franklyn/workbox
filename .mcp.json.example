@@ -2,9 +2,9 @@
   "mcpServers": {
     "workbox": {
       "command": "node",
-      "args": ["C:/Users/PC/Desktop/deskbot/workbox-mcp/index.js"],
+      "args": ["/absolute/path/to/workbox-mcp/index.js"],
       "env": {
-        "WORKBOX_API_KEY": "wbx_D1VHwYuGdfwNIRt7Wr84JrVjyeuIcj1XpSDVMnIbODs",
+        "WORKBOX_API_KEY": "wbx_your_api_key_from_settings_page",
         "WORKBOX_BASE_URL": "https://workbox-blue.vercel.app"
       }
     }
