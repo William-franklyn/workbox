@@ -55,7 +55,7 @@ export default function ChatPage() {
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>WorkBox AI</p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Full workspace access · llama-3.3-70b</p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Full workspace access · claude-haiku-4-5</p>
           </div>
         </div>
         {messages.length > 0 && (

@@ -69,8 +69,8 @@ export async function GET() {
       return NextResponse.json({ brief: "Workspace is clear — a great time to plan ahead or tackle the backlog.", stats });
     }
 
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey || apiKey === "your_anthropic_api_key_here") {
       return NextResponse.json({ brief: `On your plate today: ${parts.join(", ")}.`, stats });
     }
 
@@ -78,24 +78,27 @@ export async function GET() {
       weekday: "long", month: "long", day: "numeric",
     });
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 80,
         messages: [{
           role: "user",
           content: `Write a 1-2 sentence work briefing. Today: ${dateStr}. Status: ${parts.join("; ")}. No greeting, no filler — direct and motivating.`,
         }],
-        max_tokens: 80,
-        temperature: 0.5,
       }),
     });
 
     let brief = `On your plate today: ${parts.join(", ")}.`;
     if (res.ok) {
       const json = await res.json();
-      const c = json.choices?.[0]?.message?.content?.trim();
+      const c = (json.content as Array<{ type: string; text?: string }>)?.find(b => b.type === "text")?.text?.trim();
       if (c) brief = c.replace(/^["']|["']$/g, "");
     }
 

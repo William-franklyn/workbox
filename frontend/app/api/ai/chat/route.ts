@@ -3,9 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/calendar";
 
-const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
-const MODELS = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama-3.1-8b-instant"];
-const MAX_ROUNDS = 3;
+const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+const MODEL = "claude-haiku-4-5-20251001";
+const MAX_ROUNDS = 5;
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
 function blocksToText(blocks: unknown[]): string {
@@ -390,40 +391,41 @@ async function executeTool(
   }
 }
 
+// Anthropic tool format: { name, description, input_schema }
 const TOOLS = [
-  { type: "function", function: { name: "list_tasks", description: "List all tasks, optionally filtered by list_id or status (todo/in_progress/in_review/done)", parameters: { type: "object", properties: { list_id: { type: "string" }, status: { type: "string" } }, required: [] } } },
-  { type: "function", function: { name: "create_task", description: "Create a new task in a list", parameters: { type: "object", properties: { title: { type: "string" }, list_id: { type: "string" }, status: { type: "string", description: "todo (default), in_progress, in_review, done" }, priority: { type: "string", description: "urgent, high, normal (default), low" }, due_date: { type: "string", description: "ISO date e.g. 2026-07-01" }, description: { type: "string" } }, required: ["title", "list_id"] } } },
-  { type: "function", function: { name: "update_task", description: "Update a task's title, status, priority, due_date, or description", parameters: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, status: { type: "string" }, priority: { type: "string" }, due_date: { type: "string" }, description: { type: "string" } }, required: ["task_id"] } } },
-  { type: "function", function: { name: "delete_task", description: "Delete a task by ID", parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } } },
-  { type: "function", function: { name: "list_spaces", description: "List all spaces and their lists (with IDs)", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "create_space", description: "Create a new space", parameters: { type: "object", properties: { name: { type: "string" }, icon: { type: "string" }, color: { type: "string" } }, required: ["name"] } } },
-  { type: "function", function: { name: "create_list", description: "Create a new list inside a space", parameters: { type: "object", properties: { name: { type: "string" }, space_id: { type: "string" } }, required: ["name", "space_id"] } } },
-  { type: "function", function: { name: "list_docs", description: "List all documents (title and portal link only)", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "create_doc", description: "Create a new document with optional text content", parameters: { type: "object", properties: { title: { type: "string" }, content: { type: "string" } }, required: ["title"] } } },
-  { type: "function", function: { name: "read_doc", description: "Read the full content of a document", parameters: { type: "object", properties: { doc_id: { type: "string" } }, required: ["doc_id"] } } },
-  { type: "function", function: { name: "update_doc", description: "Update a document's title or content", parameters: { type: "object", properties: { doc_id: { type: "string" }, title: { type: "string" }, content: { type: "string" } }, required: ["doc_id"] } } },
-  { type: "function", function: { name: "delete_doc", description: "Delete a document", parameters: { type: "object", properties: { doc_id: { type: "string" } }, required: [] } } },
-  { type: "function", function: { name: "list_goals", description: "List all goals with key results and progress", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "create_goal", description: "Create a new goal with optional key results", parameters: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, due_date: { type: "string" }, key_results: { type: "array", items: { type: "object", properties: { title: { type: "string" }, target_value: { type: "number" }, unit: { type: "string" } } } } }, required: ["title"] } } },
-  { type: "function", function: { name: "update_goal_progress", description: "Update a key result's current value", parameters: { type: "object", properties: { goal_id: { type: "string" }, kr_id: { type: "string" }, current_value: { type: "number" } }, required: ["goal_id", "kr_id", "current_value"] } } },
-  { type: "function", function: { name: "list_members", description: "List all workspace members", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "get_messages", description: "Get team chat messages and any that mention you", parameters: { type: "object", properties: { limit: { type: "number" } }, required: [] } } },
-  { type: "function", function: { name: "send_message", description: "Send a message to team chat, optionally mentioning people by name", parameters: { type: "object", properties: { content: { type: "string" }, mention_names: { type: "array", items: { type: "string" } } }, required: ["content"] } } },
-  { type: "function", function: { name: "get_notifications", description: "Get recent notifications", parameters: { type: "object", properties: { limit: { type: "number" } }, required: [] } } },
-  { type: "function", function: { name: "mark_notifications_read", description: "Mark one or all notifications as read", parameters: { type: "object", properties: { id: { type: "string", description: "Omit to mark all read" } }, required: [] } } },
-  { type: "function", function: { name: "list_meetings", description: "List upcoming meetings from Google Calendar", parameters: { type: "object", properties: { days: { type: "number" } }, required: [] } } },
-  { type: "function", function: { name: "schedule_meeting", description: "Schedule a meeting on Google Calendar", parameters: { type: "object", properties: { title: { type: "string" }, start: { type: "string", description: "ISO datetime e.g. 2026-07-01T14:00:00" }, end: { type: "string" }, attendees: { type: "array", items: { type: "string" }, description: "Email addresses" }, description: { type: "string" }, add_meet_link: { type: "boolean" } }, required: ["title", "start", "end"] } } },
-  { type: "function", function: { name: "get_time_summary", description: "Get time tracking summary for recent days", parameters: { type: "object", properties: { days: { type: "number" } }, required: [] } } },
-  { type: "function", function: { name: "log_time", description: "Log time spent on a task", parameters: { type: "object", properties: { task_id: { type: "string" }, duration_minutes: { type: "number" }, note: { type: "string" } }, required: ["task_id", "duration_minutes"] } } },
-  { type: "function", function: { name: "list_subtasks", description: "List subtasks for a task", parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } } },
-  { type: "function", function: { name: "add_subtask", description: "Add a subtask to a task", parameters: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" } }, required: ["task_id", "title"] } } },
-  { type: "function", function: { name: "complete_subtask", description: "Mark a subtask complete or incomplete", parameters: { type: "object", properties: { subtask_id: { type: "string" }, completed: { type: "boolean" } }, required: ["subtask_id"] } } },
-  { type: "function", function: { name: "list_comments", description: "List comments on a task", parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } } },
-  { type: "function", function: { name: "add_comment", description: "Add a comment to a task", parameters: { type: "object", properties: { task_id: { type: "string" }, content: { type: "string" } }, required: ["task_id", "content"] } } },
-  { type: "function", function: { name: "list_spreadsheets", description: "List all spreadsheets", parameters: { type: "object", properties: {}, required: [] } } },
-  { type: "function", function: { name: "create_spreadsheet", description: "Create a spreadsheet with headers and rows of data", parameters: { type: "object", properties: { title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } }, description: { type: "string" } }, required: ["title", "headers"] } } },
-  { type: "function", function: { name: "read_spreadsheet", description: "Read the data from a spreadsheet", parameters: { type: "object", properties: { spreadsheet_id: { type: "string" } }, required: ["spreadsheet_id"] } } },
-  { type: "function", function: { name: "update_spreadsheet", description: "Update a spreadsheet's title, headers, or rows", parameters: { type: "object", properties: { spreadsheet_id: { type: "string" }, title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["spreadsheet_id"] } } },
+  { name: "list_tasks", description: "List all tasks, optionally filtered by list_id or status (todo/in_progress/in_review/done)", input_schema: { type: "object", properties: { list_id: { type: "string" }, status: { type: "string" } }, required: [] } },
+  { name: "create_task", description: "Create a new task in a list", input_schema: { type: "object", properties: { title: { type: "string" }, list_id: { type: "string" }, status: { type: "string", description: "todo (default), in_progress, in_review, done" }, priority: { type: "string", description: "urgent, high, normal (default), low" }, due_date: { type: "string", description: "ISO date e.g. 2026-07-01" }, description: { type: "string" } }, required: ["title", "list_id"] } },
+  { name: "update_task", description: "Update a task's title, status, priority, due_date, or description", input_schema: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, status: { type: "string" }, priority: { type: "string" }, due_date: { type: "string" }, description: { type: "string" } }, required: ["task_id"] } },
+  { name: "delete_task", description: "Delete a task by ID", input_schema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } },
+  { name: "list_spaces", description: "List all spaces and their lists (with IDs)", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "create_space", description: "Create a new space", input_schema: { type: "object", properties: { name: { type: "string" }, icon: { type: "string" }, color: { type: "string" } }, required: ["name"] } },
+  { name: "create_list", description: "Create a new list inside a space", input_schema: { type: "object", properties: { name: { type: "string" }, space_id: { type: "string" } }, required: ["name", "space_id"] } },
+  { name: "list_docs", description: "List all documents (title and portal link only)", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "create_doc", description: "Create a new document with optional text content", input_schema: { type: "object", properties: { title: { type: "string" }, content: { type: "string" } }, required: ["title"] } },
+  { name: "read_doc", description: "Read the full content of a document", input_schema: { type: "object", properties: { doc_id: { type: "string" } }, required: ["doc_id"] } },
+  { name: "update_doc", description: "Update a document's title or content", input_schema: { type: "object", properties: { doc_id: { type: "string" }, title: { type: "string" }, content: { type: "string" } }, required: ["doc_id"] } },
+  { name: "delete_doc", description: "Delete a document", input_schema: { type: "object", properties: { doc_id: { type: "string" } }, required: ["doc_id"] } },
+  { name: "list_goals", description: "List all goals with key results and progress", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "create_goal", description: "Create a new goal with optional key results", input_schema: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, due_date: { type: "string" }, key_results: { type: "array", items: { type: "object", properties: { title: { type: "string" }, target_value: { type: "number" }, unit: { type: "string" } } } } }, required: ["title"] } },
+  { name: "update_goal_progress", description: "Update a key result's current value", input_schema: { type: "object", properties: { goal_id: { type: "string" }, kr_id: { type: "string" }, current_value: { type: "number" } }, required: ["goal_id", "kr_id", "current_value"] } },
+  { name: "list_members", description: "List all workspace members", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "get_messages", description: "Get team chat messages and any that mention you", input_schema: { type: "object", properties: { limit: { type: "number" } }, required: [] } },
+  { name: "send_message", description: "Send a message to team chat, optionally mentioning people by name", input_schema: { type: "object", properties: { content: { type: "string" }, mention_names: { type: "array", items: { type: "string" } } }, required: ["content"] } },
+  { name: "get_notifications", description: "Get recent notifications", input_schema: { type: "object", properties: { limit: { type: "number" } }, required: [] } },
+  { name: "mark_notifications_read", description: "Mark one or all notifications as read", input_schema: { type: "object", properties: { id: { type: "string", description: "Omit to mark all read" } }, required: [] } },
+  { name: "list_meetings", description: "List upcoming meetings from Google Calendar", input_schema: { type: "object", properties: { days: { type: "number" } }, required: [] } },
+  { name: "schedule_meeting", description: "Schedule a meeting on Google Calendar", input_schema: { type: "object", properties: { title: { type: "string" }, start: { type: "string", description: "ISO datetime e.g. 2026-07-01T14:00:00" }, end: { type: "string" }, attendees: { type: "array", items: { type: "string" }, description: "Email addresses" }, description: { type: "string" }, add_meet_link: { type: "boolean" } }, required: ["title", "start", "end"] } },
+  { name: "get_time_summary", description: "Get time tracking summary for recent days", input_schema: { type: "object", properties: { days: { type: "number" } }, required: [] } },
+  { name: "log_time", description: "Log time spent on a task", input_schema: { type: "object", properties: { task_id: { type: "string" }, duration_minutes: { type: "number" }, note: { type: "string" } }, required: ["task_id", "duration_minutes"] } },
+  { name: "list_subtasks", description: "List subtasks for a task", input_schema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } },
+  { name: "add_subtask", description: "Add a subtask to a task", input_schema: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" } }, required: ["task_id", "title"] } },
+  { name: "complete_subtask", description: "Mark a subtask complete or incomplete", input_schema: { type: "object", properties: { subtask_id: { type: "string" }, completed: { type: "boolean" } }, required: ["subtask_id"] } },
+  { name: "list_comments", description: "List comments on a task", input_schema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } },
+  { name: "add_comment", description: "Add a comment to a task", input_schema: { type: "object", properties: { task_id: { type: "string" }, content: { type: "string" } }, required: ["task_id", "content"] } },
+  { name: "list_spreadsheets", description: "List all spreadsheets", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "create_spreadsheet", description: "Create a spreadsheet with headers and rows of data", input_schema: { type: "object", properties: { title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } }, description: { type: "string" } }, required: ["title", "headers"] } },
+  { name: "read_spreadsheet", description: "Read the data from a spreadsheet", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" } }, required: ["spreadsheet_id"] } },
+  { name: "update_spreadsheet", description: "Update a spreadsheet's title, headers, or rows", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" }, title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["spreadsheet_id"] } },
 ];
 
 const SYSTEM_PROMPT = `You are WorkBox Agent — the AI brain built into WorkBox, a project management and productivity platform. You have direct, real-time access to the entire workspace through tools.
@@ -458,10 +460,14 @@ Keep redirects light and helpful, never preachy or robotic.
 - After taking an action (create, update, delete, send), confirm it to the user concisely.
 - Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
 
+type AnthropicBlock = { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> };
+
 export async function POST(req: NextRequest) {
   try {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return NextResponse.json({ error: "GROQ_API_KEY not configured" }, { status: 500 });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey || apiKey === "your_anthropic_api_key_here") {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+    }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -475,35 +481,30 @@ export async function POST(req: NextRequest) {
     const senderName = (profile as Record<string, string> | null)?.full_name ?? user.email?.split("@")[0] ?? "User";
 
     const { messages } = await req.json();
-    const recentMessages = (messages as Record<string, unknown>[]).slice(-12);
-    const groqMessages: Record<string, unknown>[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...recentMessages,
-    ];
+    // Anthropic doesn't accept system in the messages array — it's a top-level param
+    const anthropicMessages: Record<string, unknown>[] = (messages as Record<string, unknown>[])
+      .slice(-12)
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role, content: m.content }));
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      let res: Response | null = null;
-      let lastErrMsg = "";
-      for (const model of MODELS) {
-        const r = await fetch(GROQ_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-          body: JSON.stringify({ model, messages: groqMessages, tools: TOOLS, tool_choice: "auto", max_tokens: 1024, temperature: 0.3 }),
-        });
-        if (r.ok) { res = r; break; }
-        if (r.status === 401 || r.status === 403) { res = r; break; }
-        const errBody = await r.json().catch(() => ({}));
-        lastErrMsg = (errBody as Record<string, Record<string, string>>).error?.message ?? `HTTP ${r.status}`;
-        const delay = r.status === 429 ? 3000 : 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+      const res = await fetch(ANTHROPIC_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          tools: TOOLS,
+          tool_choice: { type: "auto" },
+          messages: anthropicMessages,
+        }),
+      });
 
-      if (!res) {
-        const hint = lastErrMsg.includes("rate") || lastErrMsg.includes("limit") || lastErrMsg.includes("429")
-          ? "The AI is rate-limited — please wait 30 seconds and try again."
-          : `AI error: ${lastErrMsg || "all models unavailable"}`;
-        return NextResponse.json({ content: hint });
-      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const errMsg = (err as Record<string, Record<string, string>>).error?.message ?? `HTTP ${res.status}`;
@@ -511,27 +512,27 @@ export async function POST(req: NextRequest) {
       }
 
       const data = await res.json();
-      const choice = data.choices?.[0];
-      const msg = choice?.message;
+      const content = data.content as AnthropicBlock[];
+      const stopReason = data.stop_reason as string;
 
-      if (!msg?.tool_calls?.length) {
-        const content = msg?.content;
-        if (!content) return NextResponse.json({ content: "I didn't catch that — please try again." });
-        return NextResponse.json({ content });
+      const toolUseBlocks = content.filter((b) => b.type === "tool_use");
+
+      // No tool calls — return final text
+      if (stopReason !== "tool_use" || !toolUseBlocks.length) {
+        const text = content.find((b) => b.type === "text")?.text;
+        return NextResponse.json({ content: text || "I've completed the requested actions." });
       }
 
-      groqMessages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
+      // Add assistant turn (includes tool_use blocks)
+      anthropicMessages.push({ role: "assistant", content });
 
-      for (const tc of msg.tool_calls) {
-        let args: Record<string, unknown> = {};
-        try {
-          const raw = tc.function.arguments;
-          const parsed = raw ? JSON.parse(raw) : {};
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) args = parsed;
-        } catch { /* ignore */ }
-        const result = await executeTool(tc.function.name, args, userId, orgId, senderName);
-        groqMessages.push({ role: "tool", tool_call_id: tc.id, content: result });
+      // Execute all tools, gather results into a single user turn
+      const toolResults: Record<string, unknown>[] = [];
+      for (const block of toolUseBlocks) {
+        const result = await executeTool(block.name!, block.input ?? {}, userId, orgId, senderName);
+        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
       }
+      anthropicMessages.push({ role: "user", content: toolResults });
     }
 
     return NextResponse.json({ content: "I've completed the requested actions." });
