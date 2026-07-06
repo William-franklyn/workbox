@@ -8,24 +8,30 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, MessageSquare, Target, Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
-  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus, Folder, Users, X, CheckCircle2,
+  LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus,
+  Folder, Users, X, CheckCircle2,
 } from "lucide-react";
 
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
 
-const SPACE_ICONS = ["🚀","📦","🎨","📣","🏠","⚙️","🔬","💼","🌍","🎯"];
+const SPACE_ICONS  = ["🚀","📦","🎨","📣","🏠","⚙️","🔬","💼","🌍","🎯"];
 const SPACE_COLORS = ["#7c3aed","#3b82f6","#22c55e","#f59e0b","#ef4444","#ec4899","#06b6d4","#84cc16"];
 
 export default function Sidebar({ orgName, userRole, userName, userEmail, userId }: Props) {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { spaces, activeListId, toggleSpaceExpanded, toggleFolderExpanded, setActiveList, setActiveSpace, addSpace, addList, deleteSpace, deleteList, renameSpace, renameList } = useWorkspaceStore();
+  const {
+    spaces, activeListId,
+    toggleSpaceExpanded, toggleFolderExpanded,
+    setActiveList, setActiveSpace,
+    addSpace, addList, deleteSpace, deleteList,
+    renameSpace, renameList,
+  } = useWorkspaceStore();
 
-  // Space members popover
-  const [membersSpaceId, setMembersSpaceId] = useState<string | null>(null);
-  const [spaceMembers, setSpaceMembers] = useState<{ id: string; full_name: string; role: string }[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersSpaceId, setMembersSpaceId]   = useState<string | null>(null);
+  const [spaceMembers, setSpaceMembers]       = useState<{ id: string; full_name: string; role: string }[]>([]);
+  const [membersLoading, setMembersLoading]   = useState(false);
 
   async function openMembers(spaceId: string) {
     setMembersSpaceId(spaceId);
@@ -35,23 +41,22 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
     setMembersLoading(false);
   }
 
-  // Inline creation state
-  const [creatingSpace, setCreatingSpace] = useState(false);
-  const [newSpaceName, setNewSpaceName] = useState("");
-  const [creatingListIn, setCreatingListIn] = useState<string | null>(null);
-  const [newListName, setNewListName] = useState("");
-  const [creatingFolderIn, setCreatingFolderIn] = useState<string | null>(null);
-  const [newFolderName, setNewFolderName] = useState("");
-  const spaceInputRef = useRef<HTMLInputElement>(null);
-  const listInputRef = useRef<HTMLInputElement>(null);
+  const [creatingSpace,   setCreatingSpace]   = useState(false);
+  const [newSpaceName,    setNewSpaceName]     = useState("");
+  const [creatingListIn,  setCreatingListIn]   = useState<string | null>(null);
+  const [newListName,     setNewListName]      = useState("");
+  const [creatingFolderIn,setCreatingFolderIn] = useState<string | null>(null);
+  const [newFolderName,   setNewFolderName]    = useState("");
+  const spaceInputRef  = useRef<HTMLInputElement>(null);
+  const listInputRef   = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameType, setRenameType] = useState<"space" | "list" | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [renamingId,   setRenamingId]   = useState<string | null>(null);
+  const [renameType,   setRenameType]   = useState<"space" | "list" | null>(null);
+  const [renameValue,  setRenameValue]  = useState("");
+  const [gcalConnected,setGcalConnected]= useState(false);
 
-  const [gcalConnected, setGcalConnected] = useState(false);
   useEffect(() => {
     fetch("/api/google-calendar/status")
       .then(r => r.ok ? r.json() : { connected: false })
@@ -65,405 +70,400 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
     window.location.href = "/login";
   }
 
-  function handleAddSpace() {
-    setCreatingSpace(true);
-    setNewSpaceName("");
-    setTimeout(() => spaceInputRef.current?.focus(), 30);
-  }
-
+  function handleAddSpace() { setCreatingSpace(true); setNewSpaceName(""); setTimeout(() => spaceInputRef.current?.focus(), 30); }
   function commitSpace() {
     const name = newSpaceName.trim();
     setCreatingSpace(false);
     if (!name) return;
-    const icon = SPACE_ICONS[Math.floor(Math.random() * SPACE_ICONS.length)];
-    const color = SPACE_COLORS[Math.floor(Math.random() * SPACE_COLORS.length)];
-    const space: Space = {
-      id: `s${Date.now()}`,
-      name,
-      icon,
-      color,
-      expanded: true,
-      folders: [],
-      lists: [],
-    };
-    addSpace(space);
+    addSpace({
+      id: `s${Date.now()}`, name,
+      icon:  SPACE_ICONS[Math.floor(Math.random()  * SPACE_ICONS.length)],
+      color: SPACE_COLORS[Math.floor(Math.random() * SPACE_COLORS.length)],
+      expanded: true, folders: [], lists: [],
+    });
   }
 
   function handleAddFolder(spaceId: string) {
-    const space = spaces.find((s) => s.id === spaceId);
+    const space = spaces.find(s => s.id === spaceId);
     if (space && !space.expanded) toggleSpaceExpanded(spaceId);
-    setCreatingFolderIn(spaceId);
-    setNewFolderName("");
+    setCreatingFolderIn(spaceId); setNewFolderName("");
     setTimeout(() => folderInputRef.current?.focus(), 30);
   }
-
   function commitFolder(spaceId: string) {
-    const name = newFolderName.trim();
-    setCreatingFolderIn(null);
+    const name = newFolderName.trim(); setCreatingFolderIn(null);
     if (!name) return;
     const { addFolder } = useWorkspaceStore.getState();
     addFolder({ id: `f${Date.now()}`, name, space_id: spaceId, expanded: true, lists: [] }, spaceId);
   }
 
   function handleAddList(spaceId: string) {
-    // expand the space first
-    const space = spaces.find((s) => s.id === spaceId);
+    const space = spaces.find(s => s.id === spaceId);
     if (space && !space.expanded) toggleSpaceExpanded(spaceId);
-    setCreatingListIn(spaceId);
-    setNewListName("");
+    setCreatingListIn(spaceId); setNewListName("");
     setTimeout(() => listInputRef.current?.focus(), 30);
   }
-
   function commitList(spaceId: string) {
-    const name = newListName.trim();
-    setCreatingListIn(null);
+    const name = newListName.trim(); setCreatingListIn(null);
     if (!name) return;
-    const space = spaces.find((s) => s.id === spaceId);
-    const list: List = {
-      id: `l${Date.now()}`,
-      name,
-      space_id: spaceId,
-      color: space?.color ?? "#7c3aed",
-      position: (space?.lists.length ?? 0),
-    };
-    addList(list, spaceId);
-    setActiveList(list.id);
-    router.push(`/tasks/${list.id}`);
+    const space = spaces.find(s => s.id === spaceId);
+    const list: List = { id: `l${Date.now()}`, name, space_id: spaceId, color: space?.color ?? "#7c3aed", position: space?.lists.length ?? 0 };
+    addList(list, spaceId); setActiveList(list.id); router.push(`/tasks/${list.id}`);
   }
 
   function startRename(id: string, type: "space" | "list", currentName: string) {
-    setRenamingId(id);
-    setRenameType(type);
-    setRenameValue(currentName);
+    setRenamingId(id); setRenameType(type); setRenameValue(currentName);
     setTimeout(() => renameInputRef.current?.select(), 30);
   }
-
   function commitRename() {
     const name = renameValue.trim();
     if (name && renamingId && renameType) {
       if (renameType === "space") renameSpace(renamingId, name);
       else renameList(renamingId, name);
     }
-    setRenamingId(null);
-    setRenameType(null);
+    setRenamingId(null); setRenameType(null);
   }
 
-  const w = sidebarCollapsed ? "60px" : "240px";
-
+  const w = sidebarCollapsed ? "0px" : "220px";
 
   return (
     <>
-    <aside className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 border-r"
-      style={{ width: w, minWidth: w, background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: "var(--border)", height: "var(--topnav-height)" }}>
-        {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
-              W
-            </div>
-            <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>Workspace</span>
-          </div>
-        )}
-        <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0" style={{ color: "var(--text-secondary)" }}>
-          {sidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-        </button>
-      </div>
-
-      {/* Spaces */}
-      {!sidebarCollapsed && (
-        <div className="flex-1 overflow-y-auto px-2 pt-4 pb-2">
-          {/* Section header */}
-          <div className="flex items-center justify-between px-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Spaces</span>
-            <button onClick={handleAddSpace} title="New space"
-              className="p-0.5 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-secondary)" }}>
-              <Plus size={13} />
-            </button>
-          </div>
-
-          {/* New space inline input */}
-          {creatingSpace && (
-            <div className="flex items-center gap-2 px-2 py-1 mb-1 rounded-md" style={{ background: "rgba(124,58,237,0.1)" }}>
-              <span className="text-sm">🚀</span>
-              <input ref={spaceInputRef} value={newSpaceName} onChange={(e) => setNewSpaceName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") commitSpace(); if (e.key === "Escape") setCreatingSpace(false); }}
-                onBlur={commitSpace}
-                placeholder="Space name..."
-                className="flex-1 bg-transparent outline-none text-sm"
-                style={{ color: "var(--text-primary)" }}
-              />
+      <aside
+        className="flex flex-col shrink-0 overflow-hidden transition-all duration-200"
+        style={{
+          width: w, minWidth: w,
+          background: "var(--bg-secondary)",
+          borderRight: "1px solid var(--border)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-3 shrink-0"
+          style={{ height: "var(--topnav-height)", borderBottom: "1px solid var(--border)" }}
+        >
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0"
+                style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)", boxShadow: "0 1px 6px rgba(109,40,217,0.4)" }}
+              >
+                W
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate leading-tight" style={{ color: "var(--text-primary)" }}>Workspace</p>
+                <p className="text-xs truncate leading-tight" style={{ color: "var(--text-muted)" }}>{orgName}</p>
+              </div>
             </div>
           )}
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-lg transition-colors shrink-0"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {sidebarCollapsed ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+          </button>
+        </div>
 
-          {/* Spaces list */}
-          {spaces.map((space) => {
-            const isPersonal = space.name === "My Workspace";
-            return (
-            <div key={space.id}>
-              {/* Space row */}
-              <div className="group flex items-center gap-1 rounded-md hover:bg-white/5 transition-colors"
-                style={{ color: "var(--text-primary)" }}>
-                <button onClick={() => { toggleSpaceExpanded(space.id); setActiveSpace(space.id); }}
-                  className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 text-sm">
-                  <span className="text-base leading-none flex-shrink-0">{space.icon}</span>
-                  {renamingId === space.id ? (
-                    <input ref={renameInputRef} value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
-                      onBlur={commitRename}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 bg-transparent outline-none font-medium text-sm min-w-0"
-                      style={{ color: "var(--text-primary)" }}
-                    />
-                  ) : (
-                    <span className="flex-1 text-left truncate font-medium"
-                      onDoubleClick={(e) => { e.stopPropagation(); startRename(space.id, "space", space.name); }}>
-                      {space.name}
-                    </span>
-                  )}
-                  {space.expanded ? <ChevronDown size={13} style={{ color: "var(--text-secondary)" }} /> : <ChevronRight size={13} style={{ color: "var(--text-secondary)" }} />}
-                </button>
-                {/* Hover actions */}
-                <div className="flex items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); handleAddList(space.id); }} title="Add list"
-                    className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
-                    <Plus size={12} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleAddFolder(space.id); }} title="Add folder"
-                    className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
-                    <FolderPlus size={11} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); openMembers(space.id); }} title="Members"
-                    className="p-0.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
-                    <Users size={11} />
-                  </button>
-                  {!isPersonal && (
-                    <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }} title="Delete space"
-                      className="p-0.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
-                      <Trash2 size={11} />
-                    </button>
-                  )}
-                </div>
+        {/* Main nav + spaces */}
+        {!sidebarCollapsed && (
+          <div className="flex-1 overflow-y-auto px-2 pt-3 pb-2">
+
+            {/* Top nav shortcuts */}
+            <div className="space-y-0.5 mb-4">
+              {[
+                { href: "/home",      icon: LayoutDashboard, label: "Home" },
+                { href: "/team-chat", icon: MessageSquare,   label: "Team Chat" },
+                { href: "/goals",     icon: Target,          label: "Goals" },
+                { href: "/settings",  icon: Settings,        label: "Settings" },
+              ].map(({ href, icon: Icon, label }) => {
+                const active = pathname === href || pathname.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href} href={href}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100 group"
+                    style={{
+                      background: active ? "var(--bg-active)" : "transparent",
+                      color: active ? "#a78bfa" : "var(--text-secondary)",
+                    }}
+                  >
+                    <Icon size={14} strokeWidth={active ? 2.2 : 1.75} />
+                    <span className={`font-${active ? "medium" : "normal"}`}>{label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px mx-1 mb-3" style={{ background: "var(--border)" }} />
+
+            {/* Spaces section */}
+            <div className="flex items-center justify-between px-2.5 mb-2">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>Spaces</span>
+              <button onClick={handleAddSpace} className="p-0.5 rounded transition-colors" style={{ color: "var(--text-secondary)" }}>
+                <Plus size={13} />
+              </button>
+            </div>
+
+            {/* New space input */}
+            {creatingSpace && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 mb-1 rounded-lg" style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.15)" }}>
+                <span className="text-sm">🚀</span>
+                <input ref={spaceInputRef} value={newSpaceName} onChange={(e) => setNewSpaceName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitSpace(); if (e.key === "Escape") setCreatingSpace(false); }}
+                  onBlur={commitSpace} placeholder="Space name…"
+                  className="flex-1 bg-transparent outline-none text-sm"
+                  style={{ color: "var(--text-primary)" }}
+                />
               </div>
+            )}
 
-              {/* Expanded content */}
-              {space.expanded && (
-                <div className="ml-3 border-l pl-2 mt-0.5 space-y-0.5" style={{ borderColor: "var(--border)" }}>
-                  {/* Folders */}
-                  {space.folders.map((folder) => (
-                    <div key={folder.id}>
-                      <div className="group/folder flex items-center rounded-md hover:bg-white/5 transition-colors">
-                        <button onClick={() => toggleFolderExpanded(space.id, folder.id)}
-                          className="p-1 shrink-0" style={{ color: "var(--text-secondary)" }}>
-                          {folder.expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            {/* Spaces list */}
+            {spaces.map((space) => {
+              const isPersonal = space.name === "My Workspace";
+              return (
+                <div key={space.id}>
+                  <div className="group flex items-center rounded-lg transition-colors" style={{ color: "var(--text-primary)" }}>
+                    <button
+                      onClick={() => { toggleSpaceExpanded(space.id); setActiveSpace(space.id); }}
+                      className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 text-sm"
+                    >
+                      <span className="text-sm leading-none shrink-0">{space.icon}</span>
+                      {renamingId === space.id ? (
+                        <input ref={renameInputRef} value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                          onBlur={commitRename} onClick={(e) => e.stopPropagation()}
+                          className="flex-1 bg-transparent outline-none font-medium text-sm min-w-0"
+                          style={{ color: "var(--text-primary)" }}
+                        />
+                      ) : (
+                        <span className="flex-1 text-left truncate font-medium text-sm"
+                          style={{ color: "var(--text-primary)" }}
+                          onDoubleClick={(e) => { e.stopPropagation(); startRename(space.id, "space", space.name); }}>
+                          {space.name}
+                        </span>
+                      )}
+                      {space.expanded
+                        ? <ChevronDown size={12} style={{ color: "var(--text-muted)" }} />
+                        : <ChevronRight size={12} style={{ color: "var(--text-muted)" }} />
+                      }
+                    </button>
+                    <div className="flex items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); handleAddList(space.id); }} title="Add list"
+                        className="p-1 rounded transition-colors" style={{ color: "var(--text-secondary)" }}>
+                        <Plus size={11} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleAddFolder(space.id); }} title="Add folder"
+                        className="p-1 rounded transition-colors" style={{ color: "var(--text-secondary)" }}>
+                        <FolderPlus size={11} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); openMembers(space.id); }} title="Members"
+                        className="p-1 rounded transition-colors" style={{ color: "var(--text-secondary)" }}>
+                        <Users size={11} />
+                      </button>
+                      {!isPersonal && (
+                        <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${space.name}"?`)) deleteSpace(space.id); }}
+                          className="p-1 rounded transition-colors" style={{ color: "var(--danger)" }}>
+                          <Trash2 size={11} />
                         </button>
-                        <button onClick={() => router.push(`/folder/${folder.id}`)}
-                          className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-2 text-xs text-left"
-                          style={{ color: "var(--text-secondary)" }}>
-                          <Folder size={11} className="shrink-0" />
-                          <span className="truncate">{folder.name}</span>
-                        </button>
-                      </div>
-                      {folder.expanded && (
-                        <div className="ml-3 space-y-0.5">
-                          {folder.lists.map((list) => (
-                            <ListRow key={list.id} list={list} active={activeListId === list.id}
-                              onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
-                              onDelete={() => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
-                              onRename={() => startRename(list.id, "list", list.name)}
-                            />
-                          ))}
-                        </div>
                       )}
                     </div>
-                  ))}
+                  </div>
 
-                  {/* New folder inline input */}
-                  {creatingFolderIn === space.id && (
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-md mb-0.5" style={{ background: "rgba(124,58,237,0.08)" }}>
-                      <Folder size={11} style={{ color: "var(--text-secondary)" }} />
-                      <input ref={folderInputRef} value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") commitFolder(space.id); if (e.key === "Escape") setCreatingFolderIn(null); }}
-                        onBlur={() => commitFolder(space.id)}
-                        placeholder="Folder name..."
-                        className="flex-1 bg-transparent outline-none text-xs"
-                        style={{ color: "var(--text-primary)" }} />
-                    </div>
-                  )}
+                  {space.expanded && (
+                    <div className="ml-4 pl-2 mt-0.5 space-y-0.5" style={{ borderLeft: "1px solid var(--border)" }}>
+                      {/* Folders */}
+                      {space.folders.map((folder) => (
+                        <div key={folder.id}>
+                          <div className="group/folder flex items-center rounded-lg transition-colors">
+                            <button onClick={() => toggleFolderExpanded(space.id, folder.id)} className="p-1 shrink-0" style={{ color: "var(--text-muted)" }}>
+                              {folder.expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                            </button>
+                            <button onClick={() => router.push(`/folder/${folder.id}`)}
+                              className="flex items-center gap-1.5 flex-1 min-w-0 py-1 pr-2 text-xs text-left"
+                              style={{ color: "var(--text-secondary)" }}>
+                              <Folder size={10} className="shrink-0" />
+                              <span className="truncate">{folder.name}</span>
+                            </button>
+                          </div>
+                          {folder.expanded && (
+                            <div className="ml-3 space-y-0.5">
+                              {folder.lists.map((list) => (
+                                <ListRow key={list.id} list={list} active={activeListId === list.id}
+                                  onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
+                                  onDelete={() => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
+                                  onRename={() => startRename(list.id, "list", list.name)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
 
-                  {/* Direct lists */}
-                  {space.lists.map((list) => {
-                    const isProtectedList = isPersonal && list.name === "My Tasks";
-                    if (renamingId === list.id) {
-                      return (
-                        <div key={list.id} className="flex items-center gap-2 px-2 py-1 rounded-md"
-                          style={{ background: "rgba(124,58,237,0.08)" }}>
-                          <ListIcon size={11} style={{ color: list.color }} />
-                          <input ref={renameInputRef} value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
-                            onBlur={commitRename}
-                            className="flex-1 bg-transparent outline-none text-xs min-w-0"
+                      {/* New folder input */}
+                      {creatingFolderIn === space.id && (
+                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5" style={{ background: "rgba(124,58,237,0.07)" }}>
+                          <Folder size={10} style={{ color: "var(--text-secondary)" }} />
+                          <input ref={folderInputRef} value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitFolder(space.id); if (e.key === "Escape") setCreatingFolderIn(null); }}
+                            onBlur={() => commitFolder(space.id)} placeholder="Folder name…"
+                            className="flex-1 bg-transparent outline-none text-xs"
                             style={{ color: "var(--text-primary)" }}
                           />
                         </div>
-                      );
-                    }
-                    return (
-                      <ListRow key={list.id} list={list} active={activeListId === list.id}
-                        onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
-                        onDelete={isProtectedList ? undefined : () => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
-                        onRename={() => startRename(list.id, "list", list.name)}
-                      />
-                    );
-                  })}
+                      )}
 
-                  {/* New list inline input */}
-                  {creatingListIn === space.id && (
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-md" style={{ background: "rgba(124,58,237,0.08)" }}>
-                      <ListIcon size={11} style={{ color: space.color }} />
-                      <input ref={listInputRef} value={newListName} onChange={(e) => setNewListName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") commitList(space.id); if (e.key === "Escape") setCreatingListIn(null); }}
-                        onBlur={() => commitList(space.id)}
-                        placeholder="List name..."
-                        className="flex-1 bg-transparent outline-none text-xs"
-                        style={{ color: "var(--text-primary)" }}
-                      />
+                      {/* Direct lists */}
+                      {space.lists.map((list) => {
+                        const isProtected = isPersonal && list.name === "My Tasks";
+                        if (renamingId === list.id) {
+                          return (
+                            <div key={list.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+                              style={{ background: "rgba(124,58,237,0.07)" }}>
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: list.color }} />
+                              <input ref={renameInputRef} value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                                onBlur={commitRename}
+                                className="flex-1 bg-transparent outline-none text-xs min-w-0"
+                                style={{ color: "var(--text-primary)" }}
+                              />
+                            </div>
+                          );
+                        }
+                        return (
+                          <ListRow key={list.id} list={list} active={activeListId === list.id}
+                            onOpen={() => { setActiveList(list.id); router.push(`/tasks/${list.id}`); }}
+                            onDelete={isProtected ? undefined : () => { if (confirm(`Delete "${list.name}"?`)) deleteList(list.id); }}
+                            onRename={() => startRename(list.id, "list", list.name)}
+                          />
+                        );
+                      })}
+
+                      {/* New list input */}
+                      {creatingListIn === space.id && (
+                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(124,58,237,0.07)" }}>
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: space.color }} />
+                          <input ref={listInputRef} value={newListName} onChange={(e) => setNewListName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitList(space.id); if (e.key === "Escape") setCreatingListIn(null); }}
+                            onBlur={() => commitList(space.id)} placeholder="List name…"
+                            className="flex-1 bg-transparent outline-none text-xs"
+                            style={{ color: "var(--text-primary)" }}
+                          />
+                        </div>
+                      )}
+
+                      {creatingListIn !== space.id && (
+                        <button onClick={() => handleAddList(space.id)}
+                          className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg w-full transition-colors"
+                          style={{ color: "var(--text-muted)" }}>
+                          <Plus size={10} /> Add list
+                        </button>
+                      )}
                     </div>
                   )}
-
-                  {/* Add list button (always visible inside expanded space) */}
-                  {creatingListIn !== space.id && (
-                    <button onClick={() => handleAddList(space.id)}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md w-full hover:bg-white/5 transition-colors"
-                      style={{ color: "var(--text-secondary)" }}>
-                      <Plus size={11} /> Add list
-                    </button>
-                  )}
                 </div>
-              )}
-            </div>
-          );})}
+              );
+            })}
 
-          {/* Empty state */}
-          {spaces.length === 0 && !creatingSpace && (
-            <button onClick={handleAddSpace}
-              className="w-full text-center py-4 text-xs rounded-lg border-2 border-dashed hover:border-purple-500/50 transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-              + Create your first space
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Integrations quick panel */}
-      {!sidebarCollapsed && (
-        <div className="border-t px-2 pt-3 pb-2" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center justify-between px-2 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Integrations</span>
-            <Link href="/integrations" className="text-xs hover:underline" style={{ color: "var(--accent-purple)" }}>Manage</Link>
-          </div>
-          <div className="space-y-0.5">
-            {/* Google Calendar */}
-            <Link href={gcalConnected ? "/meetings" : "/integrations"}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
-              style={{ color: "var(--text-secondary)" }}>
-              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
-                style={{ fontSize: 9, background: "#4285F4" }}>G</div>
-              <span className="flex-1 truncate">Google Calendar</span>
-              {gcalConnected
-                ? <CheckCircle2 size={11} style={{ color: "#22c55e" }} />
-                : <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)" }}>Connect</span>
-              }
-            </Link>
-            {/* Microsoft — coming soon */}
-            <Link href="/integrations"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
-              style={{ color: "var(--text-secondary)", opacity: 0.5 }}>
-              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
-                style={{ fontSize: 9, background: "#0078D4" }}>M</div>
-              <span className="flex-1 truncate">Microsoft Cal.</span>
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Soon</span>
-            </Link>
-            {/* Zoom — coming soon */}
-            <Link href="/integrations"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors text-xs"
-              style={{ color: "var(--text-secondary)", opacity: 0.5 }}>
-              <div className="w-4 h-4 rounded flex items-center justify-center text-white font-bold shrink-0"
-                style={{ fontSize: 9, background: "#2D8CFF" }}>Z</div>
-              <span className="flex-1 truncate">Zoom</span>
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Soon</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="border-t px-2 py-2" style={{ borderColor: "var(--border)" }}>
-        {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 px-2 py-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: "var(--accent-purple)" }}>
-              {userName[0]?.toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{userName}</p>
-              <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{userEmail}</p>
-            </div>
-            <button onClick={logout} title="Sign out" className="p-1 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-secondary)" }}>
-              <LogOut size={13} />
-            </button>
+            {spaces.length === 0 && !creatingSpace && (
+              <button onClick={handleAddSpace}
+                className="w-full text-center py-5 text-xs rounded-xl transition-colors"
+                style={{ border: "1px dashed var(--border-strong)", color: "var(--text-secondary)" }}>
+                + Create your first space
+              </button>
+            )}
           </div>
         )}
-      </div>
-    </aside>
 
-    {/* Space members modal */}
-    {membersSpaceId && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}
-        onClick={() => setMembersSpaceId(null)}>
-        <div className="rounded-2xl p-5 w-80 shadow-2xl" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
-          onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                {spaces.find(s => s.id === membersSpaceId)?.icon} {spaces.find(s => s.id === membersSpaceId)?.name}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Workspace members</p>
+        {/* Integrations quick strip */}
+        {!sidebarCollapsed && (
+          <div className="px-2 pt-2 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between px-2 mb-1.5">
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Integrations</span>
+              <Link href="/integrations" className="text-xs transition-opacity hover:opacity-70" style={{ color: "var(--accent-purple)" }}>Manage</Link>
             </div>
-            <button onClick={() => setMembersSpaceId(null)} className="p-1 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
-              <X size={14} />
-            </button>
+            <Link href={gcalConnected ? "/meetings" : "/integrations"}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-xs"
+              style={{ color: "var(--text-secondary)" }}>
+              <div className="w-4 h-4 rounded flex items-center justify-center text-white shrink-0"
+                style={{ background: "#4285F4", fontSize: 9, fontWeight: 700 }}>G</div>
+              <span className="flex-1 truncate">Google Calendar</span>
+              {gcalConnected
+                ? <CheckCircle2 size={11} style={{ color: "var(--success)" }} />
+                : <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}>Connect</span>
+              }
+            </Link>
           </div>
-          {membersLoading ? (
-            <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>Loading...</p>
-          ) : spaceMembers.length === 0 ? (
-            <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>No members yet. Invite people from Settings.</p>
-          ) : (
-            <div className="space-y-2">
-              {spaceMembers.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: "var(--bg-primary)" }}>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                    style={{ background: m.id === userId ? "var(--accent-purple)" : "#4b5563" }}>
-                    {m.full_name?.[0]?.toUpperCase() ?? "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                      {m.full_name || "Unknown"} {m.id === userId ? "(you)" : ""}
-                    </p>
-                  </div>
-                  <span className="text-xs px-1.5 py-0.5 rounded-full capitalize"
-                    style={{ background: m.role === "admin" ? "rgba(124,58,237,0.15)" : "rgba(75,85,99,0.3)", color: m.role === "admin" ? "var(--accent-purple)" : "var(--text-secondary)" }}>
-                    {m.role}
-                  </span>
-                </div>
-              ))}
+        )}
+
+        {/* User footer */}
+        <div style={{ borderTop: "1px solid var(--border)" }}>
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2.5 px-3 py-2.5">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
+                style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)" }}>
+                {userName[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate leading-tight" style={{ color: "var(--text-primary)" }}>{userName}</p>
+                <p className="text-xs truncate leading-tight" style={{ color: "var(--text-muted)" }}>{userEmail}</p>
+              </div>
+              <button onClick={logout} title="Sign out" className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}>
+                <LogOut size={13} />
+              </button>
             </div>
           )}
         </div>
-      </div>
-    )}
+      </aside>
+
+      {/* Space members modal */}
+      {membersSpaceId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setMembersSpaceId(null)}>
+          <div className="rounded-2xl p-5 w-80 shadow-2xl" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-strong)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {spaces.find(s => s.id === membersSpaceId)?.icon} {spaces.find(s => s.id === membersSpaceId)?.name}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Workspace members</p>
+              </div>
+              <button onClick={() => setMembersSpaceId(null)} className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}>
+                <X size={14} />
+              </button>
+            </div>
+            {membersLoading ? (
+              <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>Loading…</p>
+            ) : spaceMembers.length === 0 ? (
+              <p className="text-xs text-center py-4" style={{ color: "var(--text-secondary)" }}>No members yet.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {spaceMembers.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--bg-surface)" }}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                      style={{ background: m.id === userId ? "linear-gradient(145deg,#8b5cf6,#6d28d9)" : "#2a2a3e" }}>
+                      {m.full_name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                        {m.full_name || "Unknown"}{m.id === userId ? " (you)" : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full capitalize font-medium"
+                      style={{
+                        background: m.role === "admin" ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.05)",
+                        color: m.role === "admin" ? "#a78bfa" : "var(--text-secondary)",
+                      }}>
+                      {m.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -472,16 +472,19 @@ function ListRow({ list, active, onOpen, onDelete, onRename }: {
   list: List; active: boolean; onOpen: () => void; onDelete?: () => void; onRename?: () => void;
 }) {
   return (
-    <div className="group flex items-center gap-1 rounded-md hover:bg-white/5 transition-colors"
-      style={{ background: active ? "rgba(124,58,237,0.1)" : "transparent" }}>
-      <button onClick={onOpen} className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1 text-xs"
-        style={{ color: active ? "var(--text-primary)" : "var(--text-secondary)" }}>
-        <ListIcon size={11} style={{ color: list.color }} className="flex-shrink-0" />
-        <span className="truncate" onDoubleClick={(e) => { e.stopPropagation(); onRename?.(); }}>{list.name}</span>
+    <div className="group flex items-center rounded-lg transition-all duration-100"
+      style={{ background: active ? "var(--bg-active)" : "transparent" }}>
+      <button onClick={onOpen} className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 text-xs"
+        style={{ color: active ? "#c4b5fd" : "var(--text-secondary)" }}>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 flex-shrink-0" style={{ background: list.color }} />
+        <span className="truncate font-medium"
+          onDoubleClick={(e) => { e.stopPropagation(); onRename?.(); }}>
+          {list.name}
+        </span>
       </button>
       {onDelete && (
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity mr-1 flex-shrink-0"
+          className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity mr-1 shrink-0"
           style={{ color: "var(--danger)" }}>
           <Trash2 size={10} />
         </button>

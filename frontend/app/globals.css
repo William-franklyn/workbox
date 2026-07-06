@@ -2,54 +2,60 @@
 @import "tw-animate-css";
 
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-surface: #0f3460;
+  /* ── Backgrounds ─────────────────────────────────────────────────── */
+  --bg-primary:    #08080f;   /* deepest near-black */
+  --bg-secondary:  #0d0d17;   /* sidebar / panels */
+  --bg-surface:    #12121e;   /* cards / inputs */
+  --bg-elevated:   #17172a;   /* dropdowns / modals */
+  --bg-hover:      rgba(255,255,255,0.035);
+  --bg-active:     rgba(124,58,237,0.12);
+
+  /* ── Accent ──────────────────────────────────────────────────────── */
   --accent-purple: #7c3aed;
-  --accent-blue: #3b82f6;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --border: #334155;
+  --accent-purple-glow: rgba(124,58,237,0.25);
+  --accent-blue:   #3b82f6;
+
+  /* ── Text ────────────────────────────────────────────────────────── */
+  --text-primary:   #e4e4f0;
+  --text-secondary: #666680;
+  --text-muted:     #32324a;
+
+  /* ── Borders ─────────────────────────────────────────────────────── */
+  --border:        #18182a;
+  --border-strong: #252538;
+
+  /* ── Status ──────────────────────────────────────────────────────── */
   --success: #22c55e;
   --warning: #f59e0b;
-  --danger: #ef4444;
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 60px;
-  --topnav-height: 52px;
-  --radius: 0.5rem;
+  --danger:  #ef4444;
+
+  /* ── Layout ──────────────────────────────────────────────────────── */
+  --sidebar-width:           220px;
+  --sidebar-collapsed-width: 0px;
+  --topnav-height:           48px;
+  --rail-width:              52px;
+  --radius:                  0.5rem;
 }
 
 @layer base {
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
     height: 100%;
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-inter, 'Inter'), system-ui, -apple-system, sans-serif;
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
   }
 
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 2px;
-  }
+  ::-webkit-scrollbar            { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track      { background: transparent; }
+  ::-webkit-scrollbar-thumb      { background: var(--border-strong); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover{ background: #3a3a56; }
 
-  ::selection {
-    background: var(--accent-purple);
-    color: white;
-  }
+  ::selection { background: rgba(124,58,237,0.3); color: #fff; }
 }
