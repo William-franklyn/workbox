@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents } from "@/lib/google/calendar";
+import { getValidToken as getValidMicrosoftToken, listEvents as listMicrosoftEvents } from "@/lib/microsoft/calendar";
 
 export interface UnifiedCalendarEvent {
   id: string;
@@ -52,8 +53,28 @@ export async function GET(req: NextRequest) {
     } catch {}
   }
 
-  // ── Microsoft / Outlook (future) ───────────────────────────────────────────
-  // When Microsoft Calendar integration is added, fetch and push here with source: "microsoft"
+  // ── Microsoft / Outlook ─────────────────────────────────────────────────────
+  // Graph returns naive "UTC" datetime strings with no trailing Z (per the
+  // Prefer: outlook.timezone="UTC" header in listEvents), so append it here.
+  const asUtcIso = (dt: string) => (dt.endsWith("Z") ? dt : `${dt}Z`);
+  const microsoftToken = await getValidMicrosoftToken(user.id, supabase);
+  if (microsoftToken) {
+    try {
+      const raw = await listMicrosoftEvents(microsoftToken, days);
+      for (const ev of raw) {
+        events.push({
+          id: `outlook::${ev.id}`,
+          title: ev.subject ?? "(No title)",
+          start: asUtcIso(ev.start.dateTime),
+          end: asUtcIso(ev.end.dateTime),
+          allDay: !!ev.isAllDay,
+          source: "outlook",
+          meetLink: ev.onlineMeeting?.joinUrl ?? undefined,
+          externalLink: ev.webLink,
+        });
+      }
+    } catch {}
+  }
 
   // ── Apple Calendar (future) ────────────────────────────────────────────────
   // When Apple Calendar integration is added, fetch and push here with source: "apple"
