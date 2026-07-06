@@ -48,9 +48,38 @@ export async function POST(req: NextRequest) {
         const { data: profile } = await svc.from("profiles").select("id").eq("email", auto.action_value).maybeSingle();
         if (profile) await svc.from("tasks").update({ assignee_id: profile.id }).eq("id", task_id);
       } else if (auto.action_type === "move_to_list" && task_id) {
-        // action_value is a list name or id
         const { data: list } = await svc.from("lists").select("id").eq("name", auto.action_value).maybeSingle();
         if (list) await svc.from("tasks").update({ list_id: list.id }).eq("id", task_id);
+      } else if (auto.action_type === "send_message" && org_id) {
+        await svc.from("team_messages").insert({
+          id: `msg_auto_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          org_id,
+          sender_id: null,
+          sender_name: "WorkBox Automations",
+          content: auto.action_value || `Automation "${auto.name}" triggered`,
+          channel: "general",
+          created_at: new Date().toISOString(),
+        });
+      } else if (auto.action_type === "create_task") {
+        // action_value is the task title; find first list in org
+        let listId: string | null = null;
+        if (org_id) {
+          const { data: spaceRows } = await svc.from("spaces").select("id").eq("org_id", org_id).limit(1);
+          if (spaceRows?.length) {
+            const { data: listRow } = await svc.from("lists").select("id").eq("space_id", spaceRows[0].id).limit(1).maybeSingle();
+            listId = listRow?.id ?? null;
+          }
+        }
+        if (listId) {
+          await svc.from("tasks").insert({
+            id: `task_auto_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            title: auto.action_value || `Auto-created by "${auto.name}"`,
+            list_id: listId,
+            status: "todo",
+            priority: "normal",
+            created_at: new Date().toISOString(),
+          });
+        }
       }
 
       // Increment run_count

@@ -28,13 +28,19 @@ const ACTIONS = [
   { value: "send_notification", label: "Send notification", hasValue: true },
   { value: "assign_to", label: "Assign to (email)", hasValue: true },
   { value: "move_to_list", label: "Move to list (name)", hasValue: true },
+  { value: "send_message", label: "Post message to team chat", hasValue: true },
+  { value: "create_task", label: "Create task (title)", hasValue: true },
 ];
 
-const TEMPLATES = [
+const RECIPES = [
   { name: "Escalate overdue tasks", trigger_type: "due_date_passed", trigger_value: "", action_type: "set_priority", action_value: "urgent" },
-  { name: "Notify on done", trigger_type: "status_change", trigger_value: "done", action_type: "send_notification", action_value: "A task was completed! 🎉" },
-  { name: "Auto-notify on creation", trigger_type: "task_created", trigger_value: "", action_type: "send_notification", action_value: "New task added to your workspace" },
-  { name: "Flag urgent priority", trigger_type: "priority_change", trigger_value: "urgent", action_type: "send_notification", action_value: "🚨 Urgent task needs attention" },
+  { name: "Celebrate completions", trigger_type: "status_change", trigger_value: "done", action_type: "send_notification", action_value: "A task was completed! 🎉" },
+  { name: "Alert on new task", trigger_type: "task_created", trigger_value: "", action_type: "send_notification", action_value: "New task added to your workspace" },
+  { name: "Flag urgent in chat", trigger_type: "priority_change", trigger_value: "urgent", action_type: "send_message", action_value: "🚨 Urgent task needs immediate attention" },
+  { name: "Notify assignee on change", trigger_type: "assignee_change", trigger_value: "", action_type: "send_notification", action_value: "You have been assigned a new task" },
+  { name: "Announce new tasks to team", trigger_type: "task_created", trigger_value: "", action_type: "send_message", action_value: "🆕 A new task was added to the workspace" },
+  { name: "Auto-review on in-progress", trigger_type: "status_change", trigger_value: "in_progress", action_type: "send_notification", action_value: "Task is now in progress — keep it moving!" },
+  { name: "Stand-up reminder task", trigger_type: "due_date_passed", trigger_value: "", action_type: "create_task", action_value: "Review overdue items in stand-up" },
 ];
 
 function TriggerLabel({ type, value }: { type: string; value: string }) {
@@ -154,13 +160,13 @@ export default function AutomationsPage() {
         ))}
       </div>
 
-      {/* Quick templates */}
-      {automations.length === 0 && !creating && !loading && (
+      {/* Recipe Library — always visible */}
+      {!creating && !loading && (
         <div className="mb-6">
-          <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Quick templates</p>
+          <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>Recipe Library</p>
           <div className="grid grid-cols-2 gap-2">
-            {TEMPLATES.map((tpl) => (
-              <button key={tpl.name} onClick={() => create({ ...tpl, name: tpl.name })}
+            {RECIPES.map((tpl) => (
+              <button key={tpl.name} onClick={() => { setForm({ ...EMPTY_FORM, ...tpl, name: tpl.name }); setCreating(true); }}
                 className="text-left p-3 rounded-xl border transition-colors hover:border-purple-500/40 hover:bg-white/5"
                 style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
                 <div className="flex items-center gap-2 mb-1">

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
-import { CheckCircle2, Clock, AlertCircle, TrendingUp, AlertTriangle, Loader2, Target, Zap, Activity, ArrowRight, Layout } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, TrendingUp, AlertTriangle, Loader2, Target, Zap, Activity, ArrowRight, Layout, Sparkles, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 interface Summary { total: number; done: number; inProgress: number; urgent: number; overdue: number; recent: any[]; }
@@ -46,6 +46,9 @@ export default function HomePage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [brief, setBrief] = useState<string | null>(null);
+  const [briefStats, setBriefStats] = useState<Record<string, number>>({});
+  const [briefLoading, setBriefLoading] = useState(true);
 
   useEffect(() => {
     if (!loaded) return;
@@ -65,13 +68,96 @@ export default function HomePage() {
     }).finally(() => setLoading(false));
   }, []);
 
+  function fetchBrief() {
+    setBriefLoading(true);
+    fetch("/api/ai/brief")
+      .then((r) => r.json())
+      .then((d) => {
+        setBrief(d.brief ?? null);
+        setBriefStats(d.stats ?? {});
+      })
+      .catch(() => setBrief("Have a productive day — your workspace is ready."))
+      .finally(() => setBriefLoading(false));
+  }
+
+  useEffect(() => { fetchBrief(); }, []);
+
   const completion = summary && summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
   const activeGoals = goals.filter((g) => !g.due_date || new Date(g.due_date) >= new Date());
 
   return (
     <div className="overflow-y-auto h-full p-8">
       <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>Good day 👋</h1>
-      <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>Here's what's happening in your workspace.</p>
+      <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>Here's what's happening in your workspace.</p>
+
+      {/* AI Briefing Card */}
+      <div className="rounded-xl border mb-6 overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+        <div className="flex items-start gap-4 p-5">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+            style={{ background: "rgba(124,58,237,0.15)", color: "#a78bfa" }}
+          >
+            <Sparkles size={17} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#a78bfa" }}>AI Briefing</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                </span>
+              </div>
+              <button
+                onClick={fetchBrief}
+                disabled={briefLoading}
+                className="p-1 rounded-lg transition-colors hover:bg-white/5 disabled:opacity-40"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <RefreshCw size={12} className={briefLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
+
+            {briefLoading ? (
+              <div className="space-y-2 mb-3">
+                <div className="h-3 rounded-full animate-pulse" style={{ background: "var(--border)", width: "82%" }} />
+                <div className="h-3 rounded-full animate-pulse" style={{ background: "var(--border)", width: "55%" }} />
+              </div>
+            ) : (
+              <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--text-primary)" }}>{brief}</p>
+            )}
+
+            {!briefLoading && Object.keys(briefStats).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {(briefStats.overdue ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)" }}>
+                    {briefStats.overdue} overdue
+                  </span>
+                )}
+                {(briefStats.dueToday ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.12)", color: "var(--warning)" }}>
+                    {briefStats.dueToday} due today
+                  </span>
+                )}
+                {(briefStats.urgent ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.12)", color: "#f87171" }}>
+                    {briefStats.urgent} urgent
+                  </span>
+                )}
+                {(briefStats.inProgress ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(124,58,237,0.12)", color: "#a78bfa" }}>
+                    {briefStats.inProgress} in progress
+                  </span>
+                )}
+                {(briefStats.meetings ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(59,130,246,0.12)", color: "var(--accent-blue)" }}>
+                    {briefStats.meetings} meeting{briefStats.meetings !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} /></div>

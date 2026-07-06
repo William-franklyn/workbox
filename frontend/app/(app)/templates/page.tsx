@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, Layout, Code2, Megaphone, Users, Briefcase, ShoppingCart, BookOpen, Rocket } from "lucide-react";
+import { Loader2, CheckCircle2, Layout, Code2, Megaphone, Users, Briefcase, ShoppingCart, BookOpen, Rocket, Bug, Target, UserPlus, CalendarDays } from "lucide-react";
 
 interface Template {
   id: string;
@@ -138,11 +138,74 @@ const TEMPLATES: Template[] = [
       ],
     },
   },
+  {
+    id: "bug-tracker",
+    name: "Bug Tracker",
+    description: "Triage, reproduce, fix, and verify bugs with clear priority levels and status tracking.",
+    icon: <Bug size={20} />, color: "#ef4444", tag: "Engineering",
+    structure: {
+      space: { name: "Bug Tracker", icon: "🐛", color: "#ef4444" },
+      lists: [
+        { name: "Reported", color: "#64748b", tasks: [{ title: "Login page 500 error on mobile", priority: "urgent", status: "todo" }, { title: "Dashboard chart not loading", priority: "high", status: "todo" }, { title: "Email notifications delayed", priority: "normal", status: "todo" }] },
+        { name: "Triaged", color: "#f59e0b", tasks: [{ title: "Search returns wrong results", priority: "high", status: "todo" }, { title: "File upload limit not enforced", priority: "normal", status: "todo" }] },
+        { name: "In Fix", color: "#7c3aed", tasks: [{ title: "Memory leak in WebSocket handler", priority: "urgent", status: "in_progress" }] },
+        { name: "Verifying", color: "#3b82f6", tasks: [{ title: "Date picker timezone issue", priority: "high", status: "in_review" }] },
+        { name: "Resolved", color: "#22c55e", tasks: [{ title: "CSV export encoding bug", priority: "normal", status: "done" }] },
+      ],
+    },
+  },
+  {
+    id: "okr-planning",
+    name: "OKR Planning",
+    description: "Set and track Objectives and Key Results at company, team, and individual levels.",
+    icon: <Target size={20} />, color: "#7c3aed", tag: "Strategy",
+    structure: {
+      space: { name: "OKRs", icon: "🎯", color: "#7c3aed" },
+      lists: [
+        { name: "Company OKRs", color: "#7c3aed", tasks: [{ title: "Reach $1M ARR by Q4", priority: "urgent", status: "in_progress" }, { title: "Expand to 3 new markets", priority: "high", status: "todo" }, { title: "Achieve NPS > 60", priority: "high", status: "in_progress" }] },
+        { name: "Engineering", color: "#3b82f6", tasks: [{ title: "99.9% uptime SLA", priority: "urgent", status: "in_progress" }, { title: "Deploy 2 major features per quarter", priority: "high", status: "todo" }] },
+        { name: "Marketing", color: "#ec4899", tasks: [{ title: "Generate 500 qualified leads/month", priority: "high", status: "in_progress" }, { title: "Grow organic traffic 40%", priority: "normal", status: "todo" }] },
+        { name: "Achieved", color: "#22c55e", tasks: [{ title: "Launch v2.0 product", priority: "urgent", status: "done" }] },
+      ],
+    },
+  },
+  {
+    id: "hiring-pipeline",
+    name: "Hiring Pipeline",
+    description: "Manage job openings, candidate screening, interviews, and onboarding all in one place.",
+    icon: <UserPlus size={20} />, color: "#06b6d4", tag: "HR",
+    structure: {
+      space: { name: "Recruiting", icon: "🧑‍💼", color: "#06b6d4" },
+      lists: [
+        { name: "Open Roles", color: "#64748b", tasks: [{ title: "Senior Frontend Engineer", priority: "urgent", status: "todo" }, { title: "Product Designer", priority: "high", status: "todo" }, { title: "Growth Marketer", priority: "normal", status: "todo" }] },
+        { name: "Screening", color: "#f59e0b", tasks: [{ title: "Alex Chen — Frontend Engineer", priority: "high", status: "in_progress" }, { title: "Maria Santos — Designer", priority: "high", status: "in_progress" }] },
+        { name: "Interviews", color: "#7c3aed", tasks: [{ title: "Jordan Lee — Final round", priority: "urgent", status: "in_review" }] },
+        { name: "Offer Extended", color: "#3b82f6", tasks: [{ title: "Sam Rivera — Offer sent", priority: "high", status: "in_review" }] },
+        { name: "Hired", color: "#22c55e", tasks: [{ title: "Taylor Kim — Backend Eng", priority: "normal", status: "done" }] },
+      ],
+    },
+  },
+  {
+    id: "weekly-review",
+    name: "Weekly Review",
+    description: "A structured weekly planning system to review wins, prioritize tasks, and set intentions.",
+    icon: <CalendarDays size={20} />, color: "#f59e0b", tag: "Personal",
+    structure: {
+      space: { name: "Weekly Review", icon: "📅", color: "#f59e0b" },
+      lists: [
+        { name: "Last Week — Wins", color: "#22c55e", tasks: [{ title: "Shipped landing page redesign", priority: "normal", status: "done" }, { title: "Closed 2 deals", priority: "normal", status: "done" }] },
+        { name: "This Week — Priorities", color: "#ef4444", tasks: [{ title: "Prepare quarterly board deck", priority: "urgent", status: "todo" }, { title: "1:1s with all direct reports", priority: "high", status: "todo" }, { title: "Finalize product roadmap", priority: "high", status: "todo" }] },
+        { name: "Follow-ups", color: "#f59e0b", tasks: [{ title: "Reply to investor email", priority: "high", status: "todo" }, { title: "Schedule design review", priority: "normal", status: "todo" }] },
+        { name: "Someday / Maybe", color: "#64748b", tasks: [{ title: "Explore new CRM options", priority: "low", status: "todo" }, { title: "Revamp onboarding flow", priority: "low", status: "todo" }] },
+      ],
+    },
+  },
 ];
 
 const TAG_COLORS: Record<string, string> = {
   Engineering: "#3b82f6", Marketing: "#ec4899", Product: "#7c3aed",
-  HR: "#22c55e", Sales: "#f59e0b", Content: "#06b6d4", General: "#64748b", Personal: "#8b5cf6",
+  HR: "#22c55e", Sales: "#f59e0b", Content: "#06b6d4", General: "#64748b",
+  Personal: "#8b5cf6", Strategy: "#a855f7",
 };
 
 export default function TemplatesPage() {
