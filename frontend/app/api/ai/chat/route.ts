@@ -475,7 +475,7 @@ export async function POST(req: NextRequest) {
     const senderName = (profile as Record<string, string> | null)?.full_name ?? user.email?.split("@")[0] ?? "User";
 
     const { messages } = await req.json();
-    const recentMessages = (messages as unknown[]).slice(-12);
+    const recentMessages = (messages as Record<string, unknown>[]).slice(-12);
     const groqMessages: Record<string, unknown>[] = [
       { role: "system", content: SYSTEM_PROMPT },
       ...recentMessages,
