@@ -253,6 +253,8 @@ export default function TemplatesPage() {
       }
 
       setDone(tpl.id);
+      // Reset the loaded flag so loadSpaces() actually re-fetches
+      useWorkspaceStore.setState({ loaded: false });
       await loadSpaces();
       setTimeout(() => {
         setDone(null);
