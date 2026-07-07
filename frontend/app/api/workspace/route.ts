@@ -28,17 +28,20 @@ export async function POST(req: NextRequest) {
   const { type, ...row } = body;
 
   if (type === "space") {
-    const { data, error } = await supabase.from("spaces").upsert({ ...row, org_id: profile?.organization_id }).select().single();
+    const id = row.id ?? `s${Date.now()}`;
+    const { data, error } = await supabase.from("spaces").upsert({ id, ...row, org_id: profile?.organization_id }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
   }
   if (type === "folder") {
-    const { data, error } = await supabase.from("folders").upsert(row).select().single();
+    const id = row.id ?? `f${Date.now()}`;
+    const { data, error } = await supabase.from("folders").upsert({ id, ...row }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
   }
   if (type === "list") {
-    const { data, error } = await supabase.from("lists").upsert(row).select().single();
+    const id = row.id ?? `l${Date.now()}`;
+    const { data, error } = await supabase.from("lists").upsert({ id, ...row }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
   }

@@ -57,11 +57,13 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
     fetch("/api/profile").then((r) => r.json()).then((d) => {
       if (d.full_name) setFullName(d.full_name);
       if (d.email) setEmail(d.email);
+      if (d.phone_number) setPhoneNumber(d.phone_number);
     }).catch(() => {});
   }, []);
 
@@ -121,7 +123,7 @@ export default function SettingsPage() {
 
   async function saveSettings() {
     if (tab === "profile") {
-      await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: fullName }) });
+      await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: fullName, phone_number: phoneNumber }) });
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -163,6 +165,7 @@ export default function SettingsPage() {
               <SettingRow label="Full name"><Input value={fullName} onChange={setFullName} placeholder="Your name" /></SettingRow>
               <SettingRow label="Email" description="Contact support to change your email"><span className="text-sm" style={{ color: "var(--text-secondary)" }}>{email}</span></SettingRow>
               <SettingRow label="Bio" description="Tell your team about yourself"><Input value={bio} onChange={setBio} placeholder="A short bio..." /></SettingRow>
+              <SettingRow label="Phone number" description="Used for SMS access to WorkBox Agent via Twilio"><Input value={phoneNumber} onChange={setPhoneNumber} placeholder="+12345678901" /></SettingRow>
             </>
           )}
 

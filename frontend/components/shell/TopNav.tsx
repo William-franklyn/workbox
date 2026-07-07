@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
-import { Search, Bell, CheckCheck, Menu, ChevronRight } from "lucide-react";
+import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
 interface Props { orgName: string; userName: string; userId: string; }
@@ -99,6 +100,15 @@ export default function TopNav({ orgName, userName, userId }: Props) {
           ⌘K
         </kbd>
       </button>
+
+      {/* Team chat */}
+      <Link
+        href="/team-chat"
+        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/5"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        <MessageSquare size={16} strokeWidth={1.75} />
+      </Link>
 
       {/* Notifications */}
       <div className="relative" ref={notifRef}>

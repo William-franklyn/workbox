@@ -22,7 +22,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data ?? []);
   }
 
-  return NextResponse.json({ error: "id or folderId required" }, { status: 400 });
+  // List all spreadsheets for the user's org
+  const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+  const { data, error } = await supabase.from("spreadsheets")
+    .select("id,name,col_headers,created_at,updated_at")
+    .eq("organization_id", profile?.organization_id ?? "")
+    .order("updated_at", { ascending: false });
+  if (error) return NextResponse.json([], { status: 200 });
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: NextRequest) {
