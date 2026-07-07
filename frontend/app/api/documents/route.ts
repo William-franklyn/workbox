@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const folder = req.nextUrl.searchParams.get("folder");
   const search = req.nextUrl.searchParams.get("search");
 
-  let q = svc.from("org_documents").select("id,name,description,folder,file_type,file_size,status,tags,version,author_name,created_by,expires_at,created_at,updated_at").order("updated_at", { ascending: false });
+  let q = svc.from("org_documents").select("id,name,description,content,folder,file_type,file_size,status,tags,version,author_name,created_by,expires_at,share_token,share_access,created_at,updated_at").order("updated_at", { ascending: false });
   if (orgId) q = q.eq("org_id", orgId);
   if (folder && folder !== "all") q = q.eq("folder", folder);
   if (search) q = q.ilike("name", `%${search}%`);
