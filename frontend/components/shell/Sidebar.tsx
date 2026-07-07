@@ -6,7 +6,7 @@ import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore, Space, List } from "@/store/workspace";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard, MessageSquare, Target, Zap, Settings,
+  Zap, Settings,
   ChevronRight, ChevronDown, Plus, Plug, PanelLeftClose, PanelLeft,
   LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus,
   Folder, Users, X, CheckCircle2,
@@ -166,34 +166,6 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
         {/* Main nav + spaces */}
         {!sidebarCollapsed && (
           <div className="flex-1 overflow-y-auto px-2 pt-3 pb-2">
-
-            {/* Top nav shortcuts */}
-            <div className="space-y-0.5 mb-4">
-              {[
-                { href: "/home",      icon: LayoutDashboard, label: "Home" },
-                { href: "/team-chat", icon: MessageSquare,   label: "Team Chat" },
-                { href: "/goals",     icon: Target,          label: "Goals" },
-                { href: "/settings",  icon: Settings,        label: "Settings" },
-              ].map(({ href, icon: Icon, label }) => {
-                const active = pathname === href || pathname.startsWith(href + "/");
-                return (
-                  <Link
-                    key={href} href={href}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100 group"
-                    style={{
-                      background: active ? "var(--bg-active)" : "transparent",
-                      color: active ? "#ffffff" : "var(--text-secondary)",
-                    }}
-                  >
-                    <Icon size={14} strokeWidth={active ? 2.2 : 1.75} />
-                    <span className={`font-${active ? "medium" : "normal"}`}>{label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Divider */}
-            <div className="h-px mx-1 mb-3" style={{ background: "var(--border)" }} />
 
             {/* Spaces section */}
             <div className="flex items-center justify-between px-2.5 mb-2">
