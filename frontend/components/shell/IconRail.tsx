@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   LayoutDashboard, MessageSquare, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
@@ -35,6 +36,7 @@ const NAV = [
 export default function IconRail({ userName }: { userName: string }) {
   const pathname = usePathname();
   const initial = userName?.[0]?.toUpperCase() ?? "?";
+  const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
 
   return (
     <div
@@ -74,11 +76,16 @@ export default function IconRail({ userName }: { userName: string }) {
             <Link
               key={href}
               href={href}
-              className="relative w-full h-9 rounded-lg flex items-center justify-center group transition-all duration-100"
+              className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100"
               style={{
                 background: active ? "var(--bg-active)" : "transparent",
                 color: active ? "#ffffff" : "var(--text-secondary)",
               }}
+              onMouseEnter={e => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setTooltip({ label, y: rect.top + rect.height / 2 });
+              }}
+              onMouseLeave={() => setTooltip(null)}
             >
               {active && (
                 <span
@@ -87,17 +94,6 @@ export default function IconRail({ userName }: { userName: string }) {
                 />
               )}
               <Icon size={16} strokeWidth={active ? 2.2 : 1.75} />
-              <span
-                className="absolute left-full ml-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-100"
-                style={{
-                  background: "var(--bg-elevated)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-strong)",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-                }}
-              >
-                {label}
-              </span>
             </Link>
           );
         })}
@@ -112,6 +108,25 @@ export default function IconRail({ userName }: { userName: string }) {
           {initial}
         </div>
       </div>
+
+      {/* Tooltip — fixed so it escapes the overflow-y:auto scroll container */}
+      {tooltip && (
+        <div
+          className="pointer-events-none z-[200] px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
+          style={{
+            position: "fixed",
+            left: 60,
+            top: tooltip.y,
+            transform: "translateY(-50%)",
+            background: "var(--bg-elevated)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-strong)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          }}
+        >
+          {tooltip.label}
+        </div>
+      )}
     </div>
   );
 }
