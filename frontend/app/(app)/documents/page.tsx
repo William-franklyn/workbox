@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Search, FolderOpen, FileText, X, Loader2, Trash2, Edit3,
   Grid3X3, List, Share2, ChevronRight, ArrowLeft, Eye, Save,
-  LayoutTemplate, Copy, Check, Link2, Lock,
+  LayoutTemplate, Copy, Check, Link2, Lock, Table2, Upload,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,44 +74,105 @@ function FileIcon({ type, size = 32 }: { type?: string; size?: number }) {
 
 // ─── Template picker ──────────────────────────────────────────────────────────
 
-function TemplatePicker({ onPick, onBlank, onClose }: { onPick: (t: typeof TEMPLATES[0]) => void; onBlank: () => void; onClose: () => void }) {
+const FILE_TYPES = [
+  { id: "document", icon: <FileText size={22} />, label: "Document", description: "Rich text, markdown, reports, policies" },
+  { id: "spreadsheet", icon: <Table2 size={22} />, label: "Spreadsheet", description: "Tables, budgets, trackers, data grids" },
+  { id: "import", icon: <Upload size={22} />, label: "Import file", description: "Upload PDF, Word, Excel, CSV, and more" },
+];
+
+function TemplatePicker({ onPick, onBlank, onClose, onSpreadsheet, onImport }: {
+  onPick: (t: typeof TEMPLATES[0]) => void;
+  onBlank: () => void;
+  onClose: () => void;
+  onSpreadsheet: () => void;
+  onImport: (file: File) => void;
+}) {
+  const [step, setStep] = useState<"type" | "templates">("type");
+  const fileRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)" }}>
       <div className="w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col max-h-[85vh]"
         style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-          <div>
-            <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>New Document</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Start from a template or create blank</p>
+          <div className="flex items-center gap-3">
+            {step === "templates" && (
+              <button onClick={() => setStep("type")} className="p-1 rounded-lg hover:bg-white/5" style={{ color: "var(--text-secondary)" }}>
+                <ArrowLeft size={15} />
+              </button>
+            )}
+            <div>
+              <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                {step === "type" ? "Create new" : "Document templates"}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                {step === "type" ? "Choose what you'd like to create" : "Start from a template or blank"}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: "var(--text-secondary)" }}><X size={16} /></button>
         </div>
+
         <div className="overflow-y-auto flex-1 p-5">
-          <button onClick={onBlank}
-            className="w-full mb-4 flex items-center gap-3 p-4 rounded-xl border text-left hover:border-white/30 transition-colors"
-            style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-            <div className="w-10 h-10 rounded-xl border-2 border-dashed flex items-center justify-center" style={{ borderColor: "var(--border-strong)" }}>
-              <Plus size={18} style={{ color: "var(--text-muted)" }} />
+          {step === "type" ? (
+            /* File type selection */
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {FILE_TYPES.map(ft => (
+                <button key={ft.id}
+                  onClick={() => {
+                    if (ft.id === "document") setStep("templates");
+                    else if (ft.id === "spreadsheet") onSpreadsheet();
+                    else fileRef.current?.click();
+                  }}
+                  className="flex flex-col items-start gap-3 p-5 rounded-xl border text-left hover:border-white/25 transition-colors"
+                  style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-primary)" }}>
+                    {ft.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{ft.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{ft.description}</p>
+                  </div>
+                </button>
+              ))}
+              {/* Hidden file input for import */}
+              <input ref={fileRef} type="file" className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.ppt,.pptx"
+                onChange={e => { const f = e.target.files?.[0]; if (f) { onClose(); onImport(f); } }} />
             </div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Blank document</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Start from scratch</p>
-            </div>
-          </button>
-          <p className="text-xs font-medium mb-3" style={{ color: "var(--text-muted)" }}>TEMPLATES</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {TEMPLATES.map(t => (
-              <button key={t.id} onClick={() => onPick(t)}
-                className="flex flex-col items-start gap-2 p-4 rounded-xl border text-left hover:border-white/30 transition-colors"
+          ) : (
+            /* Document templates */
+            <>
+              <button onClick={onBlank}
+                className="w-full mb-4 flex items-center gap-3 p-4 rounded-xl border text-left hover:border-white/30 transition-colors"
                 style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-                <span className="text-2xl">{t.icon}</span>
+                <div className="w-10 h-10 rounded-xl border-2 border-dashed flex items-center justify-center" style={{ borderColor: "var(--border-strong)" }}>
+                  <Plus size={18} style={{ color: "var(--text-muted)" }} />
+                </div>
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.name}</p>
-                  <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--text-muted)" }}>{t.description}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Blank document</p>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Start from scratch</p>
                 </div>
               </button>
-            ))}
-          </div>
+              <p className="text-xs font-medium mb-3" style={{ color: "var(--text-muted)" }}>TEMPLATES</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {TEMPLATES.map(t => (
+                  <button key={t.id} onClick={() => onPick(t)}
+                    className="flex flex-col items-start gap-2 p-4 rounded-xl border text-left hover:border-white/30 transition-colors"
+                    style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                    <span className="text-2xl">{t.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.name}</p>
+                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--text-muted)" }}>{t.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -354,6 +416,7 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
 const FOLDERS = ["General", "Policies", "Contracts", "Reports", "Legal", "Finance", "HR", "Operations"];
 
 export default function DocumentsPage() {
+  const router = useRouter();
   const [docs, setDocs] = useState<OrgDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -382,6 +445,18 @@ export default function DocumentsPage() {
     const d = await res.json();
     setDocs(prev => [d, ...prev]);
     setEditorDoc(d);
+  }
+
+  async function importFile(file: File) {
+    const isText = /\.(txt|md|csv)$/i.test(file.name);
+    let content = "";
+    if (isText) {
+      content = await file.text();
+    } else {
+      content = `*Imported file: ${file.name}*\n\n> This file type cannot be rendered as text. The original file is preserved in the document name.`;
+    }
+    const name = file.name.replace(/\.[^.]+$/, "");
+    await createDoc(name, content);
   }
 
   async function deleteDoc(id: string) {
@@ -419,6 +494,8 @@ export default function DocumentsPage() {
           onBlank={() => { setTemplateOpen(false); createDoc("Untitled Document", ""); }}
           onPick={t => { setTemplateOpen(false); createDoc(t.name, t.content); }}
           onClose={() => setTemplateOpen(false)}
+          onSpreadsheet={() => { setTemplateOpen(false); router.push("/spreadsheets"); }}
+          onImport={file => { importFile(file); }}
         />
       )}
       {shareDoc && (

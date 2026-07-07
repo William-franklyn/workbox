@@ -46,21 +46,22 @@ async function executeTool(
     case "list_tasks": {
       const ids = args.list_id ? [args.list_id as string] : await getAllowedListIds(supabase, orgId);
       if (!ids.length) return "No tasks found.";
-      let q = supabase.from("tasks").select("id, title, status, priority, due_date").in("list_id", ids).order("position");
+      let q = supabase.from("tasks").select("id, title, status, priority, due_date, assignee_id").in("list_id", ids).order("position");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (args.status) q = (q as any).eq("status", args.status as string);
       const { data } = await q;
       if (!data?.length) return "No tasks found.";
       return (data as Record<string, string>[]).map(t =>
-        `• [${t.id}] ${t.title} — ${t.status}${t.priority ? ` (${t.priority})` : ""}${t.due_date ? ` · due ${t.due_date}` : ""}`
+        `• [${t.id}] ${t.title} — ${t.status}${t.priority ? ` (${t.priority})` : ""}${t.due_date ? ` · due ${t.due_date}` : ""}${t.assignee_id ? ` · assignee:${t.assignee_id}` : ""}`
       ).join("\n");
     }
 
     case "create_task": {
-      const { title, list_id, status = "todo", priority = "normal", due_date, description } = args as Record<string, string>;
+      const { title, list_id, status = "todo", priority = "normal", due_date, description, assignee_id } = args as Record<string, string>;
       const { data, error } = await supabase.from("tasks").insert({
         id: crypto.randomUUID(), title, list_id, status, priority,
         due_date: due_date || null, description: description || null,
+        assignee_id: assignee_id || null,
         created_by: userId, position: 0,
       }).select("id, title").single();
       if (error) return `Error: ${error.message}`;
@@ -423,8 +424,8 @@ async function executeTool(
 // Anthropic tool format: { name, description, input_schema }
 const TOOLS = [
   { name: "list_tasks", description: "List all tasks, optionally filtered by list_id or status (todo/in_progress/in_review/done)", input_schema: { type: "object", properties: { list_id: { type: "string" }, status: { type: "string" } }, required: [] } },
-  { name: "create_task", description: "Create a new task in a list", input_schema: { type: "object", properties: { title: { type: "string" }, list_id: { type: "string" }, status: { type: "string", description: "todo (default), in_progress, in_review, done" }, priority: { type: "string", description: "urgent, high, normal (default), low" }, due_date: { type: "string", description: "ISO date e.g. 2026-07-01" }, description: { type: "string" } }, required: ["title", "list_id"] } },
-  { name: "update_task", description: "Update a task's title, status, priority, due_date, or description", input_schema: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, status: { type: "string" }, priority: { type: "string" }, due_date: { type: "string" }, description: { type: "string" } }, required: ["task_id"] } },
+  { name: "create_task", description: "Create a new task in a list, optionally assigned to a member", input_schema: { type: "object", properties: { title: { type: "string" }, list_id: { type: "string" }, status: { type: "string", description: "todo (default), in_progress, in_review, done" }, priority: { type: "string", description: "urgent, high, normal (default), low" }, due_date: { type: "string", description: "ISO date e.g. 2026-07-01" }, description: { type: "string" }, assignee_id: { type: "string", description: "User ID of the member to assign this task to. Use list_members first to find the right ID." } }, required: ["title", "list_id"] } },
+  { name: "update_task", description: "Update a task's title, status, priority, due_date, description, or assignee", input_schema: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, status: { type: "string" }, priority: { type: "string" }, due_date: { type: "string" }, description: { type: "string" }, assignee_id: { type: "string", description: "User ID to assign the task to. Use list_members first to find the right ID." } }, required: ["task_id"] } },
   { name: "delete_task", description: "Delete a task by ID", input_schema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] } },
   { name: "list_spaces", description: "List all spaces and their lists (with IDs)", input_schema: { type: "object", properties: {}, required: [] } },
   { name: "create_space", description: "Create a new space", input_schema: { type: "object", properties: { name: { type: "string" }, icon: { type: "string" }, color: { type: "string" } }, required: ["name"] } },
@@ -490,7 +491,7 @@ const TOOLS = [
 const SYSTEM_PROMPT = `You are WorkBox Agent — the AI brain built into WorkBox, a project management and productivity platform. You have direct, real-time access to the entire workspace through tools.
 
 You can:
-- Read and write tasks (create, update, delete, filter by status/list)
+- Read and write tasks (create, update, delete, filter by status/list), including assigning tasks to team members
 - Manage spaces and lists
 - Read, create, update, and delete documents and spreadsheets
 - Check and send team chat messages (you can @mention teammates by name)
@@ -524,6 +525,8 @@ Users are busy. Act immediately using smart defaults. When info is missing, assu
 - "tomorrow at 6pm" → start 18:00, end 19:00. Done.
 
 **Task defaults:** status = todo, priority = normal, no due date unless mentioned.
+
+**Assigning tasks:** When a user asks you to assign a task to someone by name, ALWAYS call list_members first to look up their user ID. Then pass that ID as assignee_id to create_task or update_task. Never guess a user ID.
 
 **The one-question rule:** Only ask if the missing info makes the action literally impossible (no name, no email, no context at all). Maximum one question, never a list.
 
