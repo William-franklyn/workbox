@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function getAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,6 +22,10 @@ function getAdmin() {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "anon";
+    const { success: rlOk, headers: rlHeaders } = await rateLimit(ip, "auth");
+    if (!rlOk) return rateLimitResponse(rlHeaders);
+
     const body = await req.json();
     const { companyName, fullName, email, password } = body;
 

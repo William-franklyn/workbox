@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
@@ -31,6 +32,10 @@ Escalate when the user asks to:
 - Do not answer questions unrelated to work or WorkBox — gently redirect to what you can help with.`;
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "anon";
+  const { success: rlOk, headers: rlHeaders } = await rateLimit(ip, "ai");
+  if (!rlOk) return rateLimitResponse(rlHeaders);
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || apiKey === "your_anthropic_api_key_here") {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });

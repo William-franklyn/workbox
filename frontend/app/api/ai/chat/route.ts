@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/calendar";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -486,6 +487,9 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { success: rlOk, headers: rlHeaders } = await rateLimit(user.id, "ai");
+    if (!rlOk) return rateLimitResponse(rlHeaders);
 
     const userId = user.id;
     const svcClient = createServiceClient();
