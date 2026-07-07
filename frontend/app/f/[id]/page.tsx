@@ -4,7 +4,7 @@ import FormClient from "./FormClient";
 
 interface FormField {
   id: string;
-  type: "text" | "textarea" | "email" | "number" | "select" | "checkbox" | "date";
+  type: "text" | "textarea" | "email" | "phone" | "number" | "select" | "radio" | "checkbox" | "date" | "rating" | "heading";
   label: string;
   placeholder?: string;
   required: boolean;
