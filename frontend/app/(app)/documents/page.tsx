@@ -5,6 +5,7 @@ import {
   Plus, Search, FolderOpen, FileText, X, Loader2, Trash2, Edit3,
   Grid3X3, List, Share2, ChevronRight, ArrowLeft, Eye, Save,
   LayoutTemplate, Copy, Check, Link2, Lock, Table2, Upload,
+  ListOrdered, Code, Minus, Undo2, Redo2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -313,6 +314,7 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   function markDirty(val: string, field: "name" | "content") {
     setDirty(true);
@@ -345,23 +347,96 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
     onSave(d);
   }
 
+  // ── Formatting helpers ─────────────────────────────────────────────────────
+
+  function applyInline(prefix: string, suffix = prefix) {
+    const ta = taRef.current;
+    if (!ta) return;
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const sel = content.slice(s, e);
+    const next = content.slice(0, s) + prefix + sel + suffix + content.slice(e);
+    markDirty(next, "content");
+    setTimeout(() => {
+      ta.focus();
+      ta.selectionStart = s + prefix.length;
+      ta.selectionEnd = e + prefix.length;
+    }, 0);
+  }
+
+  function applyLinePrefix(prefix: string) {
+    const ta = taRef.current;
+    if (!ta) return;
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const lines = content.split("\n");
+    let pos = 0;
+    const newLines = lines.map(line => {
+      const start = pos;
+      const end = pos + line.length;
+      pos += line.length + 1;
+      if (end >= s && start <= e) {
+        return line.startsWith(prefix) ? line.slice(prefix.length) : prefix + line;
+      }
+      return line;
+    });
+    markDirty(newLines.join("\n"), "content");
+    setTimeout(() => ta.focus(), 0);
+  }
+
+  function insertAtCursor(text: string) {
+    const ta = taRef.current;
+    if (!ta) return;
+    const { selectionStart: s, selectionEnd: e } = ta;
+    const next = content.slice(0, s) + text + content.slice(e);
+    markDirty(next, "content");
+    setTimeout(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = s + text.length;
+    }, 0);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.key === "b") { e.preventDefault(); applyInline("**"); }
+    if (ctrl && e.key === "i") { e.preventDefault(); applyInline("*"); }
+    if (ctrl && e.key === "s") { e.preventDefault(); save(); }
+    if (ctrl && e.key === "k") { e.preventDefault(); applyInline("[", "](url)"); }
+  }
+
+  // ── Toolbar button component ───────────────────────────────────────────────
+  function Btn({ title, onClick, children, mono = false }: { title: string; onClick: () => void; children: React.ReactNode; mono?: boolean }) {
+    return (
+      <button
+        onMouseDown={e => { e.preventDefault(); onClick(); }}
+        title={title}
+        className="h-7 min-w-7 px-1 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+        style={{ color: "var(--text-secondary)", fontSize: mono ? 12 : undefined, fontWeight: mono ? 700 : undefined, fontFamily: mono ? "ui-monospace,monospace" : undefined }}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  function Sep() {
+    return <div className="w-px h-4 mx-1 flex-shrink-0" style={{ background: "var(--border)" }} />;
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col" style={{ background: "var(--bg-primary)" }}>
-      {/* Editor toolbar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
-        <button onClick={onClose} className="flex items-center gap-1.5 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5" style={{ color: "var(--text-secondary)" }}>
+      {/* Top bar */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+        <button onClick={onClose} className="flex items-center gap-1.5 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: "var(--text-secondary)" }}>
           <ArrowLeft size={14} /> Back
         </button>
-        <div className="w-px h-4 mx-1" style={{ background: "var(--border)" }} />
+        <div className="w-px h-4 mx-1 shrink-0" style={{ background: "var(--border)" }} />
         <input
           value={name}
           onChange={e => markDirty(e.target.value, "name")}
-          className="flex-1 bg-transparent outline-none text-sm font-semibold"
+          className="flex-1 bg-transparent outline-none text-sm font-semibold min-w-0"
           style={{ color: "var(--text-primary)" }}
           placeholder="Document title"
         />
-        <div className="flex items-center gap-2">
-          {dirty && <span className="text-xs" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
+        <div className="flex items-center gap-2 shrink-0">
+          {dirty && <span className="text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
           <button onClick={() => setPreview(p => !p)}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--border)", color: preview ? "var(--text-primary)" : "var(--text-secondary)", background: preview ? "rgba(255,255,255,0.08)" : "transparent" }}>
@@ -375,37 +450,83 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
         </div>
       </div>
 
+      {/* Formatting toolbar */}
+      {!preview && (
+        <div className="flex items-center gap-0.5 px-3 py-1.5 border-b flex-wrap shrink-0"
+          style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+          {/* Text style */}
+          <Btn title="Bold (Ctrl+B)" onClick={() => applyInline("**")} mono><strong>B</strong></Btn>
+          <Btn title="Italic (Ctrl+I)" onClick={() => applyInline("*")} mono><em style={{ fontStyle: "italic" }}>I</em></Btn>
+          <Btn title="Strikethrough" onClick={() => applyInline("~~")} mono><span style={{ textDecoration: "line-through" }}>S</span></Btn>
+          <Btn title="Underline" onClick={() => applyInline("<u>", "</u>")} mono><span style={{ textDecoration: "underline" }}>U</span></Btn>
+          <Sep />
+          {/* Headings */}
+          <Btn title="Heading 1" onClick={() => applyLinePrefix("# ")} mono>H1</Btn>
+          <Btn title="Heading 2" onClick={() => applyLinePrefix("## ")} mono>H2</Btn>
+          <Btn title="Heading 3" onClick={() => applyLinePrefix("### ")} mono>H3</Btn>
+          <Sep />
+          {/* Lists */}
+          <Btn title="Bullet list" onClick={() => applyLinePrefix("- ")}><List size={13} /></Btn>
+          <Btn title="Numbered list" onClick={() => applyLinePrefix("1. ")}><ListOrdered size={13} /></Btn>
+          <Btn title="Checklist" onClick={() => applyLinePrefix("- [ ] ")} mono>☑</Btn>
+          <Btn title="Blockquote" onClick={() => applyLinePrefix("> ")} mono>&quot;</Btn>
+          <Sep />
+          {/* Code */}
+          <Btn title="Inline code" onClick={() => applyInline("`")}><Code size={13} /></Btn>
+          <Btn title="Code block" onClick={() => insertAtCursor("\n```\n\n```\n")} mono>{"</>"}</Btn>
+          <Sep />
+          {/* Insert */}
+          <Btn title="Link (Ctrl+K)" onClick={() => applyInline("[", "](url)")}><Link2 size={13} /></Btn>
+          <Btn title="Table" onClick={() => insertAtCursor("\n| Column 1 | Column 2 | Column 3 |\n|---|---|---|\n| Cell | Cell | Cell |\n")}><Table2 size={13} /></Btn>
+          <Btn title="Horizontal rule" onClick={() => insertAtCursor("\n---\n")}><Minus size={13} /></Btn>
+          <Sep />
+          {/* Undo/Redo */}
+          <Btn title="Undo (Ctrl+Z)" onClick={() => { taRef.current?.focus(); document.execCommand("undo"); }}><Undo2 size={13} /></Btn>
+          <Btn title="Redo (Ctrl+Y)" onClick={() => { taRef.current?.focus(); document.execCommand("redo"); }}><Redo2 size={13} /></Btn>
+        </div>
+      )}
+
       {/* Editor body */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-8">
           {preview ? (
-            <div
-              className="doc-preview"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "*Nothing to preview yet.*") }}
-            />
+            <div className="doc-preview" dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "*Nothing to preview yet.*") }} />
           ) : (
             <textarea
+              ref={taRef}
               value={content}
               onChange={e => markDirty(e.target.value, "content")}
-              placeholder="Start writing… (Markdown is supported)"
+              onKeyDown={handleKeyDown}
+              placeholder="Start writing… Use the toolbar above or Markdown syntax"
               className="w-full resize-none bg-transparent outline-none text-sm leading-7"
-              style={{ color: "var(--text-primary)", minHeight: "calc(100vh - 200px)", fontFamily: "ui-monospace, monospace" }}
+              style={{ color: "var(--text-primary)", minHeight: "calc(100vh - 200px)" }}
+              spellCheck
             />
           )}
         </div>
       </div>
 
       <style>{`
-        .doc-preview h1 { font-size:1.7rem;font-weight:800;margin:0 0 .5em }
-        .doc-preview h2 { font-size:1.3rem;font-weight:700;margin:1.4em 0 .4em }
-        .doc-preview h3 { font-size:1.05rem;font-weight:600;margin:1.1em 0 .3em }
-        .doc-preview p  { margin:.5em 0;line-height:1.75 }
+        .doc-preview h1 { font-size:1.7rem;font-weight:800;margin:0 0 .5em;color:var(--text-primary) }
+        .doc-preview h2 { font-size:1.3rem;font-weight:700;margin:1.4em 0 .4em;color:var(--text-primary) }
+        .doc-preview h3 { font-size:1.05rem;font-weight:600;margin:1.1em 0 .3em;color:var(--text-primary) }
+        .doc-preview p  { margin:.5em 0;line-height:1.75;color:var(--text-primary) }
         .doc-preview strong { font-weight:700 }
         .doc-preview em { font-style:italic;opacity:.85 }
+        .doc-preview u { text-decoration:underline }
+        .doc-preview del { text-decoration:line-through;opacity:.7 }
         .doc-preview code { background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:.85em;font-family:ui-monospace,monospace }
+        .doc-preview pre { background:rgba(255,255,255,0.05);padding:12px 16px;border-radius:8px;overflow-x:auto;margin:1em 0 }
+        .doc-preview pre code { background:none;padding:0 }
+        .doc-preview blockquote { border-left:3px solid var(--accent-purple);padding-left:12px;margin:1em 0;opacity:.8;font-style:italic }
         .doc-preview hr { border:none;border-top:1px solid var(--border);margin:1.5em 0 }
+        .doc-preview ul { padding-left:1.5em;margin:.5em 0 }
+        .doc-preview ol { padding-left:1.5em;margin:.5em 0 }
+        .doc-preview li { margin:.25em 0;color:var(--text-primary) }
         .doc-preview table { border-collapse:collapse;width:100%;margin:1em 0 }
-        .doc-preview td { padding:6px 12px;border-bottom:1px solid var(--border);font-size:.9em }
+        .doc-preview th { padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);font-size:.9em;color:var(--text-primary) }
+        .doc-preview td { padding:6px 12px;border-bottom:1px solid var(--border);font-size:.9em;color:var(--text-primary) }
+        .doc-preview a { color:var(--accent-purple);text-decoration:underline }
       `}</style>
     </div>
   );
@@ -448,14 +569,36 @@ export default function DocumentsPage() {
   }
 
   async function importFile(file: File) {
-    const isText = /\.(txt|md|csv)$/i.test(file.name);
     let content = "";
-    if (isText) {
+    const name = file.name.replace(/\.[^.]+$/, "");
+
+    if (/\.(xlsx|xls)$/i.test(file.name)) {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const parts: string[] = [];
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        if (!rows.length) continue;
+        parts.push(`## ${sheetName}\n`);
+        const colWidths = rows[0].map((_, ci) => Math.max(...rows.map(r => String(r[ci] ?? "").length), 3));
+        const fmtRow = (r: string[]) => "| " + r.map((cell, ci) => String(cell ?? "").padEnd(colWidths[ci])).join(" | ") + " |";
+        const sep = "| " + colWidths.map(w => "-".repeat(w)).join(" | ") + " |";
+        parts.push(fmtRow(rows[0]));
+        parts.push(sep);
+        for (const row of rows.slice(1)) {
+          const padded = Array.from({ length: rows[0].length }, (_, i) => String(row[i] ?? ""));
+          parts.push(fmtRow(padded));
+        }
+      }
+      content = parts.join("\n");
+    } else if (/\.(txt|md|csv)$/i.test(file.name)) {
       content = await file.text();
     } else {
-      content = `*Imported file: ${file.name}*\n\n> This file type cannot be rendered as text. The original file is preserved in the document name.`;
+      content = `*Imported file: ${file.name}*\n\n> This file type cannot be rendered as text.`;
     }
-    const name = file.name.replace(/\.[^.]+$/, "");
+
     await createDoc(name, content);
   }
 
