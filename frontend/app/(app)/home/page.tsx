@@ -10,7 +10,7 @@ interface Goal { id: string; title: string; due_date: string; key_results: { cur
 interface ActivityEntry { id: string; user_name: string; action: string; entity_name: string; entity_type: string; created_at: string; }
 
 const STATUS_COLOR: Record<string, string> = {
-  todo: "#94a3b8", in_progress: "#7c3aed", in_review: "#f59e0b", done: "#22c55e",
+  todo: "#383838", in_progress: "#909090", in_review: "#c0c0c0", done: "#f0f0f0",
 };
 
 function timeAgo(iso: string) {
@@ -95,14 +95,14 @@ export default function HomePage() {
         <div className="flex items-start gap-4 p-5">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-            style={{ background: "rgba(124,58,237,0.15)", color: "#a78bfa" }}
+            style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-primary)" }}
           >
             <Sparkles size={17} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#a78bfa" }}>AI Briefing</span>
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>AI Briefing</span>
                 <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </span>
@@ -144,7 +144,7 @@ export default function HomePage() {
                   </span>
                 )}
                 {(briefStats.inProgress ?? 0) > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(124,58,237,0.12)", color: "#a78bfa" }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)" }}>
                     {briefStats.inProgress} in progress
                   </span>
                 )}
@@ -318,10 +318,10 @@ export default function HomePage() {
           {/* Quick actions strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Templates", desc: "Start a new project fast", icon: <Layout size={16} />, href: "/templates", color: "#7c3aed" },
-              { label: "Automations", desc: "Set up workflow rules", icon: <Zap size={16} />, href: "/automations", color: "#f59e0b" },
-              { label: "Workload", desc: "See team capacity", icon: <TrendingUp size={16} />, href: "/workload", color: "#3b82f6" },
-              { label: "Portfolio", desc: "Executive overview", icon: <Target size={16} />, href: "/portfolio", color: "#22c55e" },
+              { label: "Templates", desc: "Start a new project fast", icon: <Layout size={16} />, href: "/templates", color: "#ffffff" },
+              { label: "Automations", desc: "Set up workflow rules", icon: <Zap size={16} />, href: "/automations", color: "#c0c0c0" },
+              { label: "Workload", desc: "See team capacity", icon: <TrendingUp size={16} />, href: "/workload", color: "#909090" },
+              { label: "Portfolio", desc: "Executive overview", icon: <Target size={16} />, href: "/portfolio", color: "#606060" },
             ].map(({ label, desc, icon, href, color }) => (
               <Link key={label} href={href}
                 className="rounded-xl border p-3.5 flex items-center gap-3 transition-colors hover:bg-white/5"

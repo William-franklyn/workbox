@@ -174,8 +174,8 @@ export default function TopNav({ orgName, userName, userId }: Props) {
 
       {/* User avatar */}
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-        style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)" }}
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+        style={{ background: "#ffffff", color: "#000000" }}
       >
         {userName?.[0]?.toUpperCase() ?? "?"}
       </div>

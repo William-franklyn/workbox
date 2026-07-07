@@ -43,10 +43,11 @@ export default function IconRail({ userName }: { userName: string }) {
       {/* Logo mark */}
       <div className="flex items-center justify-center w-full pt-3 pb-2">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
           style={{
-            background: "linear-gradient(145deg, #8b5cf6 0%, #6d28d9 100%)",
-            boxShadow: "0 0 0 1px rgba(139,92,246,0.3), 0 2px 10px rgba(109,40,217,0.4)",
+            background: "#ffffff",
+            color: "#000000",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.15)",
           }}
         >
           W
@@ -70,7 +71,7 @@ export default function IconRail({ userName }: { userName: string }) {
               className="relative w-full h-9 rounded-lg flex items-center justify-center group transition-all duration-100"
               style={{
                 background: active ? "var(--bg-active)" : "transparent",
-                color: active ? "#a78bfa" : "var(--text-secondary)",
+                color: active ? "#ffffff" : "var(--text-secondary)",
               }}
             >
               {active && (
@@ -99,8 +100,8 @@ export default function IconRail({ userName }: { userName: string }) {
       {/* User avatar */}
       <div className="pt-2 pb-3 flex justify-center w-full">
         <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-          style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)" }}
+          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
+          style={{ background: "#ffffff", color: "#000000" }}
         >
           {initial}
         </div>

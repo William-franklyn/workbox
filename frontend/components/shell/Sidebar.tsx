@@ -15,7 +15,7 @@ import {
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
 
 const SPACE_ICONS  = ["🚀","📦","🎨","📣","🏠","⚙️","🔬","💼","🌍","🎯"];
-const SPACE_COLORS = ["#7c3aed","#3b82f6","#22c55e","#f59e0b","#ef4444","#ec4899","#06b6d4","#84cc16"];
+const SPACE_COLORS = ["#ffffff","#e0e0e0","#c0c0c0","#a0a0a0","#808080","#606060","#404040","#282828"];
 
 export default function Sidebar({ orgName, userRole, userName, userEmail, userId }: Props) {
   const router   = useRouter();
@@ -144,7 +144,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0"
-                style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)", boxShadow: "0 1px 6px rgba(109,40,217,0.4)" }}
+                style={{ background: "linear-gradient(145deg, #2a2a2a, #161616)", boxShadow: "0 0 0 1px rgba(255,255,255,0.1)" }}
               >
                 W
               </div>
@@ -182,7 +182,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                     className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100 group"
                     style={{
                       background: active ? "var(--bg-active)" : "transparent",
-                      color: active ? "#a78bfa" : "var(--text-secondary)",
+                      color: active ? "#ffffff" : "var(--text-secondary)",
                     }}
                   >
                     <Icon size={14} strokeWidth={active ? 2.2 : 1.75} />
@@ -401,7 +401,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2.5 px-3 py-2.5">
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-                style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)" }}>
+                style={{ background: "linear-gradient(145deg, #2a2a2a, #161616)" }}>
                 {userName[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -441,8 +441,8 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
               <div className="space-y-1.5">
                 {spaceMembers.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--bg-surface)" }}>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                      style={{ background: m.id === userId ? "linear-gradient(145deg,#8b5cf6,#6d28d9)" : "#2a2a3e" }}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{ background: m.id === userId ? "#ffffff" : "#222222", color: m.id === userId ? "#000000" : "var(--text-primary)" }}>
                       {m.full_name?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -452,8 +452,8 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full capitalize font-medium"
                       style={{
-                        background: m.role === "admin" ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.05)",
-                        color: m.role === "admin" ? "#a78bfa" : "var(--text-secondary)",
+                        background: m.role === "admin" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
+                        color: m.role === "admin" ? "var(--text-primary)" : "var(--text-secondary)",
                       }}>
                       {m.role}
                     </span>
