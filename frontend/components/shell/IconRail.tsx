@@ -40,7 +40,7 @@ export default function IconRail({ userName }: { userName: string }) {
 
   return (
     <div
-      className="flex flex-col items-center shrink-0 select-none z-10"
+      className="flex flex-col items-center shrink-0 select-none z-50"
       style={{
         width: 52,
         minWidth: 52,
@@ -109,19 +109,24 @@ export default function IconRail({ userName }: { userName: string }) {
         </div>
       </div>
 
-      {/* Tooltip — fixed so it escapes the overflow-y:auto scroll container */}
+      {/* Tooltip — position:fixed + explicit zIndex escapes any stacking context */}
       {tooltip && (
         <div
-          className="pointer-events-none z-[200] px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
+          className="pointer-events-none whitespace-nowrap"
           style={{
             position: "fixed",
             left: 60,
             top: tooltip.y,
             transform: "translateY(-50%)",
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-strong)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+            zIndex: 9999,
+            background: "#161616",
+            color: "#f0f0f0",
+            border: "1px solid #303030",
+            borderRadius: 8,
+            padding: "5px 10px",
+            fontSize: 12,
+            fontWeight: 500,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
           }}
         >
           {tooltip.label}
