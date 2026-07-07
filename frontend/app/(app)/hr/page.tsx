@@ -318,7 +318,7 @@ export default function HRPage() {
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
                   {["All", ...depts].map(d => (
-                    <button key={d} onClick={() => setDeptFilter(d)}
+                    <button key={d} onClick={() => setDeptFilter(d ?? "All")}
                       className="text-xs px-3 py-1.5 rounded-lg transition-colors"
                       style={{
                         background: deptFilter === d ? "rgba(255,255,255,0.12)" : "var(--bg-surface)",
