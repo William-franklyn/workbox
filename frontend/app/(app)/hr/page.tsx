@@ -158,7 +158,7 @@ function LeaveForm({ employees, onSave, onClose }: {
     const res = await fetch("/api/hr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "leave", ...f, days }),
+      body: JSON.stringify({ ...f, type: "leave", days }),
     });
     const d = await res.json();
     setSaving(false);
