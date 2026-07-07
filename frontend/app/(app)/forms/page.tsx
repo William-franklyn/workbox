@@ -464,7 +464,7 @@ function ResponsesModal({ form, onClose }: { form: WorkboxForm; onClose: () => v
                           {f.type === "rating" && val ? (
                             <span className="flex items-center gap-0.5">
                               {"★".repeat(Number(val))}{"☆".repeat(5 - Number(val))}
-                              <span className="ml-1 text-xs" style={{ color: "var(--text-secondary)" }}>{val}/5</span>
+                              <span className="ml-1 text-xs" style={{ color: "var(--text-secondary)" }}>{String(val)}/5</span>
                             </span>
                           ) : display}
                         </td>
