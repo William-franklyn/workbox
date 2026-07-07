@@ -48,6 +48,7 @@ const PAGE_HINTS: Record<string, string> = {
 export default function AIAssistant() {
   const pathname = usePathname();
   const isHome = pathname === "/home" || pathname === "/";
+  const isChat = pathname.startsWith("/chat");
 
   const ctxKey  = Object.keys(PAGE_CTX).find(k => pathname.startsWith(k));
   const ctxLabel = ctxKey ? PAGE_CTX[ctxKey] : null;
@@ -248,6 +249,9 @@ export default function AIAssistant() {
     );
   }
 
+  // Chat page already IS the agent — don't render anything
+  if (isChat) return null;
+
   // ─── HOME PAGE — floating button + panel ──────────────────────────────────
   if (isHome) {
     if (!homeOpen) {
@@ -264,8 +268,8 @@ export default function AIAssistant() {
 
     return (
       <div
-        className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl border overflow-hidden"
-        style={{ width: 360, height: homeMinimized ? 52 : 520, background: "var(--bg-secondary)", borderColor: "var(--border)", transition: "height 0.2s ease" }}
+        className="fixed bottom-4 right-3 sm:bottom-6 sm:right-6 z-50 flex flex-col rounded-2xl shadow-2xl border overflow-hidden"
+        style={{ width: "min(360px, calc(100vw - 1.5rem))", height: homeMinimized ? 52 : 520, background: "var(--bg-secondary)", borderColor: "var(--border)", transition: "height 0.2s ease" }}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b flex-shrink-0"
           style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
@@ -301,9 +305,9 @@ export default function AIAssistant() {
   // ─── ALL OTHER PAGES — persistent bar + expandable panel ──────────────────
   return (
     <div
-      className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-xl border overflow-hidden"
+      className="fixed bottom-4 right-3 sm:bottom-6 sm:right-6 z-50 flex flex-col rounded-2xl shadow-xl border overflow-hidden"
       style={{
-        width: 380,
+        width: "min(380px, calc(100vw - 1.5rem))",
         background: "var(--bg-secondary)",
         borderColor: expanded ? "rgba(124,58,237,0.4)" : "var(--border)",
         boxShadow: expanded ? "0 8px 40px rgba(0,0,0,0.5)" : "0 4px 20px rgba(0,0,0,0.3)",
