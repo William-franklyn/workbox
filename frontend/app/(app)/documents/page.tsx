@@ -6,7 +6,21 @@ import {
   Grid3X3, List, Share2, ChevronRight, ArrowLeft, Eye, Save,
   LayoutTemplate, Copy, Check, Link2, Lock, Table2, Upload,
   ListOrdered, Code, Minus, Undo2, Redo2,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify, Highlighter,
 } from "lucide-react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import TiptapUnderline from "@tiptap/extension-underline";
+import TiptapLink from "@tiptap/extension-link";
+import TextAlign from "@tiptap/extension-text-align";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import Color from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Highlight from "@tiptap/extension-highlight";
+import Placeholder from "@tiptap/extension-placeholder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -305,41 +319,71 @@ function ShareModal({ doc, onClose, onUpdate }: { doc: OrgDocument; onClose: () 
   );
 }
 
-// ─── Document editor ──────────────────────────────────────────────────────────
+// ─── Document editor (TipTap WYSIWYG) ────────────────────────────────────────
 
 function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => void; onSave: (d: OrgDocument) => void }) {
   const [name, setName] = useState(doc.name);
-  const [content, setContent] = useState(doc.content ?? "");
-  const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const colorRef = useRef<HTMLInputElement>(null);
+  const hlRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef(name);
+  nameRef.current = name;
 
-  function markDirty(val: string, field: "name" | "content") {
-    setDirty(true);
-    if (field === "content") setContent(val);
-    else setName(val);
-    if (autoRef.current) clearTimeout(autoRef.current);
-    autoRef.current = setTimeout(() => autosave(field === "name" ? val : name, field === "content" ? val : content), 2000);
-  }
+  const initialHtml = (doc.content ?? "").trimStart().startsWith("<")
+    ? (doc.content ?? "")
+    : renderMarkdown(doc.content ?? "");
 
-  async function autosave(n: string, c: string) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+      TiptapUnderline,
+      TiptapLink.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      Placeholder.configure({ placeholder: "Start typing your document…" }),
+    ],
+    content: initialHtml,
+    editorProps: { attributes: { class: "doc-body", spellcheck: "true" } },
+    onUpdate({ editor }) {
+      setDirty(true);
+      if (autoRef.current) clearTimeout(autoRef.current);
+      autoRef.current = setTimeout(() => autosaveHtml(nameRef.current, editor.getHTML()), 2000);
+    },
+  });
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
+  async function autosaveHtml(n: string, html: string) {
     await fetch("/api/documents", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: doc.id, name: n, content: c, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ id: doc.id, name: n, content: html, updated_at: new Date().toISOString() }),
     });
     setDirty(false);
   }
 
   async function save() {
+    if (!editor) return;
     if (autoRef.current) clearTimeout(autoRef.current);
     setSaving(true);
     const res = await fetch("/api/documents", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: doc.id, name, content, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ id: doc.id, name, content: editor.getHTML(), updated_at: new Date().toISOString() }),
     });
     const d = await res.json();
     setSaving(false);
@@ -347,101 +391,54 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
     onSave(d);
   }
 
-  // ── Formatting helpers ─────────────────────────────────────────────────────
+  const headingLevel =
+    editor?.isActive("heading", { level: 1 }) ? "1" :
+    editor?.isActive("heading", { level: 2 }) ? "2" :
+    editor?.isActive("heading", { level: 3 }) ? "3" :
+    editor?.isActive("heading", { level: 4 }) ? "4" : "0";
 
-  function applyInline(prefix: string, suffix = prefix) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const { selectionStart: s, selectionEnd: e } = ta;
-    const sel = content.slice(s, e);
-    const next = content.slice(0, s) + prefix + sel + suffix + content.slice(e);
-    markDirty(next, "content");
-    setTimeout(() => {
-      ta.focus();
-      ta.selectionStart = s + prefix.length;
-      ta.selectionEnd = e + prefix.length;
-    }, 0);
-  }
-
-  function applyLinePrefix(prefix: string) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const { selectionStart: s, selectionEnd: e } = ta;
-    const lines = content.split("\n");
-    let pos = 0;
-    const newLines = lines.map(line => {
-      const start = pos;
-      const end = pos + line.length;
-      pos += line.length + 1;
-      if (end >= s && start <= e) {
-        return line.startsWith(prefix) ? line.slice(prefix.length) : prefix + line;
-      }
-      return line;
-    });
-    markDirty(newLines.join("\n"), "content");
-    setTimeout(() => ta.focus(), 0);
-  }
-
-  function insertAtCursor(text: string) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const { selectionStart: s, selectionEnd: e } = ta;
-    const next = content.slice(0, s) + text + content.slice(e);
-    markDirty(next, "content");
-    setTimeout(() => {
-      ta.focus();
-      ta.selectionStart = ta.selectionEnd = s + text.length;
-    }, 0);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const ctrl = e.ctrlKey || e.metaKey;
-    if (ctrl && e.key === "b") { e.preventDefault(); applyInline("**"); }
-    if (ctrl && e.key === "i") { e.preventDefault(); applyInline("*"); }
-    if (ctrl && e.key === "s") { e.preventDefault(); save(); }
-    if (ctrl && e.key === "k") { e.preventDefault(); applyInline("[", "](url)"); }
-  }
-
-  // ── Toolbar button component ───────────────────────────────────────────────
-  function Btn({ title, onClick, children, mono = false }: { title: string; onClick: () => void; children: React.ReactNode; mono?: boolean }) {
+  function TBtn({ title, active = false, onClick, children }: {
+    title: string; active?: boolean; onClick: () => void; children: React.ReactNode;
+  }) {
     return (
       <button
         onMouseDown={e => { e.preventDefault(); onClick(); }}
         title={title}
-        className="h-7 min-w-7 px-1 flex items-center justify-center rounded transition-colors hover:bg-white/10"
-        style={{ color: "var(--text-secondary)", fontSize: mono ? 12 : undefined, fontWeight: mono ? 700 : undefined, fontFamily: mono ? "ui-monospace,monospace" : undefined }}
+        disabled={!editor}
+        className="h-7 min-w-[28px] px-1.5 rounded flex items-center justify-center text-xs font-medium transition-colors disabled:opacity-30 select-none"
+        style={{ background: active ? "#dbeafe" : "transparent", color: active ? "#1d4ed8" : "#374151" }}
       >
         {children}
       </button>
     );
   }
 
-  function Sep() {
-    return <div className="w-px h-4 mx-1 flex-shrink-0" style={{ background: "var(--border)" }} />;
-  }
+  function TSep() { return <div className="w-px h-5 mx-0.5 shrink-0" style={{ background: "#d1d5db" }} />; }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: "var(--bg-primary)" }}>
-      {/* Top bar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
-        <button onClick={onClose} className="flex items-center gap-1.5 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: "var(--text-secondary)" }}>
+    <div className="fixed inset-0 z-40 flex flex-col">
+      {/* App-themed top bar */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0"
+        style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm px-2 py-1.5 rounded-lg hover:bg-white/5 shrink-0"
+          style={{ color: "var(--text-secondary)" }}>
           <ArrowLeft size={14} /> Back
         </button>
         <div className="w-px h-4 mx-1 shrink-0" style={{ background: "var(--border)" }} />
         <input
           value={name}
-          onChange={e => markDirty(e.target.value, "name")}
+          onChange={e => {
+            setName(e.target.value); setDirty(true);
+            if (autoRef.current) clearTimeout(autoRef.current);
+            autoRef.current = setTimeout(() => autosaveHtml(e.target.value, editor?.getHTML() ?? ""), 2000);
+          }}
           className="flex-1 bg-transparent outline-none text-sm font-semibold min-w-0"
           style={{ color: "var(--text-primary)" }}
           placeholder="Document title"
         />
         <div className="flex items-center gap-2 shrink-0">
           {dirty && <span className="text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
-          <button onClick={() => setPreview(p => !p)}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
-            style={{ borderColor: "var(--border)", color: preview ? "var(--text-primary)" : "var(--text-secondary)", background: preview ? "rgba(255,255,255,0.08)" : "transparent" }}>
-            <Eye size={12} /> {preview ? "Edit" : "Preview"}
-          </button>
           <button onClick={save} disabled={saving}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-60"
             style={{ background: "var(--accent-purple)", color: "#000" }}>
@@ -450,83 +447,129 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
         </div>
       </div>
 
-      {/* Formatting toolbar */}
-      {!preview && (
-        <div className="flex items-center gap-0.5 px-3 py-1.5 border-b flex-wrap shrink-0"
-          style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
-          {/* Text style */}
-          <Btn title="Bold (Ctrl+B)" onClick={() => applyInline("**")} mono><strong>B</strong></Btn>
-          <Btn title="Italic (Ctrl+I)" onClick={() => applyInline("*")} mono><em style={{ fontStyle: "italic" }}>I</em></Btn>
-          <Btn title="Strikethrough" onClick={() => applyInline("~~")} mono><span style={{ textDecoration: "line-through" }}>S</span></Btn>
-          <Btn title="Underline" onClick={() => applyInline("<u>", "</u>")} mono><span style={{ textDecoration: "underline" }}>U</span></Btn>
-          <Sep />
-          {/* Headings */}
-          <Btn title="Heading 1" onClick={() => applyLinePrefix("# ")} mono>H1</Btn>
-          <Btn title="Heading 2" onClick={() => applyLinePrefix("## ")} mono>H2</Btn>
-          <Btn title="Heading 3" onClick={() => applyLinePrefix("### ")} mono>H3</Btn>
-          <Sep />
-          {/* Lists */}
-          <Btn title="Bullet list" onClick={() => applyLinePrefix("- ")}><List size={13} /></Btn>
-          <Btn title="Numbered list" onClick={() => applyLinePrefix("1. ")}><ListOrdered size={13} /></Btn>
-          <Btn title="Checklist" onClick={() => applyLinePrefix("- [ ] ")} mono>☑</Btn>
-          <Btn title="Blockquote" onClick={() => applyLinePrefix("> ")} mono>&quot;</Btn>
-          <Sep />
-          {/* Code */}
-          <Btn title="Inline code" onClick={() => applyInline("`")}><Code size={13} /></Btn>
-          <Btn title="Code block" onClick={() => insertAtCursor("\n```\n\n```\n")} mono>{"</>"}</Btn>
-          <Sep />
-          {/* Insert */}
-          <Btn title="Link (Ctrl+K)" onClick={() => applyInline("[", "](url)")}><Link2 size={13} /></Btn>
-          <Btn title="Table" onClick={() => insertAtCursor("\n| Column 1 | Column 2 | Column 3 |\n|---|---|---|\n| Cell | Cell | Cell |\n")}><Table2 size={13} /></Btn>
-          <Btn title="Horizontal rule" onClick={() => insertAtCursor("\n---\n")}><Minus size={13} /></Btn>
-          <Sep />
-          {/* Undo/Redo */}
-          <Btn title="Undo (Ctrl+Z)" onClick={() => { taRef.current?.focus(); document.execCommand("undo"); }}><Undo2 size={13} /></Btn>
-          <Btn title="Redo (Ctrl+Y)" onClick={() => { taRef.current?.focus(); document.execCommand("redo"); }}><Redo2 size={13} /></Btn>
+      {/* Word-style ribbon toolbar */}
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b flex-wrap shrink-0 select-none"
+        style={{ background: "#f8f9fa", borderColor: "#e5e7eb" }}>
+        <TBtn title="Undo (Ctrl+Z)" onClick={() => editor?.chain().focus().undo().run()}><Undo2 size={13} /></TBtn>
+        <TBtn title="Redo (Ctrl+Y)" onClick={() => editor?.chain().focus().redo().run()}><Redo2 size={13} /></TBtn>
+        <TSep />
+        <select value={headingLevel}
+          onChange={e => {
+            const l = parseInt(e.target.value);
+            if (l === 0) editor?.chain().focus().setParagraph().run();
+            else editor?.chain().focus().toggleHeading({ level: l as 1 | 2 | 3 | 4 }).run();
+          }}
+          className="h-7 rounded border outline-none px-1.5 text-xs"
+          style={{ background: "white", borderColor: "#d1d5db", color: "#374151", minWidth: 90 }}>
+          <option value="0">Normal</option>
+          <option value="1">Heading 1</option>
+          <option value="2">Heading 2</option>
+          <option value="3">Heading 3</option>
+          <option value="4">Heading 4</option>
+        </select>
+        <TSep />
+        <TBtn title="Bold (Ctrl+B)" active={!!editor?.isActive("bold")} onClick={() => editor?.chain().focus().toggleBold().run()}>
+          <span style={{ fontWeight: 800, fontFamily: "Georgia, serif" }}>B</span>
+        </TBtn>
+        <TBtn title="Italic (Ctrl+I)" active={!!editor?.isActive("italic")} onClick={() => editor?.chain().focus().toggleItalic().run()}>
+          <em style={{ fontStyle: "italic", fontFamily: "Georgia, serif" }}>I</em>
+        </TBtn>
+        <TBtn title="Underline (Ctrl+U)" active={!!editor?.isActive("underline")} onClick={() => editor?.chain().focus().toggleUnderline().run()}>
+          <span style={{ textDecoration: "underline" }}>U</span>
+        </TBtn>
+        <TBtn title="Strikethrough" active={!!editor?.isActive("strike")} onClick={() => editor?.chain().focus().toggleStrike().run()}>
+          <span style={{ textDecoration: "line-through" }}>S</span>
+        </TBtn>
+        <TSep />
+        {/* Text color */}
+        <div className="relative flex items-center">
+          <button onMouseDown={e => { e.preventDefault(); colorRef.current?.click(); }} title="Text color"
+            className="h-7 w-7 rounded flex flex-col items-center justify-center gap-px transition-colors hover:bg-gray-200" style={{ color: "#374151" }}>
+            <span className="text-xs font-bold leading-none" style={{ fontFamily: "Georgia, serif" }}>A</span>
+            <span className="w-4 h-1 rounded-sm" style={{ background: editor?.getAttributes("textStyle").color ?? "#111827" }} />
+          </button>
+          <input ref={colorRef} type="color" className="absolute opacity-0 w-0 h-0 pointer-events-none"
+            defaultValue="#111827"
+            onChange={e => editor?.chain().focus().setColor(e.target.value).run()} />
         </div>
-      )}
+        {/* Highlight */}
+        <div className="relative flex items-center">
+          <button onMouseDown={e => { e.preventDefault(); hlRef.current?.click(); }} title="Highlight"
+            className="h-7 w-7 rounded flex items-center justify-center transition-colors hover:bg-gray-200">
+            <Highlighter size={13} color="#374151" />
+          </button>
+          <input ref={hlRef} type="color" className="absolute opacity-0 w-0 h-0 pointer-events-none"
+            defaultValue="#fef08a"
+            onChange={e => editor?.chain().focus().toggleHighlight({ color: e.target.value }).run()} />
+        </div>
+        <TSep />
+        <TBtn title="Align left" active={!!editor?.isActive({ textAlign: "left" })} onClick={() => editor?.chain().focus().setTextAlign("left").run()}><AlignLeft size={13} /></TBtn>
+        <TBtn title="Align center" active={!!editor?.isActive({ textAlign: "center" })} onClick={() => editor?.chain().focus().setTextAlign("center").run()}><AlignCenter size={13} /></TBtn>
+        <TBtn title="Align right" active={!!editor?.isActive({ textAlign: "right" })} onClick={() => editor?.chain().focus().setTextAlign("right").run()}><AlignRight size={13} /></TBtn>
+        <TBtn title="Justify" active={!!editor?.isActive({ textAlign: "justify" })} onClick={() => editor?.chain().focus().setTextAlign("justify").run()}><AlignJustify size={13} /></TBtn>
+        <TSep />
+        <TBtn title="Bullet list" active={!!editor?.isActive("bulletList")} onClick={() => editor?.chain().focus().toggleBulletList().run()}><List size={13} /></TBtn>
+        <TBtn title="Numbered list" active={!!editor?.isActive("orderedList")} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered size={13} /></TBtn>
+        <TBtn title="Blockquote" active={!!editor?.isActive("blockquote")} onClick={() => editor?.chain().focus().toggleBlockquote().run()}>
+          <span style={{ fontFamily: "Georgia,serif", fontWeight: 700, fontSize: 16, lineHeight: 1 }}>"</span>
+        </TBtn>
+        <TSep />
+        <TBtn title="Inline code" active={!!editor?.isActive("code")} onClick={() => editor?.chain().focus().toggleCode().run()}><Code size={13} /></TBtn>
+        <TBtn title="Code block" active={!!editor?.isActive("codeBlock")} onClick={() => editor?.chain().focus().toggleCodeBlock().run()}>
+          <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 10 }}>{"</>"}</span>
+        </TBtn>
+        <TSep />
+        <TBtn title="Link" active={!!editor?.isActive("link")} onClick={() => {
+          const prev = editor?.getAttributes("link").href ?? "";
+          const url = window.prompt("URL:", prev);
+          if (url === null) return;
+          if (url === "") editor?.chain().focus().unsetLink().run();
+          else editor?.chain().focus().setLink({ href: url }).run();
+        }}><Link2 size={13} /></TBtn>
+        <TBtn title="Insert 3×3 table" onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><Table2 size={13} /></TBtn>
+        <TBtn title="Horizontal rule" onClick={() => editor?.chain().focus().setHorizontalRule().run()}><Minus size={13} /></TBtn>
+      </div>
 
-      {/* Editor body */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
-          {preview ? (
-            <div className="doc-preview" dangerouslySetInnerHTML={{ __html: renderMarkdown(content || "*Nothing to preview yet.*") }} />
-          ) : (
-            <textarea
-              ref={taRef}
-              value={content}
-              onChange={e => markDirty(e.target.value, "content")}
-              onKeyDown={handleKeyDown}
-              placeholder="Start writing… Use the toolbar above or Markdown syntax"
-              className="w-full resize-none bg-transparent outline-none text-sm leading-7"
-              style={{ color: "var(--text-primary)", minHeight: "calc(100vh - 200px)" }}
-              spellCheck
-            />
-          )}
+      {/* Word-like page workspace */}
+      <div className="flex-1 overflow-y-auto" style={{ background: "#e8e8e8" }}>
+        <div style={{
+          background: "white",
+          width: "min(816px, calc(100% - 48px))",
+          minHeight: "1056px",
+          margin: "32px auto",
+          padding: "72px 96px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
+          color: "#111827",
+        }}>
+          <EditorContent editor={editor} />
         </div>
+        <div style={{ height: 48 }} />
       </div>
 
       <style>{`
-        .doc-preview h1 { font-size:1.7rem;font-weight:800;margin:0 0 .5em;color:var(--text-primary) }
-        .doc-preview h2 { font-size:1.3rem;font-weight:700;margin:1.4em 0 .4em;color:var(--text-primary) }
-        .doc-preview h3 { font-size:1.05rem;font-weight:600;margin:1.1em 0 .3em;color:var(--text-primary) }
-        .doc-preview p  { margin:.5em 0;line-height:1.75;color:var(--text-primary) }
-        .doc-preview strong { font-weight:700 }
-        .doc-preview em { font-style:italic;opacity:.85 }
-        .doc-preview u { text-decoration:underline }
-        .doc-preview del { text-decoration:line-through;opacity:.7 }
-        .doc-preview code { background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:.85em;font-family:ui-monospace,monospace }
-        .doc-preview pre { background:rgba(255,255,255,0.05);padding:12px 16px;border-radius:8px;overflow-x:auto;margin:1em 0 }
-        .doc-preview pre code { background:none;padding:0 }
-        .doc-preview blockquote { border-left:3px solid var(--accent-purple);padding-left:12px;margin:1em 0;opacity:.8;font-style:italic }
-        .doc-preview hr { border:none;border-top:1px solid var(--border);margin:1.5em 0 }
-        .doc-preview ul { padding-left:1.5em;margin:.5em 0 }
-        .doc-preview ol { padding-left:1.5em;margin:.5em 0 }
-        .doc-preview li { margin:.25em 0;color:var(--text-primary) }
-        .doc-preview table { border-collapse:collapse;width:100%;margin:1em 0 }
-        .doc-preview th { padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);font-size:.9em;color:var(--text-primary) }
-        .doc-preview td { padding:6px 12px;border-bottom:1px solid var(--border);font-size:.9em;color:var(--text-primary) }
-        .doc-preview a { color:var(--accent-purple);text-decoration:underline }
+        .doc-body { outline: none; min-height: 600px; font-size: 15px; line-height: 1.8; color: #111827; }
+        .doc-body > * + * { margin-top: 0.5em; }
+        .doc-body h1 { font-size: 2em; font-weight: 700; line-height: 1.2; margin-top: 0.8em; margin-bottom: 0.3em; }
+        .doc-body h2 { font-size: 1.5em; font-weight: 600; line-height: 1.3; margin-top: 1em; margin-bottom: 0.25em; }
+        .doc-body h3 { font-size: 1.2em; font-weight: 600; margin-top: 0.9em; margin-bottom: 0.2em; }
+        .doc-body h4 { font-size: 1em; font-weight: 600; margin-top: 0.7em; }
+        .doc-body p { margin: 0.3em 0; }
+        .doc-body p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9ca3af; float: left; height: 0; pointer-events: none; font-style: italic; }
+        .doc-body ul { padding-left: 1.6em; margin: 0.4em 0; list-style-type: disc; }
+        .doc-body ol { padding-left: 1.6em; margin: 0.4em 0; list-style-type: decimal; }
+        .doc-body li { margin: 0.15em 0; }
+        .doc-body blockquote { border-left: 3px solid #d1d5db; padding: 4px 0 4px 14px; margin: 0.7em 0; color: #6b7280; font-style: italic; }
+        .doc-body code { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 0.88em; color: #1f2937; }
+        .doc-body pre { background: #1e293b; color: #f1f5f9; padding: 16px 20px; border-radius: 6px; overflow-x: auto; margin: 0.8em 0; }
+        .doc-body pre code { background: none; border: none; color: inherit; padding: 0; font-size: 0.9em; }
+        .doc-body hr { border: none; border-top: 2px solid #e5e7eb; margin: 1.5em 0; }
+        .doc-body a { color: #2563eb; text-decoration: underline; cursor: pointer; }
+        .doc-body table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+        .doc-body th { background: #f9fafb; border: 1px solid #d1d5db; padding: 8px 12px; font-weight: 600; text-align: left; font-size: 0.9em; }
+        .doc-body td { border: 1px solid #d1d5db; padding: 8px 12px; font-size: 0.9em; vertical-align: top; }
+        .doc-body td.selectedCell, .doc-body th.selectedCell { background: #eff6ff; }
+        .doc-body mark { border-radius: 2px; padding: 1px 0; }
+        .doc-body .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 3px; background: #93c5fd; pointer-events: none; }
       `}</style>
     </div>
   );
@@ -581,22 +624,21 @@ export default function DocumentsPage() {
         const ws = wb.Sheets[sheetName];
         const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         if (!rows.length) continue;
-        parts.push(`## ${sheetName}\n`);
-        const colWidths = rows[0].map((_, ci) => Math.max(...rows.map(r => String(r[ci] ?? "").length), 3));
-        const fmtRow = (r: string[]) => "| " + r.map((cell, ci) => String(cell ?? "").padEnd(colWidths[ci])).join(" | ") + " |";
-        const sep = "| " + colWidths.map(w => "-".repeat(w)).join(" | ") + " |";
-        parts.push(fmtRow(rows[0]));
-        parts.push(sep);
-        for (const row of rows.slice(1)) {
-          const padded = Array.from({ length: rows[0].length }, (_, i) => String(row[i] ?? ""));
-          parts.push(fmtRow(padded));
-        }
+        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const headerRow = rows[0].map(c => `<th>${esc(String(c ?? ""))}</th>`).join("");
+        const bodyRows = rows.slice(1).map(r => {
+          const cells = Array.from({ length: rows[0].length }, (_, i) => `<td>${esc(String(r[i] ?? ""))}</td>`).join("");
+          return `<tr>${cells}</tr>`;
+        }).join("");
+        parts.push(`<h2>${esc(sheetName)}</h2><table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`);
       }
-      content = parts.join("\n");
-    } else if (/\.(txt|md|csv)$/i.test(file.name)) {
-      content = await file.text();
+      content = parts.join("<br>");
+    } else if (/\.(txt|md)$/i.test(file.name)) {
+      content = renderMarkdown(await file.text());
+    } else if (/\.csv$/i.test(file.name)) {
+      content = renderMarkdown(await file.text());
     } else {
-      content = `*Imported file: ${file.name}*\n\n> This file type cannot be rendered as text.`;
+      content = `<p><em>Imported file: ${file.name.replace(/</g, "&lt;")}</em></p>`;
     }
 
     await createDoc(name, content);
