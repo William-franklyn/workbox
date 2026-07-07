@@ -5,6 +5,7 @@ import {
   LayoutDashboard, MessageSquare, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
   Briefcase, UserCheck, Activity, FormInput,
+  BookOpen, Building2, UsersRound, FolderOpen, DollarSign,
 } from "lucide-react";
 
 const NAV = [
@@ -15,6 +16,11 @@ const NAV = [
   { icon: Target,          href: "/goals",                label: "Goals" },
   { icon: BarChart3,       href: "/portfolio",            label: "Portfolio" },
   { icon: Briefcase,       href: "/workload",             label: "Workload" },
+  { icon: BookOpen,        href: "/knowledge",            label: "Knowledge Base" },
+  { icon: Building2,       href: "/crm",                  label: "CRM" },
+  { icon: UsersRound,      href: "/hr",                   label: "People & HR" },
+  { icon: FolderOpen,      href: "/documents",            label: "Documents" },
+  { icon: DollarSign,      href: "/budget",               label: "Budget" },
   { icon: Zap,             href: "/automations",          label: "Automations" },
   { icon: Layout,          href: "/templates",            label: "Templates" },
   { icon: FormInput,       href: "/forms",                label: "Forms" },
