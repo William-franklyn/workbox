@@ -368,6 +368,34 @@ async function executeTool(
       return `"${title}"\n${header}\n${rowLines || "(empty)"}`;
     }
 
+    case "create_form": {
+      const { name, description, fields } = args as { name: string; description?: string; fields: Record<string, unknown>[] };
+      const { data, error } = await supabase.from("forms").insert({
+        id: `form${Date.now()}`,
+        name: name ?? "Untitled Form",
+        description: description ?? null,
+        org_id: orgId,
+        created_by: userId,
+        fields: fields ?? [],
+        default_status: "todo",
+        default_priority: "normal",
+      }).select("id, name").single();
+      if (error) return `Error: ${error.message}`;
+      const fid = (data as Record<string, string>).id;
+      return `Created form "${(data as Record<string, string>).name}"\nShare link: ${BASE_URL}/f/${fid}\nManage & customize: ${BASE_URL}/forms`;
+    }
+
+    case "list_forms": {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let fq = supabase.from("forms").select("id, name, description, created_at").order("created_at", { ascending: false }) as any;
+      if (orgId) fq = fq.eq("org_id", orgId);
+      const { data: forms } = await fq;
+      if (!forms?.length) return "No forms found.";
+      return (forms as Record<string, string>[]).map(f =>
+        `• [${f.id}] ${f.name}${f.description ? ` — ${f.description}` : ""}\n  Link: ${BASE_URL}/f/${f.id}`
+      ).join("\n");
+    }
+
     case "update_spreadsheet": {
       const { spreadsheet_id, rows, headers, title } = args as Record<string, unknown>;
       const { data: doc } = await supabase.from("docs").select("blocks, title").eq("id", spreadsheet_id as string).maybeSingle();
@@ -427,6 +455,36 @@ const TOOLS = [
   { name: "create_spreadsheet", description: "Create a spreadsheet with headers and rows of data", input_schema: { type: "object", properties: { title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } }, description: { type: "string" } }, required: ["title", "headers"] } },
   { name: "read_spreadsheet", description: "Read the data from a spreadsheet", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" } }, required: ["spreadsheet_id"] } },
   { name: "update_spreadsheet", description: "Update a spreadsheet's title, headers, or rows", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" }, title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["spreadsheet_id"] } },
+  {
+    name: "create_form",
+    description: "Create a form or survey with custom fields. Use when the user asks to build a form, intake form, survey, questionnaire, registration, feedback form, etc. You generate the fields — no need to ask the user for each one.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Form name" },
+        description: { type: "string", description: "What the form is for" },
+        fields: {
+          type: "array",
+          description: "Form fields. Generate 5-10 sensible fields based on the form's purpose.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "Unique ID like f1, f2, f3" },
+              type: { type: "string", description: "text | textarea | email | phone | number | date | select | radio | checkbox | rating | heading" },
+              label: { type: "string" },
+              placeholder: { type: "string", description: "Helpful hint text (skip for heading, rating, checkbox)" },
+              required: { type: "boolean" },
+              options: { type: "array", items: { type: "string" }, description: "Choices for select or radio fields" },
+              maps_to: { type: "string", description: "title or description — tag the single most relevant field, null for others" },
+            },
+            required: ["id", "type", "label"],
+          },
+        },
+      },
+      required: ["name", "fields"],
+    },
+  },
+  { name: "list_forms", description: "List all forms in the workspace with their share links", input_schema: { type: "object", properties: {}, required: [] } },
 ];
 
 const SYSTEM_PROMPT = `You are WorkBox Agent — the AI brain built into WorkBox, a project management and productivity platform. You have direct, real-time access to the entire workspace through tools.
@@ -441,6 +499,7 @@ You can:
 - List and schedule meetings via Google Calendar
 - Log time and view time summaries
 - Manage subtasks and comments on tasks
+- Create forms and surveys (intake forms, feedback forms, registrations, etc.) and list existing forms
 
 ## Topic focus — IMPORTANT
 Your purpose is to help users be more productive at work using WorkBox. You only help with:

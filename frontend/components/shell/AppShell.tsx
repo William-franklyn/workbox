@@ -91,7 +91,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
 
       <div className="flex flex-col flex-1 min-w-0">
         <TopNav orgName={orgName} userName={userName} userId={userId} />
-        <main className="flex-1 overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+        <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-primary)" }}>
           {children}
         </main>
       </div>
