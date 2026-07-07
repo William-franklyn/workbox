@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useWorkspaceStore } from "@/store/workspace";
 import { Loader2, CheckCircle2, Layout, Code2, Megaphone, Users, Briefcase, ShoppingCart, BookOpen, Rocket, Bug, Target, UserPlus, CalendarDays } from "lucide-react";
 
 interface Template {
@@ -210,6 +211,7 @@ const TAG_COLORS: Record<string, string> = {
 
 export default function TemplatesPage() {
   const router = useRouter();
+  const { loadSpaces } = useWorkspaceStore();
   const [applying, setApplying] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");
@@ -251,10 +253,11 @@ export default function TemplatesPage() {
       }
 
       setDone(tpl.id);
+      await loadSpaces();
       setTimeout(() => {
         setDone(null);
         router.push("/home");
-      }, 1500);
+      }, 1200);
     } catch (e) {
       console.error(e);
     } finally {
