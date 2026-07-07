@@ -217,15 +217,17 @@ export default function AIAssistant() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-          onFocus={() => { if (!isHome && !expanded && messages.length > 0) setExpanded(true); }}
+          onFocus={e => {
+            if (!isHome && !expanded && messages.length > 0) setExpanded(true);
+            if (!compact) e.target.style.borderColor = "var(--accent-purple)";
+          }}
+          onBlur={e => { if (!compact) e.target.style.borderColor = "var(--border)"; }}
           placeholder={compact ? ctxHint : "Ask me anything…"}
           className={`flex-1 bg-transparent outline-none min-w-0 ${compact ? "text-xs" : "text-sm px-3 py-2 rounded-xl border"}`}
           style={{
             color: "var(--text-primary)",
             ...(compact ? {} : { borderColor: "var(--border)" }),
           }}
-          onFocus={compact ? undefined : e => (e.target.style.borderColor = "var(--accent-purple)")}
-          onBlur={compact ? undefined : e => (e.target.style.borderColor = "var(--border)")}
         />
         {compact && messages.length > 0 && !expanded && (
           <button onClick={() => setExpanded(true)}
