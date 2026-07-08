@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/api-key";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertTaskInOrg } from "@/lib/auth/guard";
 
 export async function GET(req: NextRequest) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const userId = ctx.userId;
 
-  const supabase = createServiceClient();
-  const { data } = await supabase
+  const { data } = await ctx.svc
     .from("time_logs")
     .select("id, task_id, duration_minutes, note, logged_at")
     .eq("user_id", userId)
@@ -24,14 +24,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const userId = ctx.userId;
 
   const { task_id, duration_minutes, note } = await req.json();
   if (!task_id || !duration_minutes) return NextResponse.json({ error: "task_id and duration_minutes are required" }, { status: 400 });
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const taskErr = await assertTaskInOrg(ctx, task_id);
+  if (taskErr) return taskErr;
+
+  const { data, error } = await ctx.svc
     .from("time_logs")
     .insert({ id: crypto.randomUUID(), task_id, user_id: userId, duration_minutes, note: note ?? null })
     .select().single();

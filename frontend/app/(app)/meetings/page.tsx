@@ -450,35 +450,29 @@ export default function MeetingsPage() {
     if (unsynced.length === 0) return;
     const listName = lists.find(l => l.id === syncListId)?.name ?? "your task list";
     setAutoSyncing(true);
-    Promise.all(
-      unsynced.map(ev => {
-        const isOutlook = ev.id.startsWith("outlook:");
-        const endpoint = isOutlook ? "/api/outlook-calendar/sync" : "/api/google-calendar/sync";
-        return fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            googleEventId: ev.id,
-            title: ev.summary,
-            description: ev.description,
-            startDateTime: ev.start.dateTime ?? null,
-            endDateTime: ev.end.dateTime ?? null,
-            dueDate: (ev.start.dateTime ?? ev.start.date ?? "").split("T")[0] || null,
-            meetLink: ev.hangoutLink ?? null,
-            calendarLink: ev.htmlLink,
-            listId: syncListId,
-          }),
-        }).then(async r => {
-          if (!r.ok) return null;
-          return ev.id;
-        });
-      })
-    ).then(results => {
-      const confirmed = results.filter(Boolean) as string[];
-      if (confirmed.length > 0) setSyncedIds(prev => new Set([...prev, ...confirmed]));
-      const newCount = confirmed.filter(id => !syncedIds.has(id)).length;
-      if (newCount > 0) {
-        setSyncResult({ count: newCount, listName, listId: syncListId });
+    // One batch request for the whole calendar instead of one POST per event
+    fetch("/api/calendar-sync/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        listId: syncListId,
+        events: unsynced.map(ev => ({
+          eventId: ev.id,
+          title: ev.summary,
+          description: ev.description,
+          startDateTime: ev.start.dateTime ?? null,
+          endDateTime: ev.end.dateTime ?? null,
+          dueDate: (ev.start.dateTime ?? ev.start.date ?? "").split("T")[0] || null,
+          meetLink: ev.hangoutLink ?? null,
+          calendarLink: ev.htmlLink,
+        })),
+      }),
+    }).then(async r => {
+      if (!r.ok) return;
+      const { created } = await r.json() as { created: number; skipped: number };
+      setSyncedIds(prev => new Set([...prev, ...unsynced.map(ev => ev.id)]));
+      if (created > 0) {
+        setSyncResult({ count: created, listName, listId: syncListId });
         setTimeout(() => setSyncResult(null), 8000);
       }
       if (syncListId) reloadTasks(syncListId);

@@ -1,4 +1,7 @@
 {
+    "crons": [
+        { "path": "/api/cron/automations", "schedule": "0 9 * * *" }
+    ],
     "experimentalServices": {
         "frontend": {
             "root": "frontend",

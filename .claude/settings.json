@@ -4,7 +4,8 @@
       "Bash(git filter-branch *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node -e \"const p=require\\('./frontend/package.json'\\); console.log\\(Object.keys\\(p.dependencies\\).join\\('\\\\n'\\)\\)\")"
     ]
   }
 }

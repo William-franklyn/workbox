@@ -831,7 +831,7 @@ async function callTool(name, args) {
       const d = await api("GET", `/spreadsheets/${args.id}`);
       const header = (d.headers ?? []).join(" | ");
       const divider = (d.headers ?? []).map(() => "---").join(" | ");
-      const rows = (d.rows ?? []).map((r: string[]) => r.join(" | ")).join("\n");
+      const rows = (d.rows ?? []).map((r) => r.join(" | ")).join("\n");
       return [
         `📊 ${d.title}`,
         `🔗 View: ${d.portal_link}`,

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireOrg } from "@/lib/auth/guard";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const svc = createServiceClient();
-  const { data } = await svc.from("kb_articles").select("*").eq("id", id).maybeSingle();
+
+  const { data } = await ctx.svc.from("kb_articles")
+    .select("*").eq("id", id).eq("org_id", ctx.orgId).maybeSingle();
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   // increment view count
-  await svc.from("kb_articles").update({ views: (data.views ?? 0) + 1 }).eq("id", id);
+  await ctx.svc.from("kb_articles").update({ views: (data.views ?? 0) + 1 }).eq("id", id);
   return NextResponse.json(data);
 }

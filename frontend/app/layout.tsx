@@ -7,6 +7,11 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "WorkBox — All-in-One Productivity",
   description: "Fast, beautiful, AI-powered productivity platform for teams and individuals",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,17 @@
+{
+  "name": "WorkBox — All-in-One Productivity",
+  "short_name": "WorkBox",
+  "description": "Fast, beautiful, AI-powered productivity platform for teams",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#0b0b12",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

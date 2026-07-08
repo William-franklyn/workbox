@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/api-key";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertSpaceInOrg } from "@/lib/auth/guard";
 
 /**
  * GET /api/v1/spaces/:id/members
@@ -12,11 +11,16 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const userId = ctx.userId;
 
   const { id: spaceId } = await params;
-  const supabase = createServiceClient();
+  const spaceErr = await assertSpaceInOrg(ctx, spaceId);
+  if (spaceErr) return spaceErr;
+
+  const supabase = ctx.svc;
 
   // Get all lists in this space
   const { data: lists } = await supabase

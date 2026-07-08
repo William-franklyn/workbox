@@ -1,17 +1,32 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2 } from "lucide-react";
+import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2, CreditCard } from "lucide-react";
 
-type Tab = "profile" | "workspace" | "members" | "notifications" | "security" | "appearance";
+type Tab = "profile" | "workspace" | "members" | "billing" | "notifications" | "security" | "appearance";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "workspace", label: "Workspace", icon: Building2 },
   { id: "members", label: "Members", icon: Users },
+  { id: "billing", label: "Billing", icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
+
+interface BillingInfo {
+  plan: string;
+  plan_status: string;
+  seats: number;
+  usage: { members: number; guests: number; automations: number };
+  entitlements: {
+    name: string;
+    maxSeats: number | null;
+    maxGuests: number | null;
+    maxAutomations: number | null;
+  };
+  plans: Record<string, { name: string; priceMonthly: number }>;
+}
 
 function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
   return (
@@ -107,8 +122,58 @@ export default function SettingsPage() {
   // Workspace state
   const [workspaceName, setWorkspaceName] = useState("My Workspace");
 
-  // Notifications state
-  const [notifs, setNotifs] = useState({ email: true, desktop: false, mentions: true, updates: false });
+  // Billing state
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingMsg, setBillingMsg] = useState("");
+
+  useEffect(() => {
+    if (tab === "billing" && !billing) {
+      fetch("/api/billing").then(r => r.json()).then(d => { if (d.plan) setBilling(d); }).catch(() => {});
+    }
+  }, [tab, billing]);
+
+  async function startCheckout(plan: string) {
+    setBillingBusy(true); setBillingMsg("");
+    const res = await fetch("/api/billing/checkout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, seats: billing?.usage.members ?? 1 }),
+    });
+    const d = await res.json();
+    if (res.ok && d.url) window.location.href = d.url;
+    else setBillingMsg(d.error ?? "Checkout failed — is Stripe configured?");
+    setBillingBusy(false);
+  }
+
+  async function openPortal() {
+    setBillingBusy(true); setBillingMsg("");
+    const res = await fetch("/api/billing/portal", { method: "POST" });
+    const d = await res.json();
+    if (res.ok && d.url) window.location.href = d.url;
+    else setBillingMsg(d.error ?? "Could not open billing portal");
+    setBillingBusy(false);
+  }
+
+  // Notifications state (persisted via /api/notifications/prefs)
+  const [notifs, setNotifs] = useState({ email_digest: "daily", notify_assigned: true, notify_comments: true, notify_due_soon: true, notify_mentions: true });
+  const [notifsLoaded, setNotifsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (tab === "notifications" && !notifsLoaded) {
+      fetch("/api/notifications/prefs").then(r => r.json()).then(d => {
+        if (d.prefs) setNotifs(n => ({ ...n, ...d.prefs }));
+        setNotifsLoaded(true);
+      }).catch(() => setNotifsLoaded(true));
+    }
+  }, [tab, notifsLoaded]);
+
+  function saveNotifPref(patch: Partial<typeof notifs>) {
+    setNotifs(n => ({ ...n, ...patch }));
+    fetch("/api/notifications/prefs", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => {});
+  }
 
   // Appearance
   const [accentColor, setAccentColor] = useState(() =>
@@ -259,20 +324,94 @@ export default function SettingsPage() {
             </>
           )}
 
+          {tab === "billing" && (
+            <>
+              <h1 className="text-lg font-bold mb-6" style={{ color: "var(--text-primary)" }}>Billing</h1>
+              {!billing ? (
+                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} /></div>
+              ) : (
+                <>
+                  <div className="rounded-xl p-4 mb-6 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                          {billing.entitlements.name} plan
+                          {billing.plan_status !== "active" && (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{billing.plan_status.replace("_", " ")}</span>
+                          )}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                          {billing.usage.members} member{billing.usage.members !== 1 ? "s" : ""}
+                          {billing.entitlements.maxSeats != null && ` of ${billing.entitlements.maxSeats}`} · {billing.usage.guests} guest{billing.usage.guests !== 1 ? "s" : ""}
+                          {billing.entitlements.maxGuests != null && ` of ${billing.entitlements.maxGuests}`} · {billing.usage.automations} automation{billing.usage.automations !== 1 ? "s" : ""}
+                          {billing.entitlements.maxAutomations != null && ` of ${billing.entitlements.maxAutomations}`}
+                        </p>
+                      </div>
+                      {billing.plan !== "free" && (
+                        <button onClick={openPortal} disabled={billingBusy}
+                          className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
+                          style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                          Manage subscription
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["pro", "business", "enterprise"] as const).map(planId => {
+                      const p = billing.plans[planId];
+                      const isCurrent = billing.plan === planId;
+                      return (
+                        <div key={planId} className="rounded-xl p-4 border flex flex-col" style={{ background: "var(--bg-primary)", borderColor: isCurrent ? "var(--accent-purple)" : "var(--border)" }}>
+                          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                          <p className="text-xs mt-1 mb-3" style={{ color: "var(--text-secondary)" }}>
+                            {p.priceMonthly < 0 ? "Contact sales" : p.priceMonthly === 0 ? "Free" : `$${p.priceMonthly}/seat/mo`}
+                          </p>
+                          {isCurrent ? (
+                            <span className="mt-auto text-xs text-center py-1.5 rounded-lg" style={{ background: "rgba(124,58,237,0.15)", color: "var(--accent-purple)" }}>Current plan</span>
+                          ) : planId === "enterprise" ? (
+                            <a href="mailto:sales@workbox.app" className="mt-auto text-xs text-center py-1.5 rounded-lg" style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>Contact us</a>
+                          ) : (
+                            <button onClick={() => startCheckout(planId)} disabled={billingBusy}
+                              className="mt-auto text-xs py-1.5 rounded-lg text-white disabled:opacity-40"
+                              style={{ background: "var(--accent-purple)" }}>
+                              Upgrade
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {billingMsg && <p className="text-xs mt-3" style={{ color: "#ef4444" }}>{billingMsg}</p>}
+                </>
+              )}
+            </>
+          )}
+
           {tab === "notifications" && (
             <>
               <h1 className="text-lg font-bold mb-6" style={{ color: "var(--text-primary)" }}>Notifications</h1>
-              <SettingRow label="Email notifications" description="Receive task updates via email">
-                <Toggle checked={notifs.email} onChange={(v) => setNotifs((n) => ({ ...n, email: v }))} />
+              <SettingRow label="Email digest" description="Summary of your tasks and updates">
+                <select value={notifs.email_digest}
+                  onChange={(e) => saveNotifPref({ email_digest: e.target.value })}
+                  className="text-xs px-2 py-1.5 rounded-lg outline-none"
+                  style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                  <option value="off">Off</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
               </SettingRow>
-              <SettingRow label="Desktop notifications" description="Browser push notifications">
-                <Toggle checked={notifs.desktop} onChange={(v) => setNotifs((n) => ({ ...n, desktop: v }))} />
+              <SettingRow label="Task assigned" description="Notify when a task is assigned to you">
+                <Toggle checked={notifs.notify_assigned} onChange={(v) => saveNotifPref({ notify_assigned: v })} />
+              </SettingRow>
+              <SettingRow label="Comments" description="Notify on comments on your tasks">
+                <Toggle checked={notifs.notify_comments} onChange={(v) => saveNotifPref({ notify_comments: v })} />
+              </SettingRow>
+              <SettingRow label="Due soon" description="Remind me before tasks are due">
+                <Toggle checked={notifs.notify_due_soon} onChange={(v) => saveNotifPref({ notify_due_soon: v })} />
               </SettingRow>
               <SettingRow label="Mentions" description="Notify when someone mentions you">
-                <Toggle checked={notifs.mentions} onChange={(v) => setNotifs((n) => ({ ...n, mentions: v }))} />
-              </SettingRow>
-              <SettingRow label="Product updates" description="News and tips from WorkBox">
-                <Toggle checked={notifs.updates} onChange={(v) => setNotifs((n) => ({ ...n, updates: v }))} />
+                <Toggle checked={notifs.notify_mentions} onChange={(v) => saveNotifPref({ notify_mentions: v })} />
               </SettingRow>
             </>
           )}

@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/api-key";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg } from "@/lib/auth/guard";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const { id } = await params;
-  const supabase = createServiceClient();
-
-  const { data: doc } = await supabase
-    .from("docs").select("id, title, blocks, created_at, updated_at").eq("id", id).maybeSingle();
+  const { data: doc } = await ctx.svc
+    .from("docs").select("id, title, blocks, created_at, updated_at")
+    .eq("id", id).eq("org_id", ctx.orgId).maybeSingle();
 
   if (!doc) return NextResponse.json({ error: "Spreadsheet not found" }, { status: 404 });
 
@@ -29,15 +28,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const { rows, headers, title } = await req.json();
-  const supabase = createServiceClient();
 
-  const { data: doc } = await supabase
-    .from("docs").select("blocks, title").eq("id", id).maybeSingle();
+  const { data: doc } = await ctx.svc
+    .from("docs").select("blocks, title").eq("id", id).eq("org_id", ctx.orgId).maybeSingle();
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const blocks = doc.blocks as Array<Record<string, unknown>> ?? [];
@@ -53,10 +53,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const patch: Record<string, unknown> = { blocks, updated_at: new Date().toISOString() };
   if (title) patch.title = `__sheet__${title}`;
 
-  const { data, error } = await supabase
-    .from("docs").update(patch).eq("id", id).select("id, title, updated_at").single();
+  const { data, error } = await ctx.svc
+    .from("docs").update(patch).eq("id", id).eq("org_id", ctx.orgId)
+    .select("id, title, updated_at").maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
     spreadsheet: {
       id: data.id,

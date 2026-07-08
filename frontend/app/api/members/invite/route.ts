@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/auth/guard";
+import { checkSeatAvailable } from "@/lib/billing/entitlements";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const profile = { organization_id: ctx.orgId };
 
   const { email } = await req.json();
   if (!email?.trim()) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
-  const { data: profile } = await supabase.from("profiles").select("organization_id, role").eq("id", user.id).maybeSingle();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Only admins can invite members" }, { status: 403 });
+  const seatError = await checkSeatAvailable(ctx.svc, ctx.orgId);
+  if (seatError) return NextResponse.json({ error: seatError, code: "seat_limit" }, { status: 402 });
 
   const admin = createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

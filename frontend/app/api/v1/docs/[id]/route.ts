@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/api-key";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg } from "@/lib/auth/guard";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -19,16 +18,16 @@ function blocksToText(blocks: unknown[]): string {
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const { id } = await params;
-  const supabase = createServiceClient();
-
-  const { data: doc, error } = await supabase
+  const { data: doc, error } = await ctx.svc
     .from("docs")
     .select("id, title, blocks, created_at, updated_at")
     .eq("id", id)
+    .eq("org_id", ctx.orgId)
     .maybeSingle();
 
   if (error || !doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
@@ -47,12 +46,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const { title, content } = await req.json();
-  const supabase = createServiceClient();
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (title) patch.title = title;
@@ -64,19 +64,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }));
   }
 
-  const { data, error } = await supabase
-    .from("docs").update(patch).eq("id", id).select("id, title, updated_at").single();
+  const { data, error } = await ctx.svc
+    .from("docs").update(patch).eq("id", id).eq("org_id", ctx.orgId)
+    .select("id, title, updated_at").maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "Document not found" }, { status: 404 });
   return NextResponse.json({ doc: { ...data, portal_link: `${BASE_URL}/docs/${id}` } });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const supabase = createServiceClient();
-  await supabase.from("docs").delete().eq("id", id);
+  await ctx.svc.from("docs").delete().eq("id", id).eq("org_id", ctx.orgId);
   return NextResponse.json({ ok: true });
 }

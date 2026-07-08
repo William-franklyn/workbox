@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
 
   for (const org of orgs) {
     try {
-      const res = await fetch(`${base}/api/automations/run?org_id=${org.id}`);
+      const res = await fetch(`${base}/api/automations/run?org_id=${org.id}`, {
+        headers: secret ? { authorization: `Bearer ${secret}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         total += data.ran ?? 0;

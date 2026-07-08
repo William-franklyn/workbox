@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/api-key";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertRowInOrg } from "@/lib/auth/guard";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json();
-  const supabase = createServiceClient();
+
+  const goalErr = await assertRowInOrg(ctx, "goals", id);
+  if (goalErr) return goalErr;
 
   // Update key result progress if kr_id provided
   if (body.kr_id !== undefined) {
-    const { data, error } = await supabase
+    const { data, error } = await ctx.svc
       .from("key_results")
       .update({ current_value: body.current_value })
       .eq("id", body.kr_id).eq("goal_id", id)
@@ -26,18 +29,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const patch: Record<string, unknown> = {};
   for (const k of allowed) { if (k in body) patch[k] = body[k]; }
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.svc
     .from("goals").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ goal: data });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await validateApiKey(req.headers.get("authorization"));
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const supabase = createServiceClient();
-  await supabase.from("goals").delete().eq("id", id);
+  const goalErr = await assertRowInOrg(ctx, "goals", id);
+  if (goalErr) return goalErr;
+
+  await ctx.svc.from("goals").delete().eq("id", id);
   return NextResponse.json({ ok: true });
 }

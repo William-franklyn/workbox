@@ -3,13 +3,26 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
-import { Search, ArrowRight, List, MessageSquare, LayoutDashboard, Target, CheckSquare, FileText, BarChart2, Zap, Settings } from "lucide-react";
+import { Search, ArrowRight, List, MessageSquare, LayoutDashboard, Target, CheckSquare, FileText, BarChart2, Zap, Settings, Building2, User, Table, BookOpen } from "lucide-react";
+import type { SearchResult } from "@/app/api/search/route";
 
 interface Result { id: string; label: string; sub?: string; icon: React.ReactNode; action: () => void; }
+
+const SERVER_TYPE_META: Record<SearchResult["type"], { sub: string; icon: React.ReactNode }> = {
+  task:        { sub: "Task",        icon: <CheckSquare size={15} /> },
+  doc:         { sub: "Doc",         icon: <FileText size={15} /> },
+  kb_article:  { sub: "Knowledge",   icon: <BookOpen size={15} /> },
+  document:    { sub: "Document",    icon: <FileText size={15} /> },
+  crm_company: { sub: "Company",     icon: <Building2 size={15} /> },
+  crm_contact: { sub: "Contact",     icon: <User size={15} /> },
+  goal:        { sub: "Goal",        icon: <Target size={15} /> },
+  spreadsheet: { sub: "Spreadsheet", icon: <Table size={15} /> },
+};
 
 export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [serverResults, setServerResults] = useState<SearchResult[]>([]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const { spaces, setActiveList } = useWorkspaceStore();
@@ -18,6 +31,19 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const nav = (href: string) => { router.push(href); onClose(); };
+
+  // Debounced org-wide search (tasks, docs, CRM, knowledge, …) via Postgres FTS
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setServerResults([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        .then(r => r.ok ? r.json() : { results: [] })
+        .then(({ results }: { results: SearchResult[] }) => setServerResults(results ?? []))
+        .catch(() => {});
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const staticItems: Result[] = [
     { id: "home", label: "Home", sub: "Navigate", icon: <LayoutDashboard size={15} />, action: () => nav("/home") },
@@ -45,10 +71,25 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
       action: () => { useWorkspaceStore.getState().setSelectedTask(t.id); onClose(); },
     }));
 
+  const serverItems: Result[] = serverResults.map((r) => ({
+    id: `srv-${r.type}-${r.id}`,
+    label: r.title,
+    sub: r.subtitle ?? SERVER_TYPE_META[r.type].sub,
+    icon: SERVER_TYPE_META[r.type].icon,
+    action: () => nav(r.href),
+  }));
+
   const all = [...staticItems, ...listItems, ...taskItems];
-  const results = query.trim()
+  const localMatches = query.trim()
     ? all.filter((r) => r.label.toLowerCase().includes(query.toLowerCase()))
     : all.slice(0, 12);
+
+  // Merge, de-duping server tasks already shown from local state
+  const localIds = new Set(localMatches.map(r => r.id));
+  const results = [
+    ...localMatches,
+    ...serverItems.filter(r => !localIds.has(r.id.replace(/^srv-task-/, "task-"))),
+  ].slice(0, 20);
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {

@@ -1,15 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg } from "@/lib/auth/guard";
 
 // Called internally when a task event occurs, or manually to check due-date automations.
 // POST { event: "status_change"|"task_created"|"priority_change"|"assignee_change"|"due_date_passed", task_id, old_value?, new_value?, org_id }
 
+/**
+ * Resolves which org this run is allowed to operate on.
+ * - Internal callers (Vercel cron) authenticate with CRON_SECRET and may pass any org_id.
+ * - Everyone else must have a session/API key; their own org is used regardless
+ *   of what org_id they pass.
+ */
+async function resolveRunOrg(req: NextRequest, requestedOrgId: string | null): Promise<string | NextResponse> {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get("authorization");
+  if (secret && authHeader === `Bearer ${secret}`) {
+    return requestedOrgId ?? "";
+  }
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  return auth.ctx.orgId;
+}
+
 export async function POST(req: NextRequest) {
   const svc = createServiceClient();
   const body = await req.json();
-  const { event, task_id, old_value, new_value, org_id } = body;
+  const { event, task_id, old_value, new_value } = body;
 
   if (!event) return NextResponse.json({ error: "event required" }, { status: 400 });
+
+  const orgOrError = await resolveRunOrg(req, body.org_id ?? null);
+  if (orgOrError instanceof NextResponse) return orgOrError;
+  const org_id = orgOrError;
+
+  // Ensure the task actually belongs to this org before mutating it
+  if (task_id && org_id) {
+    const { data: task } = await svc.from("tasks").select("id, org_id").eq("id", task_id).maybeSingle();
+    if (!task || (task.org_id && task.org_id !== org_id)) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+  }
 
   // Fetch enabled automations for this org matching the trigger
   let q = svc.from("automations").select("*").eq("trigger_type", event).eq("enabled", true);
@@ -97,7 +127,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const svc = createServiceClient();
   const { searchParams } = new URL(req.url);
-  const orgId = searchParams.get("org_id");
+
+  const orgOrError = await resolveRunOrg(req, searchParams.get("org_id"));
+  if (orgOrError instanceof NextResponse) return orgOrError;
+  const orgId = orgOrError || null;
 
   // Find automations with due_date_passed trigger
   let q = svc.from("automations").select("*").eq("trigger_type", "due_date_passed").eq("enabled", true);

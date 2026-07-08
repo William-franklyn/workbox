@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertRowInOrg } from "@/lib/auth/guard";
 
 function genToken(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(18)))
@@ -8,24 +8,27 @@ function genToken(): string {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const svc = createServiceClient();
   const { id, access } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
+  const docErr = await assertRowInOrg(ctx, "org_documents", id);
+  if (docErr) return docErr;
+
   if (access === "none") {
-    await svc.from("org_documents").update({ share_token: null, share_access: "none" }).eq("id", id);
+    await ctx.svc.from("org_documents").update({ share_token: null, share_access: "none" }).eq("id", id);
     return NextResponse.json({ share_token: null, share_access: "none" });
   }
 
-  const { data: existing } = await svc.from("org_documents")
+  const { data: existing } = await ctx.svc.from("org_documents")
     .select("share_token").eq("id", id).maybeSingle();
   const token = (existing as { share_token: string | null } | null)?.share_token ?? genToken();
 
-  await svc.from("org_documents")
+  await ctx.svc.from("org_documents")
     .update({ share_token: token, share_access: access ?? "view" }).eq("id", id);
 
   return NextResponse.json({ share_token: token, share_access: access ?? "view" });

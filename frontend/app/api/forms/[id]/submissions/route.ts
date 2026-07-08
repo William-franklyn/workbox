@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertRowInOrg } from "@/lib/auth/guard";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const svc = createServiceClient();
+  const formErr = await assertRowInOrg(ctx, "forms", id);
+  if (formErr) return formErr;
 
-  const { data, error } = await svc.from("form_submissions")
+  const { data, error } = await ctx.svc.from("form_submissions")
     .select("*, task:tasks(id, title, status)")
     .eq("form_id", id)
     .order("created_at", { ascending: false });

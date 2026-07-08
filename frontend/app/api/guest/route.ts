@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, requireAdmin } from "@/lib/auth/guard";
+import { checkGuestAvailable } from "@/lib/billing/entitlements";
 import { randomBytes } from "crypto";
 
-// GET  → list guest invites for the org
-// POST → send guest invite
-// DELETE ?id=xxx → revoke invite
+// GET  → list guest invites for the org (org members)
+// POST → send guest invite (admins only)
+// DELETE ?id=xxx → revoke invite (admins only, own org)
 
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
-  const svc = createServiceClient();
-  const { data: profile } = await svc.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
-  const orgId = (profile as any)?.organization_id ?? user.id;
-
-  const { data, error } = await svc.from("guest_invites")
+  const { data, error } = await ctx.svc.from("guest_invites")
     .select("*, inviter:invited_by(full_name)")
-    .eq("org_id", orgId)
+    .eq("org_id", ctx.orgId)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ guests: [] });
@@ -26,23 +22,22 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const svc = createServiceClient();
-  const { data: profile } = await svc.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
-  const orgId = (profile as any)?.organization_id ?? user.id;
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const body = await req.json();
   const { email, role = "guest", spaces = [] } = body;
   if (!email) return NextResponse.json({ error: "email is required" }, { status: 400 });
 
+  const guestError = await checkGuestAvailable(ctx.svc, ctx.orgId);
+  if (guestError) return NextResponse.json({ error: guestError, code: "plan_limit" }, { status: 402 });
+
   const token = randomBytes(32).toString("hex");
   const id = `gi${Date.now()}`;
 
-  const { data, error } = await svc.from("guest_invites").insert({
-    id, email, org_id: orgId, invited_by: user.id, role, spaces, token,
+  const { data, error } = await ctx.svc.from("guest_invites").insert({
+    id, email, org_id: ctx.orgId, invited_by: ctx.userId, role, spaces, token,
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   }).select().single();
 
@@ -54,15 +49,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
-  const svc = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  await svc.from("guest_invites").delete().eq("id", id);
+  await ctx.svc.from("guest_invites").delete().eq("id", id).eq("org_id", ctx.orgId);
   return NextResponse.json({ ok: true });
 }

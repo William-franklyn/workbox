@@ -1,33 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, requireAdmin } from "@/lib/auth/guard";
+import { checkAutomationAvailable } from "@/lib/billing/entitlements";
 
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
-  const svc = createServiceClient();
-  const { data: profile } = await svc.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
-  const orgId = (profile as any)?.organization_id ?? null;
+  const { data, error } = await ctx.svc
+    .from("automations").select("*")
+    .eq("org_id", ctx.orgId)
+    .order("created_at", { ascending: false });
 
-  let q = svc.from("automations").select("*").order("created_at", { ascending: false });
-  if (orgId) q = (q as any).eq("org_id", orgId);
-  else q = (q as any).eq("org_id", user.id); // fallback: use user id as org
-
-  const { data, error } = await q;
   if (error) return NextResponse.json({ automations: [] });
   return NextResponse.json({ automations: data ?? [] });
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const svc = createServiceClient();
-  const { data: profile } = await svc.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
-  const orgId = (profile as any)?.organization_id ?? user.id;
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const body = await req.json();
   const { name, trigger_type, trigger_value, action_type, action_value } = body;
@@ -35,10 +27,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name, trigger_type and action_type are required" }, { status: 400 });
   }
 
+  const limitError = await checkAutomationAvailable(ctx.svc, ctx.orgId);
+  if (limitError) return NextResponse.json({ error: limitError, code: "plan_limit" }, { status: 402 });
+
   const id = `auto${Date.now()}`;
-  const { data, error } = await svc.from("automations").insert({
+  const { data, error } = await ctx.svc.from("automations").insert({
     id, name, trigger_type, trigger_value: trigger_value ?? "", action_type, action_value: action_value ?? "",
-    org_id: orgId, enabled: true, run_count: 0,
+    org_id: ctx.orgId, enabled: true, run_count: 0,
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,30 +41,32 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
-  const svc = createServiceClient();
   const body = await req.json();
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  delete updates.org_id; // org can never be reassigned
 
-  const { data, error } = await svc.from("automations").update(updates).eq("id", id).select().single();
+  const { data, error } = await ctx.svc
+    .from("automations").update(updates).eq("id", id).eq("org_id", ctx.orgId)
+    .select().maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ automation: data });
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
-  const svc = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  await svc.from("automations").delete().eq("id", id);
+  await ctx.svc.from("automations").delete().eq("id", id).eq("org_id", ctx.orgId);
   return NextResponse.json({ ok: true });
 }

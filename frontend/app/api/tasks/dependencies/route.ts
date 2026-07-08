@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireOrg, assertTaskInOrg } from "@/lib/auth/guard";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const task_id = new URL(req.url).searchParams.get("task_id");
   if (!task_id) return NextResponse.json({ error: "task_id required" }, { status: 400 });
 
-  const service = createServiceClient();
+  const taskErr = await assertTaskInOrg(ctx, task_id);
+  if (taskErr) return taskErr;
 
   try {
     // Tasks that block this task (task_id depends_on these)
-    const { data: blockedByRows, error: e1 } = await service
+    const { data: blockedByRows, error: e1 } = await ctx.svc
       .from("task_dependencies")
       .select("depends_on_id")
       .eq("task_id", task_id);
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Tasks that this task is blocking (they depend_on task_id)
-    const { data: blocksRows, error: e2 } = await service
+    const { data: blocksRows, error: e2 } = await ctx.svc
       .from("task_dependencies")
       .select("task_id")
       .eq("depends_on_id", task_id);
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     const fetchTasks = async (ids: string[]) => {
       if (!ids.length) return [];
-      const { data } = await service.from("tasks").select("*").in("id", ids);
+      const { data } = await ctx.svc.from("tasks").select("*").in("id", ids).eq("org_id", ctx.orgId);
       return data ?? [];
     };
 
@@ -54,9 +55,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { task_id, depends_on_id } = await req.json();
   if (!task_id || !depends_on_id) {
@@ -66,9 +68,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "A task cannot depend on itself" }, { status: 400 });
   }
 
-  const service = createServiceClient();
+  const [taskErr, depErr] = await Promise.all([
+    assertTaskInOrg(ctx, task_id),
+    assertTaskInOrg(ctx, depends_on_id),
+  ]);
+  if (taskErr) return taskErr;
+  if (depErr) return depErr;
+
   try {
-    const { data, error } = await service
+    const { data, error } = await ctx.svc
       .from("task_dependencies")
       .insert({ task_id, depends_on_id })
       .select()
@@ -82,9 +90,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireOrg(req);
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  if (ctx.role === "guest") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const params = new URL(req.url).searchParams;
   const task_id = params.get("task_id");
@@ -94,9 +103,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "task_id and depends_on_id required" }, { status: 400 });
   }
 
-  const service = createServiceClient();
+  const taskErr = await assertTaskInOrg(ctx, task_id);
+  if (taskErr) return taskErr;
+
   try {
-    const { error } = await service
+    const { error } = await ctx.svc
       .from("task_dependencies")
       .delete()
       .eq("task_id", task_id)
