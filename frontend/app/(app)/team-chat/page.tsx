@@ -145,11 +145,19 @@ export default function TeamChatPage() {
     setInput("");
     setMentionQuery(null);
     const mentions = extractMentions(text);
-    await fetch("/api/team-chat", {
+    const res = await fetch("/api/team-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: text, mentions }),
     });
+    // Append the sent message immediately — don't depend on the realtime echo
+    // (the realtime handler de-dupes by id if the echo arrives too).
+    if (res.ok) {
+      const msg = (await res.json()) as Message;
+      if (msg?.id) {
+        setMessages((prev) => (prev.find((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      }
+    }
     setSending(false);
     setTimeout(() => inputRef.current?.focus(), 50);
   }

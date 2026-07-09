@@ -7,6 +7,7 @@ import IconRail from "./IconRail";
 import TopNav from "./TopNav";
 import CommandPalette from "./CommandPalette";
 import AIAssistant from "@/components/ai/AIAssistant";
+import Toaster from "@/components/ui/Toaster";
 
 interface Props {
   userId: string;
@@ -98,6 +99,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
 
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
       <AIAssistant />
+      <Toaster />
 
       {/* Keyboard shortcuts modal */}
       {showShortcuts && (

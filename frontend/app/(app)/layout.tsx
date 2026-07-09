@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     let fullName = "";
     let role = "member";
     let orgId = "";
+    let orgName = "Workspace";
 
     try {
       const { data: profile } = await supabase
@@ -23,6 +24,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       fullName = profile?.full_name ?? "";
       role = profile?.role ?? "member";
       orgId = profile?.organization_id ?? "";
+
+      if (orgId) {
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", orgId)
+          .maybeSingle();
+        if (org?.name) orgName = org.name;
+      }
     } catch {
       // profile fetch failed — continue with defaults
     }
@@ -31,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppShell
         userId={user.id}
         orgId={orgId}
-        orgName="Workspace"
+        orgName={orgName}
         userRole={role}
         userName={fullName || user.email || ""}
         userEmail={user.email ?? ""}

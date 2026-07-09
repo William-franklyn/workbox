@@ -13,7 +13,7 @@ export default async function IntegrationsPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") redirect("/chat/new");
+  if (profile?.role !== "admin" && profile?.role !== "owner") redirect("/chat/new");
 
   return <IntegrationsClient />;
 }

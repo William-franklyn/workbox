@@ -9,14 +9,28 @@ export async function GET(req: NextRequest) {
   const taskId = new URL(req.url).searchParams.get("taskId");
   if (!taskId) return NextResponse.json({ error: "taskId required" }, { status: 400 });
 
+  // Manual profile join — there's no FK from task_comments to profiles, so a
+  // PostgREST embed ("profiles(full_name)") fails with a schema-cache error.
   const { data, error } = await supabase
     .from("task_comments")
-    .select("*, profiles(full_name)")
+    .select("*")
     .eq("task_id", taskId)
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data ?? []);
+
+  const rows = data ?? [];
+  const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+  const nameById = new Map<string, string>();
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from("profiles").select("id, full_name").in("id", userIds);
+    for (const p of profiles ?? []) nameById.set(p.id, p.full_name);
+  }
+  return NextResponse.json(rows.map(r => ({
+    ...r,
+    profiles: { full_name: nameById.get(r.user_id) ?? "Unknown" },
+  })));
 }
 
 export async function POST(req: NextRequest) {

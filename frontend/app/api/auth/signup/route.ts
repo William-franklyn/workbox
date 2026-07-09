@@ -61,11 +61,22 @@ export async function POST(req: NextRequest) {
     const { error: profileError } = await admin.from("profiles").upsert({
       id: userId,
       full_name: fullName,
-      role: "admin",
+      email,
+      role: "owner",
       organization_id: userId,
     });
 
     console.log("[signup API] profile upsert:", { error: profileError?.message ?? null });
+
+    // Every workspace needs an organizations row (plan, seats, billing state)
+    const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      + "-" + userId.slice(0, 8);
+    const { error: orgError } = await admin.from("organizations").upsert(
+      { id: userId, name: companyName, slug, created_by: userId },
+      { onConflict: "id" }
+    );
+
+    console.log("[signup API] org upsert:", { error: orgError?.message ?? null });
 
     return NextResponse.json({ success: true, userId });
   } catch (err: any) {

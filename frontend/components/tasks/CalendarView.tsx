@@ -36,6 +36,8 @@ export default function CalendarView({ listId }: { listId: string }) {
   const [availableSources, setAvailableSources] = useState<UnifiedCalendarEvent["source"][]>([]);
   const [calLoading, setCalLoading] = useState(true);
   const [calError, setCalError] = useState<string | null>(null);
+  const [newTaskDay, setNewTaskDay] = useState<number | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
 
   const year  = current.getFullYear();
   const month = current.getMonth();
@@ -94,13 +96,20 @@ export default function CalendarView({ listId }: { listId: string }) {
   }
 
   function handleDayClick(day: number) {
-    const title = prompt("New task name:");
-    if (!title?.trim()) return;
+    setNewTaskDay(day);
+    setNewTaskTitle("");
+  }
+
+  function createTaskForDay() {
+    const title = newTaskTitle.trim();
+    if (!title || newTaskDay === null) return;
     addTask({
-      id: `t${Date.now()}`, title: title.trim(), status: "todo", priority: "normal",
-      list_id: listId, due_date: dateKey(day), position: listTasks.length, tags: [],
+      id: `t${Date.now()}`, title, status: "todo", priority: "normal",
+      list_id: listId, due_date: dateKey(newTaskDay), position: listTasks.length, tags: [],
       created_at: new Date().toISOString(),
     });
+    setNewTaskDay(null);
+    setNewTaskTitle("");
   }
 
   const isToday = (day: number) =>
@@ -232,6 +241,43 @@ export default function CalendarView({ listId }: { listId: string }) {
           );
         })}
       </div>
+
+      {/* New task modal (replaces the old browser prompt) */}
+      {newTaskDay !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setNewTaskDay(null)}>
+          <div className="w-full max-w-sm rounded-xl border p-5 shadow-2xl"
+            style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>New task</h3>
+            <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+              Due {MONTHS[month]} {newTaskDay}, {year}
+            </p>
+            <input autoFocus value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createTaskForDay();
+                if (e.key === "Escape") setNewTaskDay(null);
+              }}
+              placeholder="Task name…"
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-4"
+              style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setNewTaskDay(null)}
+                className="px-3 py-1.5 rounded-lg text-xs"
+                style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                Cancel
+              </button>
+              <button onClick={createTaskForDay} disabled={!newTaskTitle.trim()}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-40"
+                style={{ background: "var(--accent-purple)" }}>
+                Create task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -314,8 +314,8 @@ export default function SettingsPage() {
                         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Joined {new Date(m.created_at).toLocaleDateString()}</p>
                       </div>
                       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full capitalize"
-                        style={{ background: m.role === "admin" ? "rgba(124,58,237,0.15)" : "var(--bg-secondary)", color: m.role === "admin" ? "var(--accent-purple)" : "var(--text-secondary)" }}>
-                        {m.role === "admin" && <Crown size={10} />}{m.role}
+                        style={{ background: (m.role === "admin" || m.role === "owner") ? "rgba(124,58,237,0.15)" : "var(--bg-secondary)", color: (m.role === "admin" || m.role === "owner") ? "var(--accent-purple)" : "var(--text-secondary)" }}>
+                        {(m.role === "admin" || m.role === "owner") && <Crown size={10} />}{m.role}
                       </span>
                     </div>
                   ))}
@@ -463,14 +463,17 @@ export default function SettingsPage() {
             </>
           )}
 
-          <div className="mt-8 flex items-center gap-3">
-            <button onClick={saveSettings}
-              className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: "var(--accent-purple)" }}>
-              {saved ? "Saved!" : "Save changes"}
-            </button>
-            {saved && <span className="text-xs" style={{ color: "#22c55e" }}>Changes saved successfully</span>}
-          </div>
+          {/* Save applies to profile/workspace fields; other tabs save instantly */}
+          {(tab === "profile" || tab === "workspace") && (
+            <div className="mt-8 flex items-center gap-3">
+              <button onClick={saveSettings}
+                className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+                style={{ background: "var(--accent-purple)" }}>
+                {saved ? "Saved!" : "Save changes"}
+              </button>
+              {saved && <span className="text-xs" style={{ color: "#22c55e" }}>Changes saved successfully</span>}
+            </div>
+          )}
         </div>
       </div>
     </div>

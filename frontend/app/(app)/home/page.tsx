@@ -2,8 +2,42 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
-import { CheckCircle2, Clock, AlertCircle, TrendingUp, AlertTriangle, Loader2, Target, Zap, Activity, ArrowRight, Layout, Sparkles, RefreshCw } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, TrendingUp, AlertTriangle, Loader2, Target, Zap, Activity, ArrowRight, Layout, Sparkles, RefreshCw, Circle, X } from "lucide-react";
 import Link from "next/link";
+
+/** First-run checklist shown while the workspace has no tasks yet. */
+function GettingStarted({ personalListId, onDismiss }: { personalListId: string | null; onDismiss: () => void }) {
+  const steps = [
+    { label: "Create your first task", desc: "Open your task list and add what you're working on", href: personalListId ? `/tasks/${personalListId}` : "/home" },
+    { label: "Invite a teammate", desc: "WorkBox is better together — add your team", href: "/settings" },
+    { label: "Connect your calendar", desc: "Sync Google or Outlook meetings into tasks", href: "/integrations" },
+    { label: "Write your first doc", desc: "Meeting notes, specs, or a project brief", href: "/docs" },
+  ];
+  return (
+    <div className="rounded-xl border mb-6 p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent-purple)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>🚀 Get started with WorkBox</h2>
+        <button onClick={onDismiss} className="p-1 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>
+          <X size={14} />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {steps.map((s) => (
+          <Link key={s.label} href={s.href}
+            className="flex items-start gap-3 p-3 rounded-lg border transition-colors hover:bg-white/5 group"
+            style={{ borderColor: "var(--border)" }}>
+            <Circle size={15} className="mt-0.5 shrink-0" style={{ color: "var(--accent-purple)" }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.label}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.desc}</p>
+            </div>
+            <ArrowRight size={13} className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-secondary)" }} />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface Summary { total: number; done: number; inProgress: number; urgent: number; overdue: number; recent: any[]; }
 interface Goal { id: string; title: string; due_date: string; key_results: { current_value: number; target_value: number }[]; }
@@ -41,7 +75,10 @@ function GoalProgress({ goal }: { goal: Goal }) {
 
 export default function HomePage() {
   const router = useRouter();
-  const { spaces, loaded } = useWorkspaceStore();
+  const { spaces, loaded, personalListId } = useWorkspaceStore();
+  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("wb_getting_started_dismissed") === "1"
+  );
   const [summary, setSummary] = useState<Summary | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -158,6 +195,17 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* First-run checklist: only when the workspace is empty */}
+      {!loading && summary?.total === 0 && !gettingStartedDismissed && (
+        <GettingStarted
+          personalListId={personalListId}
+          onDismiss={() => {
+            setGettingStartedDismissed(true);
+            localStorage.setItem("wb_getting_started_dismissed", "1");
+          }}
+        />
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin" style={{ color: "var(--text-secondary)" }} /></div>

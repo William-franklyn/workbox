@@ -35,8 +35,18 @@ const STAGE_COLOR: Record<string, string> = {
 const CONTACT_STATUS = ["lead", "active", "inactive", "customer"];
 const CO_STATUS = ["prospect", "active", "inactive", "customer"];
 
+// Deterministic compact currency formatter. Intl's compact notation renders
+// differently between Node (SSR) and the browser (e.g. "$0" vs "$0.0"),
+// which causes hydration mismatches.
 function fmt(n: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(n);
+  const sym = currency === "USD" ? "$" : `${currency} `;
+  const abs = Math.abs(n);
+  let compact: string;
+  if (abs >= 1e9) compact = (n / 1e9).toFixed(1) + "B";
+  else if (abs >= 1e6) compact = (n / 1e6).toFixed(1) + "M";
+  else if (abs >= 1e3) compact = (n / 1e3).toFixed(1) + "K";
+  else compact = String(Math.round(n * 100) / 100);
+  return sym + compact.replace(/\.0([BMK])$/, "$1");
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────

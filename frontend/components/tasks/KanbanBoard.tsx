@@ -106,7 +106,7 @@ export default function KanbanBoard({ listId }: { listId: string }) {
                 </div>
               ))}
 
-              {userRole === "admin" && (
+              {(userRole === "admin" || userRole === "owner") && (
                 <button onClick={() => setModal({ status: key })}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs hover:bg-white/5 transition-colors"
                   style={{ color: "var(--text-secondary)" }}

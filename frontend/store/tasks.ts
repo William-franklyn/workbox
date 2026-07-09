@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Task } from "./workspace";
+import { toast } from "./toast";
 
 interface TasksState {
   tasks: Record<string, Task[]>; // keyed by list_id
@@ -68,6 +69,17 @@ export const useTasksStore = create<TasksState>((set, get) => ({
             return { tasks: { ...s.tasks, [task.list_id]: listTasks } };
           });
         }
+        toast(`Task created: ${task.title.length > 40 ? task.title.slice(0, 40) + "…" : task.title}`, {
+          actionLabel: "Undo",
+          onAction: () => get().deleteTask(saved.id ?? task.id),
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error ?? "Failed to create task", { type: "error" });
+        // Roll back the optimistic insert
+        set((s) => ({
+          tasks: { ...s.tasks, [task.list_id]: (s.tasks[task.list_id] || []).filter((t) => t.id !== task.id) },
+        }));
       }
     }).catch(() => {});
     // Fire notification

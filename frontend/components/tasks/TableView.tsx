@@ -160,7 +160,7 @@ export default function TableView({ listId }: { listId: string }) {
               </tr>
             ))}
 
-            {userRole === "admin" && (
+            {(userRole === "admin" || userRole === "owner") && (
               <tr>
                 <td colSpan={5} className="px-3 py-2">
                   <button onClick={() => setShowModal(true)}

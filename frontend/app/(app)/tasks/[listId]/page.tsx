@@ -82,7 +82,7 @@ export default function TasksPage({ params }: { params: Promise<{ listId: string
           <Users size={11} /> Assignee <ChevronDown size={10} />
         </button>
         <div className="flex-1" />
-        {userRole === "admin" && (
+        {(userRole === "admin" || userRole === "owner") && (
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity"
             style={{ background: "var(--accent-purple)" }}>

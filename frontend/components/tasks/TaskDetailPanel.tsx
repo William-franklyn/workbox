@@ -104,7 +104,7 @@ export default function TaskDetailPanel() {
   }, [selectedTaskId]);
 
   useEffect(() => {
-    if (!selectedTaskId || userRole !== "admin") return;
+    if (!selectedTaskId || (userRole !== "admin" && userRole !== "owner")) return;
     fetch(`/api/extension-requests?taskId=${selectedTaskId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setExtRequests(d)).catch(() => {});
   }, [selectedTaskId, userRole]);
 
@@ -151,7 +151,7 @@ export default function TaskDetailPanel() {
   const status = STATUSES.find((s) => s.key === task.status);
   const totalMinutes = timeLogs.reduce((s, l) => s + l.duration_minutes, 0);
   const subtasksDone = subtasks.filter((s) => s.completed).length;
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "owner";
   const isLocked = !!task.locked && !isAdmin;
 
   function addTag() {

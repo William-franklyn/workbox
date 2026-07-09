@@ -41,14 +41,28 @@ export async function GET(req: NextRequest) {
   if (!task_id) return NextResponse.json({ error: "taskId required" }, { status: 400 });
 
   const admin = adminClient();
+  // Manual profile join — there's no FK from extension_requests to profiles,
+  // so a PostgREST embed ("profiles(full_name)") fails with a schema-cache error.
   const { data, error } = await admin
     .from("extension_requests")
-    .select("*, profiles(full_name)")
+    .select("*")
     .eq("task_id", task_id)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data ?? []);
+
+  const rows = data ?? [];
+  const userIds = [...new Set(rows.map(r => r.requested_by).filter(Boolean))];
+  const nameById = new Map<string, string>();
+  if (userIds.length) {
+    const { data: profiles } = await admin
+      .from("profiles").select("id, full_name").in("id", userIds);
+    for (const p of profiles ?? []) nameById.set(p.id, p.full_name);
+  }
+  return NextResponse.json(rows.map(r => ({
+    ...r,
+    profiles: { full_name: nameById.get(r.requested_by) ?? "Unknown" },
+  })));
 }
 
 // Admin approves or denies a request
@@ -58,7 +72,9 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Only admins can respond to requests" }, { status: 403 });
+  if (profile?.role !== "admin" && profile?.role !== "owner") {
+    return NextResponse.json({ error: "Only admins can respond to requests" }, { status: 403 });
+  }
 
   const { id, status, task_id, days_requested } = await req.json();
   const admin = adminClient();

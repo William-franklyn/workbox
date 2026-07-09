@@ -26,6 +26,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { type, ...row } = body;
 
+  // Empty strings from optional form fields break typed columns (e.g. date)
+  for (const k of Object.keys(row)) {
+    if (row[k] === "") row[k] = null;
+  }
+
   if (type === "goal") {
     const { data, error } = await supabase.from("goals").insert({ ...row, org_id: profile?.organization_id, created_by: user.id }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -21,9 +21,18 @@ const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "JPY", "CNY
 const BUDGET_STATUS = ["active", "closed", "draft"];
 const ITEM_CATEGORIES = ["Personnel", "Technology", "Marketing", "Operations", "Travel", "Training", "Equipment", "Consulting", "Legal", "Facilities", "Miscellaneous"];
 
+// Deterministic compact currency formatter. Intl's compact notation renders
+// differently between Node (SSR) and the browser (e.g. "$0" vs "$0.0"),
+// which causes hydration mismatches.
 function fmt(n: number, currency = "USD") {
-  try { return new Intl.NumberFormat("en-US", { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(n); }
-  catch { return `${currency} ${n.toLocaleString()}`; }
+  const sym = currency === "USD" ? "$" : `${currency} `;
+  const abs = Math.abs(n);
+  let compact: string;
+  if (abs >= 1e9) compact = (n / 1e9).toFixed(1) + "B";
+  else if (abs >= 1e6) compact = (n / 1e6).toFixed(1) + "M";
+  else if (abs >= 1e3) compact = (n / 1e3).toFixed(1) + "K";
+  else compact = String(Math.round(n * 100) / 100);
+  return sym + compact.replace(/\.0([BMK])$/, "$1");
 }
 
 function Pct({ spent, allocated }: { spent: number; allocated: number }) {

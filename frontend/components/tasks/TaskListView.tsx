@@ -204,7 +204,7 @@ export default function TaskListView({ listId }: { listId: string }) {
                 })}
 
                 {/* Add task row */}
-                {userRole === "admin" && (
+                {(userRole === "admin" || userRole === "owner") && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setModal({ status: key }); }}
                     className="w-full flex items-center gap-2.5 px-4 py-2 border-b hover:bg-white/3 transition-colors"
@@ -226,7 +226,7 @@ export default function TaskListView({ listId }: { listId: string }) {
           </div>
           <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>No tasks yet</p>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            {userRole === "admin" ? 'Click "Add Task" above to get started.' : "Tasks will appear here once the admin creates them."}
+            {(userRole === "admin" || userRole === "owner") ? 'Click "Add Task" above to get started.' : "Tasks will appear here once the admin creates them."}
           </p>
         </div>
       )}
