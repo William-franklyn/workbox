@@ -210,7 +210,8 @@ const css = `
 @media(max-width:500px){
   .wb-land .lfg{grid-template-columns:1fr}
   .wb-land .lmods-grid{grid-template-columns:1fr 1fr}
-  .wb-land .lnav-a:not(.lbtn-nav):not(:last-of-type){display:none}
+  /* Hide section links on phones but keep Sign in + Start free reachable */
+  .wb-land .lnav-a[href^="#"]{display:none}
 }
 `;
 

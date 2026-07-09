@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
-import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare } from "lucide-react";
+import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare, CalendarDays } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
 interface Props { orgName: string; userName: string; userId: string; }
@@ -101,13 +101,27 @@ export default function TopNav({ orgName, userName, userId }: Props) {
         </kbd>
       </button>
 
-      {/* Team chat */}
+      {/* Divider between search and the action cluster */}
+      <div className="w-px h-5 mx-1 hidden sm:block" style={{ background: "var(--border)" }} />
+
+      {/* Team chat — lives here, next to notifications */}
       <Link
         href="/team-chat"
+        title="Team Chat"
         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/5"
         style={{ color: "var(--text-secondary)" }}
       >
         <MessageSquare size={16} strokeWidth={1.75} />
+      </Link>
+
+      {/* Meetings shortcut */}
+      <Link
+        href="/meetings"
+        title="Meetings"
+        className="w-8 h-8 rounded-lg hidden sm:flex items-center justify-center transition-colors hover:bg-white/5"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        <CalendarDays size={16} strokeWidth={1.75} />
       </Link>
 
       {/* Notifications */}

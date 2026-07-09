@@ -3,34 +3,43 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  LayoutDashboard, MessageSquare, Target, Clock, Users, Bot,
+  LayoutDashboard, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
   Briefcase, UserCheck, Activity, FormInput,
   BookOpen, Building2, UsersRound, FolderOpen, DollarSign,
 } from "lucide-react";
 
-const NAV = [
-  { icon: LayoutDashboard, href: "/home",                 label: "Home" },
-  { icon: MessageSquare,   href: "/team-chat",            label: "Team Chat" },
-  { icon: Bot,             href: "/chat/new",             label: "AI Agent" },
-  { icon: CalendarDays,    href: "/meetings",             label: "Meetings" },
-  { icon: Target,          href: "/goals",                label: "Goals" },
-  { icon: BarChart3,       href: "/portfolio",            label: "Portfolio" },
-  { icon: Briefcase,       href: "/workload",             label: "Workload" },
-  { icon: BookOpen,        href: "/knowledge",            label: "Knowledge Base" },
-  { icon: Building2,       href: "/crm",                  label: "CRM" },
-  { icon: UsersRound,      href: "/hr",                   label: "People & HR" },
-  { icon: FolderOpen,      href: "/documents",            label: "Documents" },
-  { icon: DollarSign,      href: "/budget",               label: "Budget" },
-  { icon: Zap,             href: "/automations",          label: "Automations" },
-  { icon: Layout,          href: "/templates",            label: "Templates" },
-  { icon: FormInput,       href: "/forms",                label: "Forms" },
-  { icon: Activity,        href: "/activity",             label: "Activity" },
-  { icon: UserCheck,       href: "/guests",               label: "Guests" },
-  { icon: Users,           href: "/settings?tab=members", label: "Members" },
-  { icon: Clock,           href: "/timesheets",           label: "Timesheets" },
-  { icon: Plug,            href: "/integrations",         label: "Integrations" },
-  { icon: KeyRound,        href: "/settings/api-keys",    label: "API Keys" },
+// Grouped so the rail reads as sections instead of one long stack.
+// Team Chat intentionally lives in the top bar next to notifications only.
+const NAV_GROUPS: { icon: typeof LayoutDashboard; href: string; label: string }[][] = [
+  [
+    { icon: LayoutDashboard, href: "/home",     label: "Home" },
+    { icon: Bot,             href: "/chat/new", label: "AI Agent" },
+    { icon: CalendarDays,    href: "/meetings", label: "Meetings" },
+    { icon: Target,          href: "/goals",    label: "Goals" },
+  ],
+  [
+    { icon: BarChart3,  href: "/portfolio", label: "Portfolio" },
+    { icon: Briefcase,  href: "/workload",  label: "Workload" },
+    { icon: BookOpen,   href: "/knowledge", label: "Knowledge Base" },
+    { icon: Building2,  href: "/crm",       label: "CRM" },
+    { icon: UsersRound, href: "/hr",        label: "People & HR" },
+    { icon: FolderOpen, href: "/documents", label: "Documents" },
+    { icon: DollarSign, href: "/budget",    label: "Budget" },
+  ],
+  [
+    { icon: Zap,       href: "/automations", label: "Automations" },
+    { icon: Layout,    href: "/templates",   label: "Templates" },
+    { icon: FormInput, href: "/forms",       label: "Forms" },
+    { icon: Activity,  href: "/activity",    label: "Activity" },
+  ],
+  [
+    { icon: UserCheck, href: "/guests",                label: "Guests" },
+    { icon: Users,     href: "/settings?tab=members",  label: "Members" },
+    { icon: Clock,     href: "/timesheets",            label: "Timesheets" },
+    { icon: Plug,      href: "/integrations",          label: "Integrations" },
+    { icon: KeyRound,  href: "/settings/api-keys",     label: "API Keys" },
+  ],
 ];
 
 export default function IconRail({ userName }: { userName: string }) {
@@ -64,39 +73,44 @@ export default function IconRail({ userName }: { userName: string }) {
 
       <div className="w-6 h-px mb-2 mx-auto" style={{ background: "var(--border)" }} />
 
-      {/* Nav items */}
+      {/* Nav items, grouped with separators */}
       <div
         className="flex-1 flex flex-col items-center w-full px-1.5 gap-0.5 overflow-y-auto py-1"
         style={{ scrollbarWidth: "none" }}
       >
-        {NAV.map(({ icon: Icon, href, label }) => {
-          const base = href.split("?")[0];
-          const active = pathname === base || (base !== "/home" && pathname.startsWith(base));
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100"
-              style={{
-                background: active ? "var(--bg-active)" : "transparent",
-                color: active ? "#ffffff" : "var(--text-secondary)",
-              }}
-              onMouseEnter={e => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setTooltip({ label, y: rect.top + rect.height / 2 });
-              }}
-              onMouseLeave={() => setTooltip(null)}
-            >
-              {active && (
-                <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
-                  style={{ width: 3, height: 18, background: "var(--accent-purple)" }}
-                />
-              )}
-              <Icon size={16} strokeWidth={active ? 2.2 : 1.75} />
-            </Link>
-          );
-        })}
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi} className="w-full flex flex-col items-center gap-0.5">
+            {gi > 0 && <div className="w-5 h-px my-1.5" style={{ background: "var(--border)" }} />}
+            {group.map(({ icon: Icon, href, label }) => {
+              const base = href.split("?")[0];
+              const active = pathname === base || (base !== "/home" && pathname.startsWith(base));
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100 hover:bg-white/5"
+                  style={{
+                    background: active ? "var(--bg-active)" : "transparent",
+                    color: active ? "#ffffff" : "var(--text-secondary)",
+                  }}
+                  onMouseEnter={e => {
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setTooltip({ label, y: rect.top + rect.height / 2 });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                >
+                  {active && (
+                    <span
+                      className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
+                      style={{ width: 3, height: 18, background: "var(--accent-purple)" }}
+                    />
+                  )}
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.75} />
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* User avatar */}

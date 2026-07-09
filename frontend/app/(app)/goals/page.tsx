@@ -159,11 +159,28 @@ export default function GoalsPage() {
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs" style={{ color: "var(--text-primary)" }}>{kr.title}</span>
                               <div className="flex items-center gap-2">
-                                <input type="number" value={kr.current_value}
-                                  onChange={(e) => updateKR(goal.id, kr.id, { current_value: Number(e.target.value) })}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-16 text-xs text-right bg-transparent outline-none" style={{ color: "var(--text-primary)" }}
-                                />
+                                {/* Custom stepper — native number-input arrows are invisible on the dark theme */}
+                                <div className="flex items-center rounded-lg overflow-hidden border"
+                                  style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => updateKR(goal.id, kr.id, { current_value: Math.max(0, kr.current_value - 1) })}
+                                    className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
+                                    style={{ color: "var(--text-secondary)" }}>
+                                    −
+                                  </button>
+                                  <input type="number" value={kr.current_value}
+                                    onChange={(e) => updateKR(goal.id, kr.id, { current_value: Number(e.target.value) })}
+                                    className="w-12 text-xs text-center bg-transparent outline-none py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    style={{ color: "var(--text-primary)" }}
+                                  />
+                                  <button
+                                    onClick={() => updateKR(goal.id, kr.id, { current_value: kr.current_value + 1 })}
+                                    className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
+                                    style={{ color: "var(--text-secondary)" }}>
+                                    +
+                                  </button>
+                                </div>
                                 <span className="text-xs" style={{ color: "var(--text-secondary)" }}>/ {kr.target_value} {kr.unit}</span>
                                 <span className="text-xs font-bold w-8 text-right" style={{ color: krPct >= 100 ? "#22c55e" : "var(--text-secondary)" }}>{krPct}%</span>
                               </div>

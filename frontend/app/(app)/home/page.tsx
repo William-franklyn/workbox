@@ -100,7 +100,13 @@ export default function HomePage() {
       fetch("/api/activity-log?limit=6").then((r) => r.json()).catch(() => ({ logs: [] })),
     ]).then(([s, g, a]) => {
       if (s) setSummary(s);
-      setGoals((g.goals ?? []).slice(0, 4));
+      // /api/goals returns key results separately — attach them per goal,
+      // otherwise GoalProgress crashes on goal.key_results.reduce
+      const krs = (g.keyResults ?? []) as { goal_id: string; current_value: number; target_value: number }[];
+      setGoals(((g.goals ?? []) as Goal[]).slice(0, 4).map((goal) => ({
+        ...goal,
+        key_results: krs.filter((k) => k.goal_id === goal.id),
+      })));
       setActivity(a.logs ?? []);
     }).finally(() => setLoading(false));
   }, []);

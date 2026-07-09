@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Bot, X, Send, Minimize2, Loader2, ChevronRight } from "lucide-react";
+import { Bot, X, Send, Minimize2, Loader2, ChevronRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 interface Message {
@@ -10,21 +10,20 @@ interface Message {
 
 const OPENER = "Hey! 👋 I'm the WorkBox Assistant. Are you looking for a better way to manage your work, or just exploring what WorkBox can do?";
 
-// Hardcoded black/white palette — landing page uses --accent-purple: #fff which
-// makes CSS-variable-based buttons invisible (white text on white background).
+// The landing page is pure black, so the widget carries its own identity:
+// a purple-gradient accent that stands out instead of blending in.
+const GRADIENT = "linear-gradient(135deg, #7c3aed 0%, #a855f7 55%, #6366f1 100%)";
 const C = {
-  bg:           "#0a0a0a",
-  bgPanel:      "#0d0d0d",
-  bgUser:       "#ffffff",
-  bgAssistant:  "#161616",
-  border:       "#1e1e1e",
-  textPrimary:  "#f0f0f0",
-  textSecondary:"#606060",
-  btnBg:        "#ffffff",
-  btnText:      "#000000",
-  inputBg:      "#111111",
-  inputBorder:  "#222222",
-  inputFocus:   "#444444",
+  panelBg:      "#12121a",
+  panelBorder:  "rgba(139,92,246,0.35)",
+  headerText:   "#ffffff",
+  bgAssistant:  "#1d1d28",
+  border:       "#2a2a38",
+  textPrimary:  "#f2f2f7",
+  textSecondary:"#9a9aad",
+  inputBg:      "#181822",
+  inputBorder:  "#2e2e3e",
+  inputFocus:   "#8b5cf6",
 };
 
 export default function PublicChatWidget() {
@@ -79,55 +78,68 @@ export default function PublicChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 flex items-center gap-2 pl-4 pr-5 h-12 rounded-full shadow-2xl z-50 transition-all hover:scale-105 hover:shadow-white/10"
-          style={{ background: C.btnBg, color: C.btnText, boxShadow: "0 4px 24px rgba(255,255,255,0.08), 0 1px 3px rgba(0,0,0,0.6)" }}
+          className="fixed bottom-6 right-6 flex items-center gap-2.5 pl-4 pr-5 h-13 rounded-full z-50 transition-all hover:scale-105"
+          style={{
+            background: GRADIENT,
+            color: "#fff",
+            padding: "14px 20px 14px 16px",
+            boxShadow: "0 8px 32px rgba(124,58,237,0.45), 0 2px 8px rgba(0,0,0,0.5)",
+          }}
         >
-          <Bot size={17} style={{ color: C.btnText }} />
-          <span className="text-sm font-semibold" style={{ color: C.btnText }}>Chat with us</span>
+          <span className="relative flex items-center justify-center">
+            <Bot size={18} />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border"
+              style={{ background: "#22c55e", borderColor: "#12121a" }} />
+          </span>
+          <span className="text-sm font-semibold">Chat with us</span>
         </button>
       )}
 
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden"
+          className="fixed z-50 flex flex-col rounded-2xl overflow-hidden"
           style={{
-            width: 360,
-            height: minimized ? 52 : 520,
-            background: C.bg,
-            border: `1px solid ${C.border}`,
-            boxShadow: "0 24px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)",
+            bottom: 16,
+            right: 16,
+            width: "min(380px, calc(100vw - 32px))",
+            height: minimized ? 56 : "min(560px, calc(100vh - 96px))",
+            background: C.panelBg,
+            border: `1px solid ${C.panelBorder}`,
+            boxShadow: "0 24px 80px rgba(0,0,0,0.85), 0 0 40px rgba(124,58,237,0.18)",
             transition: "height 0.2s ease",
           }}
         >
-          {/* Header */}
+          {/* Header — gradient so the widget is unmistakably a chat, not part of the page */}
           <div
-            className="flex items-center gap-2.5 px-4 py-3 border-b flex-shrink-0"
-            style={{ borderColor: C.border, background: C.bgPanel }}
+            className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+            style={{ background: GRADIENT }}
           >
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: C.btnBg }}
+              className="relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)" }}
             >
-              <Bot size={14} style={{ color: C.btnText }} />
+              <Bot size={16} style={{ color: "#fff" }} />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
+                style={{ background: "#22c55e", borderColor: "#7c3aed" }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>WorkBox Assistant</p>
-              <p className="text-xs" style={{ color: C.textSecondary }}>Here to help you get started</p>
+              <p className="text-sm font-semibold" style={{ color: C.headerText }}>WorkBox Assistant</p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>Online — replies instantly</p>
             </div>
             <button
               onClick={() => setMinimized((m) => !m)}
-              className="p-1 rounded hover:bg-white/5 transition-colors"
-              style={{ color: C.textSecondary }}
+              className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+              style={{ color: "rgba(255,255,255,0.9)" }}
             >
-              <Minimize2 size={13} />
+              <Minimize2 size={14} />
             </button>
             <button
               onClick={() => setOpen(false)}
-              className="p-1 rounded hover:bg-white/5 transition-colors"
-              style={{ color: C.textSecondary }}
+              className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+              style={{ color: "rgba(255,255,255,0.9)" }}
             >
-              <X size={13} />
+              <X size={14} />
             </button>
           </div>
 
@@ -136,12 +148,18 @@ export default function PublicChatWidget() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div key={i} className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {msg.role === "assistant" && (
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mb-0.5"
+                        style={{ background: GRADIENT }}>
+                        <Sparkles size={11} style={{ color: "#fff" }} />
+                      </div>
+                    )}
                     <div
-                      className="max-w-[82%] px-3 py-2 text-sm leading-relaxed"
+                      className="max-w-[80%] px-3.5 py-2.5 text-sm leading-relaxed"
                       style={{
-                        background: msg.role === "user" ? C.bgUser : C.bgAssistant,
-                        color: msg.role === "user" ? "#000" : C.textPrimary,
+                        background: msg.role === "user" ? GRADIENT : C.bgAssistant,
+                        color: msg.role === "user" ? "#fff" : C.textPrimary,
                         borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                         border: msg.role === "assistant" ? `1px solid ${C.border}` : "none",
                       }}
@@ -152,9 +170,13 @@ export default function PublicChatWidget() {
                 ))}
 
                 {loading && (
-                  <div className="flex justify-start">
+                  <div className="flex items-end gap-2 justify-start">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mb-0.5"
+                      style={{ background: GRADIENT }}>
+                      <Sparkles size={11} style={{ color: "#fff" }} />
+                    </div>
                     <div
-                      className="px-3 py-2"
+                      className="px-3.5 py-2.5"
                       style={{ background: C.bgAssistant, border: `1px solid ${C.border}`, borderRadius: "16px 16px 16px 4px" }}
                     >
                       <Loader2 size={14} className="animate-spin" style={{ color: C.textSecondary }} />
@@ -163,14 +185,14 @@ export default function PublicChatWidget() {
                 )}
 
                 {showSignupCta && !loading && (
-                  <div className="flex justify-start">
+                  <div className="flex justify-start pl-8">
                     <Link
                       href="/signup"
-                      className="flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.02] rounded-xl"
                       style={{
-                        background: C.btnBg,
-                        color: C.btnText,
-                        borderRadius: "16px 16px 16px 4px",
+                        background: GRADIENT,
+                        color: "#fff",
+                        boxShadow: "0 4px 16px rgba(124,58,237,0.35)",
                       }}
                     >
                       <span>Create your free account</span>
@@ -183,14 +205,14 @@ export default function PublicChatWidget() {
               </div>
 
               {/* Input */}
-              <div className="p-3 border-t flex gap-2 flex-shrink-0" style={{ borderColor: C.border }}>
+              <div className="p-3 border-t flex gap-2 flex-shrink-0" style={{ borderColor: C.border, background: "rgba(255,255,255,0.02)" }}>
                 <input
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                  placeholder="Tell me about your workflow…"
-                  className="flex-1 text-sm px-3 py-2 rounded-xl outline-none border transition-colors"
+                  placeholder="Ask anything about WorkBox…"
+                  className="flex-1 text-sm px-3.5 py-2.5 rounded-xl outline-none border transition-colors"
                   style={{
                     background: C.inputBg,
                     borderColor: C.inputBorder,
@@ -202,10 +224,10 @@ export default function PublicChatWidget() {
                 <button
                   onClick={send}
                   disabled={!input.trim() || loading}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-80 disabled:opacity-30"
-                  style={{ background: C.btnBg }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 disabled:opacity-30 disabled:hover:scale-100"
+                  style={{ background: GRADIENT, boxShadow: "0 2px 12px rgba(124,58,237,0.35)" }}
                 >
-                  <Send size={14} style={{ color: C.btnText }} />
+                  <Send size={15} style={{ color: "#fff" }} />
                 </button>
               </div>
             </>
