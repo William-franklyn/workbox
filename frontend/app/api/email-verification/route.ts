@@ -44,9 +44,10 @@ export async function POST(req: NextRequest) {
   const { action, token } = await req.json();
 
   if (action === "send") {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
     const { error } = await bareAnon().auth.signInWithOtp({
       email: user.email,
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: false, emailRedirectTo: `${appUrl}/verify-email` },
     });
     if (error) {
       const friendly = /rate limit/i.test(error.message)
@@ -77,4 +78,40 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+}
+
+/**
+ * Magic-link landing (default Supabase email template, no custom SMTP needed).
+ * The /verify-email page posts the access token from the link's URL hash here.
+ * We validate the token with Supabase and require an OTP/magic-link AMR claim,
+ * which a normal password session doesn't have — proving the email was opened.
+ */
+export async function PUT(req: NextRequest) {
+  const { access_token } = await req.json();
+  if (!access_token || typeof access_token !== "string") {
+    return NextResponse.json({ error: "Missing token" }, { status: 400 });
+  }
+
+  const admin = createServiceClient();
+  const { data, error } = await admin.auth.getUser(access_token);
+  if (error || !data.user) {
+    return NextResponse.json({ error: "Invalid or expired link. Request a new one." }, { status: 400 });
+  }
+
+  // The JWT's amr must show this session came from the emailed link, not a
+  // regular login — otherwise any logged-in client could claim verification.
+  try {
+    const payload = JSON.parse(Buffer.from(access_token.split(".")[1], "base64url").toString("utf8"));
+    const methods: string[] = (payload.amr ?? []).map((m: { method?: string }) => m.method ?? "");
+    if (!methods.some(m => m === "otp" || m === "magiclink")) {
+      return NextResponse.json({ error: "This link can't be used for verification." }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Malformed token." }, { status: 400 });
+  }
+
+  const { error: updErr } = await admin.from("profiles")
+    .update({ email_verified: true }).eq("id", data.user.id);
+  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+  return NextResponse.json({ ok: true, email_verified: true });
 }

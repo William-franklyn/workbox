@@ -20,19 +20,25 @@ function UnverifiedChip() {
   );
 }
 
-/** Email row: shows status, sends a Supabase OTP email, confirms the code. */
+/**
+ * Email row. Sends Supabase's default magic-link email (no custom SMTP
+ * needed); the user clicks the link, which lands on /verify-email. A code
+ * input is kept as fallback for projects whose template shows a token.
+ */
 export function EmailVerification() {
   const [email, setEmail] = useState("");
   const [verified, setVerified] = useState<boolean | null>(null);
   const [stage, setStage] = useState<"idle" | "sending" | "entering" | "confirming">("idle");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const emailPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetch("/api/email-verification").then(r => r.json()).then(d => {
       setEmail(d.email ?? "");
       setVerified(!!d.email_verified);
     }).catch(() => setVerified(false));
+    return () => { if (emailPollRef.current) clearInterval(emailPollRef.current); };
   }, []);
 
   async function send() {
@@ -44,6 +50,15 @@ export function EmailVerification() {
     const d = await res.json();
     if (!res.ok) { setError(d.error ?? "Couldn't send the email."); setStage("idle"); return; }
     setStage("entering");
+    // Flip the chip live once the link is clicked (possibly in another tab)
+    if (emailPollRef.current) clearInterval(emailPollRef.current);
+    emailPollRef.current = setInterval(async () => {
+      const s = await fetch("/api/email-verification").then(r => r.json()).catch(() => null);
+      if (s?.email_verified) {
+        setVerified(true); setStage("idle");
+        if (emailPollRef.current) clearInterval(emailPollRef.current);
+      }
+    }, 3000);
   }
 
   async function confirm() {
@@ -83,17 +98,24 @@ export function EmailVerification() {
       </div>
 
       {(stage === "entering" || stage === "confirming") && !verified && (
-        <div className="mt-3 flex items-center gap-2">
-          <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="6-digit code" inputMode="numeric" autoFocus
-            className="w-32 px-3 py-1.5 rounded-lg text-sm outline-none tracking-widest"
-            style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
-          <button onClick={confirm} disabled={code.length !== 6 || stage === "confirming"}
-            className="text-xs px-3 py-1.5 rounded-lg text-white font-medium disabled:opacity-40"
-            style={{ background: "var(--accent-purple)" }}>
-            {stage === "confirming" ? "Checking…" : "Confirm"}
-          </button>
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Check your inbox (and spam)</span>
+        <div className="mt-3 rounded-xl border p-3" style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
+          <p className="text-sm mb-1" style={{ color: "var(--text-primary)" }}>
+            📬 We emailed a verification link to <strong>{email}</strong> — open it and click the link.
+          </p>
+          <p className="text-xs mb-2 flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+            <Loader2 size={11} className="animate-spin" /> Waiting… check spam if you don't see it.
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="Got a code instead?" inputMode="numeric"
+              className="w-40 px-3 py-1.5 rounded-lg text-xs outline-none tracking-widest"
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+            <button onClick={confirm} disabled={code.length !== 6 || stage === "confirming"}
+              className="text-xs px-3 py-1.5 rounded-lg text-white font-medium disabled:opacity-40"
+              style={{ background: "var(--accent-purple)" }}>
+              {stage === "confirming" ? "Checking…" : "Confirm"}
+            </button>
+          </div>
         </div>
       )}
       {error && <p className="text-xs mt-2" style={{ color: "var(--danger)" }}>{error}</p>}
