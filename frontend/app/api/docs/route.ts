@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { reindexSource, removeSource } from "@/lib/embeddings";
+import { blocksToText } from "@/lib/agent-runner";
 
 export async function GET() {
   const supabase = await createClient();
@@ -20,6 +22,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { data, error } = await supabase.from("docs").insert({ ...body, org_id: profile?.organization_id, created_by: user.id }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const doc = data as Record<string, unknown>;
+  void reindexSource("doc", doc.id as string, (doc.org_id as string) ?? null, (doc.title as string) ?? "", blocksToText(doc.blocks as unknown[] ?? []));
   return NextResponse.json(data);
 }
 
@@ -31,6 +35,8 @@ export async function PATCH(req: NextRequest) {
   const { id, ...patch } = await req.json();
   const { data, error } = await supabase.from("docs").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const doc = data as Record<string, unknown>;
+  void reindexSource("doc", doc.id as string, (doc.org_id as string) ?? null, (doc.title as string) ?? "", blocksToText(doc.blocks as unknown[] ?? []));
   return NextResponse.json(data);
 }
 
@@ -41,5 +47,6 @@ export async function DELETE(req: NextRequest) {
 
   const { id } = await req.json();
   await supabase.from("docs").delete().eq("id", id);
+  void removeSource("doc", id);
   return NextResponse.json({ ok: true });
 }

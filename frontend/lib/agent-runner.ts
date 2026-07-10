@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/lib/google/calendar";
+import { searchChunks, reindexSource, removeSource } from "@/lib/embeddings";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -119,6 +120,7 @@ export async function executeTool(
       const docId = crypto.randomUUID();
       const { error } = await supabase.from("docs").insert({ id: docId, title, blocks, org_id: orgId, created_by: userId });
       if (error) return `Error: ${error.message}`;
+      void reindexSource("doc", docId, orgId, title, content as string);
       return `Created document "${title}" — ${BASE_URL}/docs/${docId}`;
     }
 
@@ -138,12 +140,27 @@ export async function executeTool(
       }));
       const { error } = await supabase.from("docs").update(patch).eq("id", doc_id);
       if (error) return `Error: ${error.message}`;
+      {
+        const { data: saved } = await supabase.from("docs").select("title, blocks").eq("id", doc_id).maybeSingle();
+        if (saved) void reindexSource("doc", doc_id, orgId, (saved as Record<string, string>).title, blocksToText((saved as Record<string, unknown>).blocks as unknown[] ?? []));
+      }
       return "Document updated.";
     }
 
     case "delete_doc": {
       await supabase.from("docs").delete().eq("id", args.doc_id as string);
+      void removeSource("doc", args.doc_id as string);
       return "Document deleted.";
+    }
+
+    case "search_knowledge": {
+      if (!orgId) return "No organization context.";
+      const matches = await searchChunks(args.query as string, orgId, 5);
+      if (matches === null) return "Semantic search isn't available right now.";
+      if (!matches.length) return "Nothing relevant found in documents or the knowledge base.";
+      return matches.map(m =>
+        `[${m.source_type === "kb" ? "Knowledge Base" : "Document"}: ${m.title}] (${BASE_URL}/${m.source_type === "kb" ? "knowledge" : "docs/" + m.source_id})\n${m.content.slice(0, 500)}`
+      ).join("\n\n");
     }
 
     case "list_goals": {
@@ -432,6 +449,7 @@ export const TOOLS = [
   { name: "create_space", description: "Create a new space", input_schema: { type: "object", properties: { name: { type: "string" }, icon: { type: "string" }, color: { type: "string" } }, required: ["name"] } },
   { name: "create_list", description: "Create a new list inside a space", input_schema: { type: "object", properties: { name: { type: "string" }, space_id: { type: "string" } }, required: ["name", "space_id"] } },
   { name: "list_docs", description: "List all documents (title and portal link only)", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "search_knowledge", description: "Semantic search across the organization's documents and knowledge base. Use this FIRST when asked about company information, policies, decisions, or anything that may be written down somewhere.", input_schema: { type: "object", properties: { query: { type: "string", description: "What to look for, phrased as a natural question or topic" } }, required: ["query"] } },
   { name: "create_doc", description: "Create a new document with optional text content", input_schema: { type: "object", properties: { title: { type: "string" }, content: { type: "string" } }, required: ["title"] } },
   { name: "read_doc", description: "Read the full content of a document", input_schema: { type: "object", properties: { doc_id: { type: "string" } }, required: ["doc_id"] } },
   { name: "update_doc", description: "Update a document's title or content", input_schema: { type: "object", properties: { doc_id: { type: "string" }, title: { type: "string" }, content: { type: "string" } }, required: ["doc_id"] } },

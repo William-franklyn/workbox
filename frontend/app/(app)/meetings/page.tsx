@@ -7,6 +7,7 @@ import {
   Calendar, Plus, RefreshCw, Video, Users,
   Loader2, X, Check, AlertCircle, ExternalLink, Copy, ClipboardList,
 } from "lucide-react";
+import { toast } from "@/store/toast";
 
 interface GCalEvent {
   id: string;
@@ -671,6 +672,20 @@ export default function MeetingsPage() {
             className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             style={{ color: "var(--text-secondary)" }} title="Refresh">
             <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={() => {
+              // Instant Jitsi room — free, no account needed. Random suffix
+              // keeps rooms unguessable; link copied so it can be shared.
+              const room = `WorkBox-${crypto.randomUUID().slice(0, 12)}`;
+              const url = `https://meet.jit.si/${room}`;
+              navigator.clipboard?.writeText(url).catch(() => {});
+              window.open(url, "_blank", "noopener");
+              toast("Instant meeting started — link copied to clipboard");
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
+            style={{ border: "1px solid var(--border-strong)", color: "var(--text-primary)" }}>
+            <Video size={15} /> Instant meeting
           </button>
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
