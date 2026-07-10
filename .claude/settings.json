@@ -6,7 +6,9 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(node -e \"const p=require\\('./frontend/package.json'\\); console.log\\(Object.keys\\(p.dependencies\\).join\\('\\\\n'\\)\\)\")",
-      "Bash(curl -s -o /dev/null --max-time 5 http://localhost:3000/login)"
+      "Bash(curl -s -o /dev/null --max-time 5 http://localhost:3000/login)",
+      "Read(//c/Users/PC/Desktop/data visualizer/**)",
+      "Bash(sed -n '1,90p' data-visualizer-library.js)"
     ]
   }
 }

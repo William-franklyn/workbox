@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
   Briefcase, UserCheck, Activity, FormInput,
-  BookOpen, Building2, UsersRound, FolderOpen, DollarSign,
+  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart,
 } from "lucide-react";
 
 // Grouped so the rail reads as sections instead of one long stack.
@@ -19,6 +19,7 @@ const NAV_GROUPS: { icon: typeof LayoutDashboard; href: string; label: string }[
     { icon: Target,          href: "/goals",    label: "Goals" },
   ],
   [
+    { icon: PieChart,   href: "/reports",   label: "Reports" },
     { icon: BarChart3,  href: "/portfolio", label: "Portfolio" },
     { icon: Briefcase,  href: "/workload",  label: "Workload" },
     { icon: BookOpen,   href: "/knowledge", label: "Knowledge Base" },
