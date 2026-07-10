@@ -7,22 +7,30 @@ import Chart, { ChartKind, summarize } from "@/components/charts/Chart";
 type Source = "tasks" | "deals" | "budget" | "spreadsheet" | "csv" | "manual";
 
 interface Series { labels: string[]; values: number[]; datasetLabel: string; }
+interface Table { headers: string[]; rows: string[][]; }
 
 const SOURCES: { id: Source; label: string }[] = [
   { id: "tasks", label: "Tasks by status" },
   { id: "deals", label: "CRM deals by stage" },
   { id: "budget", label: "Budget by category" },
-  { id: "spreadsheet", label: "Spreadsheet column" },
+  { id: "spreadsheet", label: "Spreadsheet" },
   { id: "csv", label: "Upload CSV" },
   { id: "manual", label: "Manual entry" },
 ];
 
 const KINDS: { id: ChartKind; label: string }[] = [
-  { id: "bar", label: "Bar" },
-  { id: "line", label: "Line" },
-  { id: "doughnut", label: "Doughnut" },
-  { id: "polarArea", label: "Polar" },
+  { id: "bar", label: "Bar" }, { id: "line", label: "Line" },
+  { id: "doughnut", label: "Doughnut" }, { id: "polarArea", label: "Polar" },
 ];
+
+/** Columns that are numeric in most rows are offered as value columns. */
+function numericCols(t: Table): number[] {
+  return t.headers.map((_, c) => c).filter(c => {
+    const vals = t.rows.slice(0, 20).map(r => r[c]).filter(v => v != null && v !== "");
+    if (!vals.length) return false;
+    return vals.filter(v => !isNaN(Number(v))).length >= vals.length * 0.6;
+  });
+}
 
 export default function ReportsPage() {
   const [source, setSource] = useState<Source>("tasks");
@@ -31,20 +39,20 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // options
   const [showLegend, setShowLegend] = useState(true);
   const [fillArea, setFillArea] = useState(false);
 
-  // spreadsheet picker state
   const [sheets, setSheets] = useState<{ id: string; name: string }[]>([]);
   const [sheetId, setSheetId] = useState("");
-  const [sheetCols, setSheetCols] = useState<string[]>([]);
+
+  // Column-mapping for tabular sources (spreadsheet / CSV)
+  const [table, setTable] = useState<Table | null>(null);
+  const [labelCol, setLabelCol] = useState(0);
   const [valueCol, setValueCol] = useState(1);
+  const [rowLimit, setRowLimit] = useState(0); // 0 = all
+  const [aggregate, setAggregate] = useState(false); // sum values per label
 
-  // manual
   const [manual, setManual] = useState("Q1, 120\nQ2, 210\nQ3, 175\nQ4, 260");
-
-  // AI insight
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
 
@@ -54,10 +62,56 @@ export default function ReportsPage() {
     }
   }, [source, sheets.length]);
 
+  async function loadSheet(id: string) {
+    setSheetId(id); setSeries(null); setError(null);
+    if (!id) { setTable(null); return; }
+    const sheet = await fetch(`/api/spreadsheets?id=${id}`).then(r => r.json());
+    const t: Table = { headers: sheet.col_headers ?? [], rows: sheet.row_data ?? [] };
+    setTable(t);
+    const nums = numericCols(t);
+    setLabelCol(0);
+    setValueCol(nums.find(c => c !== 0) ?? 1);
+  }
+
+  function onCsv(file: File) {
+    Papa.parse(file, {
+      complete: (res) => {
+        const all = (res.data as string[][]).filter(r => r.some(c => c !== ""));
+        if (!all.length) { setError("Empty CSV."); return; }
+        // treat first row as headers if it's non-numeric
+        const headerRow = all[0].every(c => isNaN(Number(c)) || c === "");
+        const headers = headerRow ? all[0] : all[0].map((_, i) => `Column ${i + 1}`);
+        const rows = headerRow ? all.slice(1) : all;
+        const t: Table = { headers, rows };
+        setTable(t); setSeries(null); setError(null);
+        const nums = numericCols(t);
+        setLabelCol(0);
+        setValueCol(nums.find(c => c !== 0) ?? 1);
+      },
+      error: () => setError("Couldn't parse that CSV."),
+    });
+  }
+
+  function buildFromTable(): Series {
+    if (!table) throw new Error("No data loaded.");
+    let rows = table.rows.filter(r => (r[labelCol] ?? "") !== "");
+    if (aggregate) {
+      const acc: Record<string, number> = {};
+      for (const r of rows) acc[String(r[labelCol])] = (acc[String(r[labelCol])] ?? 0) + (Number(r[valueCol]) || 0);
+      rows = Object.entries(acc).map(([k, v]) => { const a: string[] = []; a[labelCol] = k; a[valueCol] = String(v); return a; });
+    }
+    if (rowLimit > 0) rows = rows.slice(0, rowLimit);
+    return {
+      labels: rows.map(r => String(r[labelCol] ?? "")),
+      values: rows.map(r => Number(r[valueCol]) || 0),
+      datasetLabel: table.headers[valueCol] ?? "Value",
+    };
+  }
+
   async function build() {
     setLoading(true); setError(null); setInsight(null);
     try {
-      let s: Series | null = null;
+      let s: Series;
       if (source === "tasks") {
         const d = await fetch("/api/tasks/summary").then(r => r.json());
         s = { labels: ["To Do", "In Progress", "In Review", "Done"], values: [d.todo ?? 0, d.inProgress ?? 0, d.inReview ?? 0, d.done ?? 0], datasetLabel: "Tasks" };
@@ -71,22 +125,13 @@ export default function ReportsPage() {
         if (!budgets?.length) throw new Error("No budgets yet — create one on the Budget page.");
         const items = await fetch(`/api/budget?budgetId=${budgets[0].id}`).then(r => r.json());
         s = { labels: (items ?? []).map((i: Record<string, string>) => i.category), values: (items ?? []).map((i: Record<string, number>) => Number(i.spent ?? 0)), datasetLabel: "Spent" };
-      } else if (source === "spreadsheet") {
-        if (!sheetId) throw new Error("Pick a spreadsheet.");
-        const sheet = await fetch(`/api/spreadsheets?id=${sheetId}`).then(r => r.json());
-        const headers: string[] = sheet.col_headers ?? [];
-        const rows: string[][] = sheet.row_data ?? [];
-        setSheetCols(headers);
-        s = {
-          labels: rows.map(r => r[0] ?? ""),
-          values: rows.map(r => Number(r[valueCol]) || 0),
-          datasetLabel: headers[valueCol] ?? "Value",
-        };
-      } else if (source === "manual") {
+      } else if (source === "spreadsheet" || source === "csv") {
+        s = buildFromTable();
+      } else {
         const parsed = manual.split("\n").map(l => l.split(",")).filter(p => p.length >= 2);
         s = { labels: parsed.map(p => p[0].trim()), values: parsed.map(p => Number(p[1]) || 0), datasetLabel: "Value" };
       }
-      if (s && s.labels.length === 0) throw new Error("No data to chart from this source yet.");
+      if (!s.labels.length) throw new Error("No data to chart from this selection.");
       setSeries(s);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to build chart");
@@ -94,20 +139,6 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function onCsv(file: File) {
-    Papa.parse(file, {
-      complete: (res) => {
-        const rows = (res.data as string[][]).filter(r => r.length >= 2 && r[0]);
-        // skip header row if second col isn't numeric
-        const start = rows.length && isNaN(Number(rows[0][1])) ? 1 : 0;
-        const body = rows.slice(start);
-        setSeries({ labels: body.map(r => r[0]), values: body.map(r => Number(r[1]) || 0), datasetLabel: "Value" });
-        setError(null);
-      },
-      error: () => setError("Couldn't parse that CSV."),
-    });
   }
 
   async function getInsight() {
@@ -118,7 +149,7 @@ export default function ReportsPage() {
     const prompt = `Here is a ${kind} chart of "${series.datasetLabel}". Categories and values: ${series.labels.map((l, i) => `${l}=${series.values[i]}`).join(", ")}. Total ${stats.total}, average ${stats.average.toFixed(1)}, highest is ${top} (${stats.max}). Give 2 short, specific insights a manager would care about. No preamble.`;
     try {
       const r = await fetch("/api/ai/insight", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) }).then(x => x.json());
-      setInsight(r.text ?? r.insight ?? "No insight available.");
+      setInsight(r.text ?? "No insight available.");
     } catch {
       setInsight(`${top} leads with ${stats.max}. Average across ${series.labels.length} categories is ${stats.average.toFixed(1)}.`);
     } finally {
@@ -126,20 +157,23 @@ export default function ReportsPage() {
     }
   }
 
+  const isTabular = source === "spreadsheet" || source === "csv";
+  const selectCls = "px-3 py-1.5 rounded-lg text-xs";
+  const selectStyle = { background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" };
+
   return (
     <div className="p-6 max-w-4xl mx-auto overflow-y-auto h-full">
       <div className="flex items-center gap-2 mb-1">
         <BarChart3 size={20} style={{ color: "var(--accent-purple)" }} />
         <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Reports</h1>
       </div>
-      <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>Turn your workspace data into charts.</p>
+      <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>Turn your workspace data into charts — pick a source, choose the fields, visualize.</p>
 
       <div className="rounded-xl border p-4 mb-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-        {/* Data source */}
         <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>Data source</label>
         <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
           {SOURCES.map(s => (
-            <button key={s.id} onClick={() => { setSource(s.id); setSeries(null); }}
+            <button key={s.id} onClick={() => { setSource(s.id); setSeries(null); setTable(null); setError(null); }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
               style={{ background: source === s.id ? "var(--accent-purple)" : "var(--bg-surface)", color: source === s.id ? "#fff" : "var(--text-secondary)", border: "1px solid var(--border)" }}>
               {s.label}
@@ -148,37 +182,50 @@ export default function ReportsPage() {
         </div>
 
         {source === "spreadsheet" && (
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <select value={sheetId} onChange={e => setSheetId(e.target.value)}
-              className="px-3 py-1.5 rounded-lg text-xs" style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-              <option value="">Select spreadsheet…</option>
-              {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            {sheetCols.length > 1 && (
-              <select value={valueCol} onChange={e => setValueCol(Number(e.target.value))}
-                className="px-3 py-1.5 rounded-lg text-xs" style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-                {sheetCols.map((c, i) => i > 0 && <option key={i} value={i}>Values: {c}</option>)}
-              </select>
-            )}
-          </div>
+          <select value={sheetId} onChange={e => loadSheet(e.target.value)} className={`${selectCls} mb-3`} style={selectStyle}>
+            <option value="">Select spreadsheet…</option>
+            {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
         )}
 
-        {source === "csv" && (
+        {source === "csv" && !table && (
           <label className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs cursor-pointer w-fit mb-3"
             style={{ background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px dashed var(--border-strong)" }}>
-            <Upload size={13} /> Choose CSV (first column = labels, second = numbers)
+            <Upload size={13} /> Choose CSV
             <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && onCsv(e.target.files[0])} />
           </label>
         )}
 
-        {source === "manual" && (
-          <textarea value={manual} onChange={e => setManual(e.target.value)} rows={4}
-            className="w-full px-3 py-2 rounded-lg text-xs font-mono mb-3 outline-none"
-            style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-            placeholder={"Label, value\nQ1, 120"} />
+        {/* Field selection for tabular sources */}
+        {isTabular && table && (
+          <div className="rounded-lg border p-3 mb-3" style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>Choose fields to visualize</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Labels</span>
+              <select value={labelCol} onChange={e => setLabelCol(Number(e.target.value))} className={selectCls} style={selectStyle}>
+                {table.headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
+              </select>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Values</span>
+              <select value={valueCol} onChange={e => setValueCol(Number(e.target.value))} className={selectCls} style={selectStyle}>
+                {table.headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
+              </select>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Top</span>
+              <select value={rowLimit} onChange={e => setRowLimit(Number(e.target.value))} className={selectCls} style={selectStyle}>
+                {[0, 5, 10, 15, 20].map(n => <option key={n} value={n}>{n === 0 ? "All rows" : n}</option>)}
+              </select>
+              <label className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <input type="checkbox" checked={aggregate} onChange={e => setAggregate(e.target.checked)} /> Sum by label
+              </label>
+              {source === "csv" && <button onClick={() => { setTable(null); setSeries(null); }} className="text-xs ml-auto" style={{ color: "var(--accent-purple)" }}>Change file</button>}
+            </div>
+          </div>
         )}
 
-        {/* Chart type + options */}
+        {source === "manual" && (
+          <textarea value={manual} onChange={e => setManual(e.target.value)} rows={4}
+            className="w-full px-3 py-2 rounded-lg text-xs font-mono mb-3 outline-none" style={selectStyle} placeholder={"Label, value\nQ1, 120"} />
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-1.5">
             {KINDS.map(k => (
@@ -197,13 +244,11 @@ export default function ReportsPage() {
               <input type="checkbox" checked={fillArea} onChange={e => setFillArea(e.target.checked)} /> Fill area
             </label>
           )}
-          {source !== "csv" && (
-            <button onClick={build} disabled={loading}
-              className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
-              style={{ background: "var(--accent-purple)" }}>
-              {loading ? <Loader2 size={13} className="animate-spin" /> : <BarChart3 size={13} />} Visualize
-            </button>
-          )}
+          <button onClick={build} disabled={loading || (isTabular && !table)}
+            className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+            style={{ background: "var(--accent-purple)" }}>
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <BarChart3 size={13} />} Visualize
+          </button>
         </div>
       </div>
 
