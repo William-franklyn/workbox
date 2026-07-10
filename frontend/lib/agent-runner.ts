@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/lib/google/calendar";
 import { searchChunks, reindexSource, removeSource } from "@/lib/embeddings";
+import { generateOutreachEmail } from "@/lib/outreach/draft";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -161,6 +162,38 @@ export async function executeTool(
       return matches.map(m =>
         `[${m.source_type === "kb" ? "Knowledge Base" : "Document"}: ${m.title}] (${BASE_URL}/${m.source_type === "kb" ? "knowledge" : "docs/" + m.source_id})\n${m.content.slice(0, 500)}`
       ).join("\n\n");
+    }
+
+    case "draft_outreach_email": {
+      const { contact_id, contact_name, intent, tone } = args as Record<string, string>;
+      if (!intent) return "Tell me what the email should say or offer.";
+
+      // Resolve the contact by id or by name within the org
+      let cq = supabase.from("crm_contacts").select("first_name, last_name, job_title, org_id, company:crm_companies(name)");
+      if (contact_id) cq = cq.eq("id", contact_id);
+      else if (contact_name) {
+        const [fn, ...rest] = contact_name.trim().split(" ");
+        cq = cq.ilike("first_name", `%${fn}%`);
+        if (rest.length) cq = cq.ilike("last_name", `%${rest.join(" ")}%`);
+      } else return "Give me the contact's name or id.";
+      const { data: contact } = await cq.maybeSingle();
+      if (!contact || (orgId && contact.org_id !== orgId)) return "I couldn't find that contact in your CRM.";
+
+      const { data: org } = orgId ? await supabase.from("organizations").select("name").eq("id", orgId).maybeSingle() : { data: null };
+      try {
+        const draft = await generateOutreachEmail({
+          orgId,
+          sender: { name: senderName, company: (org as Record<string, string> | null)?.name },
+          contact: {
+            first_name: contact.first_name, last_name: contact.last_name, job_title: contact.job_title,
+            company: (contact.company as { name?: string } | null)?.name,
+          },
+          intent, tone,
+        });
+        return `Subject: ${draft.subject}\n\n${draft.body}\n\n(${draft.word_count} words — say "send it" once outreach sending is set up, or copy it out.)`;
+      } catch {
+        return "I couldn't draft that email right now.";
+      }
     }
 
     case "list_goals": {
@@ -458,6 +491,7 @@ export const TOOLS = [
   { name: "create_list", description: "Create a new list inside a space", input_schema: { type: "object", properties: { name: { type: "string" }, space_id: { type: "string" } }, required: ["name", "space_id"] } },
   { name: "list_docs", description: "List all documents (title and portal link only)", input_schema: { type: "object", properties: {}, required: [] } },
   { name: "search_knowledge", description: "Semantic search across the organization's documents and knowledge base. Use this FIRST when asked about company information, policies, decisions, or anything that may be written down somewhere.", input_schema: { type: "object", properties: { query: { type: "string", description: "What to look for, phrased as a natural question or topic" } }, required: ["query"] } },
+  { name: "draft_outreach_email", description: "Draft a personalized outreach email to a CRM contact, in the user's own voice. Use when the user asks to write/draft an email to a contact.", input_schema: { type: "object", properties: { contact_id: { type: "string", description: "CRM contact id if known" }, contact_name: { type: "string", description: "Contact's name to look up if id unknown" }, intent: { type: "string", description: "What the email should say or offer" }, tone: { type: "string", description: "Optional tone, e.g. warm, concise, formal" } }, required: ["intent"] } },
   { name: "create_doc", description: "Create a new document with optional text content", input_schema: { type: "object", properties: { title: { type: "string" }, content: { type: "string" } }, required: ["title"] } },
   { name: "read_doc", description: "Read the full content of a document", input_schema: { type: "object", properties: { doc_id: { type: "string" } }, required: ["doc_id"] } },
   { name: "update_doc", description: "Update a document's title or content", input_schema: { type: "object", properties: { doc_id: { type: "string" }, title: { type: "string" }, content: { type: "string" } }, required: ["doc_id"] } },

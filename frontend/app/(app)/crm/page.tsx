@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Chart from "@/components/charts/Chart";
 import { toast } from "@/store/toast";
+import OutreachComposer from "@/components/crm/OutreachComposer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -299,6 +300,7 @@ export default function CRMPage() {
   const [modal, setModal] = useState<"contact" | "company" | "deal" | null>(null);
   const [editing, setEditing] = useState<Contact | Company | Deal | null>(null);
   const [enriching, setEnriching] = useState<string | null>(null);
+  const [composeContact, setComposeContact] = useState<{ id: string; name: string } | null>(null);
 
   async function enrich(contactId: string) {
     setEnriching(contactId);
@@ -393,6 +395,10 @@ export default function CRMPage() {
         </Modal>
       )}
 
+      {composeContact && (
+        <OutreachComposer contactId={composeContact.id} contactName={composeContact.name} onClose={() => setComposeContact(null)} />
+      )}
+
       <div className="flex flex-col h-full overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-6 pb-0 shrink-0">
@@ -466,6 +472,10 @@ export default function CRMPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setComposeContact({ id: c.id, name: `${c.first_name} ${c.last_name ?? ""}`.trim() })} title="Draft an email with AI"
+                        className="p-1.5 rounded hover:bg-white/5" style={{ color: "var(--text-secondary)" }}>
+                        <Mail size={12} />
+                      </button>
                       <button onClick={() => enrich(c.id)} disabled={enriching === c.id} title="Find email & phone via Apollo"
                         className="p-1.5 rounded hover:bg-white/5 disabled:opacity-50" style={{ color: "var(--accent-purple)" }}>
                         {enriching === c.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
