@@ -2,6 +2,25 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/lib/google/calendar";
 import { searchChunks, reindexSource, removeSource } from "@/lib/embeddings";
 import { generateOutreachEmail } from "@/lib/outreach/draft";
+import { buildChartConfig, chartImageUrl, type ChartKind as VizKind } from "@/lib/viz/quickchart";
+
+function round(n: number): number { return Math.round(n * 100) / 100; }
+
+/** Find a spreadsheet in the org by fuzzy name match (e.g. "sales.csv" -> "Sales"). */
+async function findSheet(
+  supabase: ReturnType<typeof createServiceClient>,
+  orgId: string | null,
+  name: string,
+): Promise<Record<string, unknown> | null> {
+  const clean = (name ?? "").replace(/\.(csv|xlsx?|sheet)$/i, "").trim();
+  let q = supabase.from("spreadsheets").select("id, name, col_headers, row_data");
+  if (orgId) q = q.eq("organization_id", orgId);
+  const { data } = await q;
+  if (!data?.length) return null;
+  const exact = data.find(s => s.name?.toLowerCase() === clean.toLowerCase());
+  if (exact) return exact;
+  return data.find(s => s.name?.toLowerCase().includes(clean.toLowerCase()) || clean.toLowerCase().includes(s.name?.toLowerCase() ?? "")) ?? null;
+}
 
 export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -434,6 +453,68 @@ export async function executeTool(
       return `"${d.name}"\n${header}\n${rowLines || "(empty)"}`;
     }
 
+    case "analyze_data": {
+      const sheet = await findSheet(supabase, orgId, args.name as string);
+      if (!sheet) return `I couldn't find a spreadsheet matching "${args.name}". Ask me to "list spreadsheets" to see what's available.`;
+      const headers = (sheet.col_headers as string[]) ?? [];
+      const rows = (sheet.row_data as string[][]) ?? [];
+      if (!rows.length) return `"${sheet.name}" has no data rows.`;
+
+      const lines = [`Analysis of "${sheet.name}" — ${rows.length} rows, ${headers.length} columns.`];
+      headers.forEach((h, c) => {
+        const nums = rows.map(r => Number(r[c])).filter(n => !isNaN(n));
+        if (nums.length >= rows.length * 0.6 && nums.length) {
+          const total = nums.reduce((s, n) => s + n, 0);
+          lines.push(`- ${h || "Column " + (c + 1)}: total ${round(total)}, avg ${round(total / nums.length)}, min ${round(Math.min(...nums))}, max ${round(Math.max(...nums))}`);
+        } else {
+          const uniq = new Set(rows.map(r => r[c]).filter(Boolean));
+          lines.push(`- ${h || "Column " + (c + 1)}: ${uniq.size} distinct values (text)`);
+        }
+      });
+      return lines.join("\n") + `\n\nWant a chart? Ask me to visualize a column.`;
+    }
+
+    case "visualize_data": {
+      const sheet = await findSheet(supabase, orgId, args.name as string);
+      if (!sheet) return `I couldn't find a spreadsheet matching "${args.name}".`;
+      const headers = (sheet.col_headers as string[]) ?? [];
+      const rows = (sheet.row_data as string[][]) ?? [];
+      if (!rows.length) return `"${sheet.name}" has no data to chart.`;
+
+      const colIndex = (name: string | undefined, fallback: number) => {
+        if (!name) return fallback;
+        const i = headers.findIndex(h => h?.toLowerCase().includes(name.toLowerCase()));
+        return i >= 0 ? i : fallback;
+      };
+      const numericCols = headers.map((_, c) => c).filter(c => {
+        const nums = rows.map(r => Number(r[c])).filter(n => !isNaN(n));
+        return nums.length >= rows.length * 0.6 && nums.length > 0;
+      });
+      const labelCol = colIndex(args.label_column as string, 0);
+      const valueCol = colIndex(args.value_column as string, numericCols.find(c => c !== labelCol) ?? 1);
+      const kind = (["bar", "line", "doughnut", "polarArea", "pie"].includes(args.chart_type as string) ? args.chart_type : "bar") as VizKind;
+
+      // Aggregate values per label (sum) so repeated categories combine
+      const agg: Record<string, number> = {};
+      for (const r of rows) {
+        const label = String(r[labelCol] ?? "");
+        if (!label) continue;
+        agg[label] = (agg[label] ?? 0) + (Number(r[valueCol]) || 0);
+      }
+      const labels = Object.keys(agg).slice(0, 20);
+      const values = labels.map(l => agg[l]);
+      if (!labels.length) return "No chartable data in that selection.";
+
+      const config = buildChartConfig({ kind, labels, values, title: `${headers[valueCol] ?? "Value"} by ${headers[labelCol] ?? "category"}`, datasetLabel: headers[valueCol] ?? "Value" });
+      const url = await chartImageUrl(config);
+      const total = values.reduce((s, v) => s + v, 0);
+      const topLabel = labels[values.indexOf(Math.max(...values))];
+      const summary = `${headers[valueCol] ?? "Value"} by ${headers[labelCol] ?? "category"} — total ${round(total)}, highest is ${topLabel} (${round(Math.max(...values))}).`;
+      if (!url) return summary + " (Chart image couldn't be generated right now.)";
+      // The WhatsApp/agent layer detects this URL and sends it as an image.
+      return `${summary}\n\nCHART_IMAGE: ${url}`;
+    }
+
     case "create_form": {
       const { name, description, fields } = args as { name: string; description?: string; fields: Record<string, unknown>[] };
       const { data, error } = await supabase.from("forms").insert({
@@ -516,6 +597,8 @@ export const TOOLS = [
   { name: "list_spreadsheets", description: "List all spreadsheets", input_schema: { type: "object", properties: {}, required: [] } },
   { name: "create_spreadsheet", description: "Create a spreadsheet with headers and rows of data", input_schema: { type: "object", properties: { title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } }, description: { type: "string" } }, required: ["title", "headers"] } },
   { name: "read_spreadsheet", description: "Read the data from a spreadsheet", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" } }, required: ["spreadsheet_id"] } },
+  { name: "analyze_data", description: "Analyze a spreadsheet/data file by name (e.g. 'sales.csv' or 'Sales') and return a summary: row/column counts and per-column stats (total, average, min, max). Use when the user asks to analyze or summarize a file or dataset.", input_schema: { type: "object", properties: { name: { type: "string", description: "The spreadsheet/file name to analyze" } }, required: ["name"] } },
+  { name: "visualize_data", description: "Create a chart image from a spreadsheet by name and return a shareable image URL (works over WhatsApp). Use when the user asks to visualize, chart, graph, or 'show me' data, or wants a screenshot of a graph.", input_schema: { type: "object", properties: { name: { type: "string", description: "Spreadsheet/file name" }, label_column: { type: "string", description: "Column to use for labels (category names)" }, value_column: { type: "string", description: "Numeric column to chart" }, chart_type: { type: "string", description: "bar (default), line, doughnut, polarArea, or pie" } }, required: ["name"] } },
   { name: "update_spreadsheet", description: "Update a spreadsheet's title, headers, or rows", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" }, title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["spreadsheet_id"] } },
   {
     name: "create_form",

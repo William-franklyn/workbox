@@ -77,6 +77,24 @@ async function sendWhatsApp(to: string, text: string): Promise<void> {
   }).catch(() => {});
 }
 
+async function sendWhatsAppImage(to: string, imageUrl: string, caption?: string): Promise<void> {
+  await fetch(`${GRAPH_API}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp", to, type: "image",
+      image: { link: imageUrl, ...(caption ? { caption: caption.slice(0, 1024) } : {}) },
+    }),
+  }).catch(() => {});
+}
+
+/** Split a reply that carries a "CHART_IMAGE: <url>" marker into text + image. */
+function extractChartImage(reply: string): { text: string; imageUrl: string | null } {
+  const m = reply.match(/CHART_IMAGE:\s*(\S+)/);
+  if (!m) return { text: reply, imageUrl: null };
+  return { text: reply.replace(/\n*CHART_IMAGE:\s*\S+/, "").trim(), imageUrl: m[1] };
+}
+
 async function markRead(messageId: string): Promise<void> {
   await fetch(`${GRAPH_API}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: "POST",
@@ -254,12 +272,20 @@ export async function POST(req: NextRequest) {
     anthropicMessages.push({ role: "user", content: toolResults });
   }
 
-  history.push({ role: "assistant", content: finalReply });
+  // If the agent produced a chart, send it as an image (ephemeral — the image
+  // lives only at the provider URL, nothing is stored in WorkBox).
+  const { text, imageUrl } = extractChartImage(finalReply);
+
+  history.push({ role: "assistant", content: text || finalReply });
   if (history.length > HISTORY_MAX) history = history.slice(-HISTORY_MAX);
   if (redis) {
     try { await redis.set(historyKey, history, { ex: HISTORY_TTL }); } catch { /* ignore */ }
   }
 
-  await sendWhatsApp(fromWaId, finalReply);
+  if (imageUrl) {
+    await sendWhatsAppImage(fromWaId, imageUrl, text || undefined);
+  } else {
+    await sendWhatsApp(fromWaId, finalReply);
+  }
   return NextResponse.json({ ok: true });
 }
