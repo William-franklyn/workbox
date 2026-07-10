@@ -1,10 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Plus, Target, ChevronDown, ChevronRight, Trash2, TrendingUp, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Target, ChevronDown, ChevronRight, Trash2, TrendingUp, Loader2, Users, Lock, UserPlus } from "lucide-react";
 import { track } from "@/lib/analytics";
 
 interface KeyResult { id: string; goal_id: string; title: string; current_value: number; target_value: number; unit: string; }
-interface Goal { id: string; title: string; description: string; due_date: string; expanded: boolean; keyResults: KeyResult[]; }
+interface GoalMember { goal_id: string; user_id: string; full_name: string; }
+interface Goal {
+  id: string; title: string; description: string; due_date: string;
+  visibility: "private" | "team"; created_by: string;
+  expanded: boolean; keyResults: KeyResult[];
+}
+interface OrgMember { id: string; full_name: string; role: string; }
 
 function progress(krs: KeyResult[]) {
   if (!krs.length) return 0;
@@ -21,27 +27,85 @@ function ProgressBar({ value, size = "md" }: { value: number; size?: "sm" | "md"
   );
 }
 
+function Avatar({ name, title }: { name: string; title?: string }) {
+  return (
+    <span title={title ?? name}
+      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 -ml-1 first:ml-0 ring-1"
+      style={{ background: "var(--accent-purple)", ["--tw-ring-color" as string]: "var(--bg-secondary)" }}>
+      {name?.[0]?.toUpperCase() ?? "?"}
+    </span>
+  );
+}
+
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [members, setMembers] = useState<GoalMember[]>([]);
+  const [me, setMe] = useState<{ id: string; isAdmin: boolean }>({ id: "", isAdmin: false });
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newGoal, setNewGoal] = useState({ title: "", description: "", due_date: "" });
+  const [newVisibility, setNewVisibility] = useState<"team" | "private">("team");
+  const [newInvitees, setNewInvitees] = useState<string[]>([]);
+  const [inviteOpenFor, setInviteOpenFor] = useState<string | null>(null);
+  const inviteRef = useRef<HTMLDivElement>(null);
+
+  function load() {
+    return fetch("/api/goals").then((r) => r.json()).then(({ goals: gs, keyResults: krs, members: ms, me: m }) => {
+      if (!Array.isArray(gs)) return;
+      setGoals(gs.map((g: Goal) => ({ ...g, expanded: true, keyResults: (krs ?? []).filter((kr: KeyResult) => kr.goal_id === g.id) })));
+      setMembers(ms ?? []);
+      if (m) setMe(m);
+    });
+  }
 
   useEffect(() => {
-    fetch("/api/goals").then((r) => r.json()).then(({ goals: gs, keyResults: krs }) => {
-      if (!Array.isArray(gs)) return;
-      setGoals(gs.map((g: any) => ({ ...g, expanded: true, keyResults: krs.filter((kr: KeyResult) => kr.goal_id === g.id) })));
-    }).finally(() => setLoading(false));
+    load().finally(() => setLoading(false));
+    fetch("/api/members").then(r => r.json()).then(d => Array.isArray(d) && setOrgMembers(d)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) setInviteOpenFor(null);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  function participantsOf(goalId: string) { return members.filter(m => m.goal_id === goalId); }
+
+  function canUpdate(goal: Goal) {
+    return me.isAdmin || goal.created_by === me.id || participantsOf(goal.id).some(m => m.user_id === me.id);
+  }
 
   async function addGoal() {
     if (!newGoal.title.trim()) return;
-    const res = await fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "goal", id: `g${Date.now()}`, ...newGoal }) });
-    const saved = res.ok ? await res.json() : { id: `g${Date.now()}`, ...newGoal };
-    setGoals((gs) => [{ ...saved, expanded: true, keyResults: [] }, ...gs]);
+    const res = await fetch("/api/goals", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "goal", id: `g${Date.now()}`, ...newGoal, visibility: newVisibility, member_ids: newInvitees }),
+    });
+    if (res.ok) await load();
     setNewGoal({ title: "", description: "", due_date: "" });
+    setNewInvitees([]);
+    setNewVisibility("team");
     setCreating(false);
-    track("goal_created", { has_due_date: !!saved.due_date });
+    track("goal_created", { visibility: newVisibility, invited: newInvitees.length });
+  }
+
+  async function invite(goalId: string, userId: string) {
+    await fetch("/api/goals/members", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal_id: goalId, user_ids: [userId] }),
+    });
+    await load();
+  }
+
+  async function removeMember(goalId: string, userId: string) {
+    await fetch("/api/goals/members", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal_id: goalId, user_id: userId }),
+    });
+    await load();
   }
 
   async function deleteGoal(id: string) {
@@ -106,6 +170,42 @@ export default function GoalsPage() {
             placeholder="Goal title..." className="w-full bg-transparent outline-none text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }} />
           <input value={newGoal.description} onChange={(e) => setNewGoal((g) => ({ ...g, description: e.target.value }))}
             placeholder="Description (optional)" className="w-full bg-transparent outline-none text-sm mb-3" style={{ color: "var(--text-secondary)" }} />
+
+          {/* Personal vs team */}
+          <div className="flex items-center gap-1 rounded-lg p-1 w-fit mb-3" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+            {([["team", "Team goal", Users], ["private", "Just me", Lock]] as const).map(([v, label, Icon]) => (
+              <button key={v} onClick={() => setNewVisibility(v)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                style={{ background: newVisibility === v ? "var(--accent-purple)" : "transparent", color: newVisibility === v ? "#fff" : "var(--text-secondary)" }}>
+                <Icon size={11} /> {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Invite participants (team goals) */}
+          {newVisibility === "team" && orgMembers.filter(m => m.id !== me.id).length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs mb-1.5" style={{ color: "var(--text-secondary)" }}>Invite participants — they can update progress too</p>
+              <div className="flex flex-wrap gap-1.5">
+                {orgMembers.filter(m => m.id !== me.id).map(m => {
+                  const on = newInvitees.includes(m.id);
+                  return (
+                    <button key={m.id}
+                      onClick={() => setNewInvitees(ids => on ? ids.filter(i => i !== m.id) : [...ids, m.id])}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors"
+                      style={{
+                        background: on ? "rgba(124,58,237,0.15)" : "var(--bg-primary)",
+                        color: on ? "var(--accent-purple)" : "var(--text-secondary)",
+                        border: `1px solid ${on ? "var(--accent-purple)" : "var(--border)"}`,
+                      }}>
+                      {on ? "✓ " : "+ "}{m.full_name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <label className="text-xs" style={{ color: "var(--text-secondary)" }}>Due date
               <input type="date" value={newGoal.due_date} onChange={(e) => setNewGoal((g) => ({ ...g, due_date: e.target.value }))}
@@ -125,6 +225,10 @@ export default function GoalsPage() {
         <div className="space-y-3">
           {goals.map((goal) => {
             const pct = progress(goal.keyResults);
+            const parts = participantsOf(goal.id);
+            const editable = canUpdate(goal);
+            const canInvite = (goal.created_by === me.id || me.isAdmin);
+            const notInGoal = orgMembers.filter(m => m.id !== goal.created_by && !parts.some(p => p.user_id === m.id));
             return (
               <div key={goal.id} className="rounded-xl border overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
                 <div className="p-4 cursor-pointer" onClick={() => toggleExpand(goal.id)}>
@@ -135,16 +239,66 @@ export default function GoalsPage() {
                     <Target size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--accent-purple)" }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{goal.title}</h3>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{goal.title}</h3>
+                          {goal.visibility === "private" && (
+                            <span title="Only you can see this goal"><Lock size={11} style={{ color: "var(--text-muted)" }} /></span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {goal.due_date && <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Due {new Date(goal.due_date).toLocaleDateString()}</span>}
                           <span className="text-xs font-bold" style={{ color: pct >= 100 ? "#22c55e" : "var(--accent-purple)" }}>{pct}%</span>
-                          <button onClick={(e) => { e.stopPropagation(); deleteGoal(goal.id); }} className="p-1 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
-                            <Trash2 size={12} />
-                          </button>
+                          {(goal.created_by === me.id || me.isAdmin) && (
+                            <button onClick={(e) => { e.stopPropagation(); deleteGoal(goal.id); }} className="p-1 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}>
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </div>
                       {goal.description && <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{goal.description}</p>}
+
+                      {/* Participants */}
+                      <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center">
+                          {(() => {
+                            const creator = orgMembers.find(m => m.id === goal.created_by);
+                            return creator ? <Avatar name={creator.full_name} title={`${creator.full_name} (creator)`} /> : null;
+                          })()}
+                          {parts.slice(0, 6).map(p => <Avatar key={p.user_id} name={p.full_name} />)}
+                          {parts.length > 6 && <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>+{parts.length - 6}</span>}
+                        </div>
+
+                        {canInvite && notInGoal.length > 0 && (
+                          <div className="relative" ref={inviteOpenFor === goal.id ? inviteRef : undefined}>
+                            <button onClick={() => setInviteOpenFor(inviteOpenFor === goal.id ? null : goal.id)}
+                              className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors hover:bg-white/10"
+                              style={{ color: "var(--text-secondary)", border: "1px dashed var(--border-strong)" }}>
+                              <UserPlus size={10} /> Invite
+                            </button>
+                            {inviteOpenFor === goal.id && (
+                              <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border shadow-2xl z-30 py-1 max-h-56 overflow-y-auto"
+                                style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                                {notInGoal.map(m => (
+                                  <button key={m.id} onClick={() => { invite(goal.id, m.id); setInviteOpenFor(null); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors hover:bg-white/10"
+                                    style={{ color: "var(--text-primary)" }}>
+                                    <Avatar name={m.full_name} /> {m.full_name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* participant can leave; creator can remove */}
+                        {parts.some(p => p.user_id === me.id) && (
+                          <button onClick={() => removeMember(goal.id, me.id)}
+                            className="text-xs hover:underline" style={{ color: "var(--text-muted)" }}>
+                            Leave
+                          </button>
+                        )}
+                      </div>
+
                       <div className="mt-2"><ProgressBar value={pct} /></div>
                     </div>
                   </div>
@@ -161,28 +315,34 @@ export default function GoalsPage() {
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs" style={{ color: "var(--text-primary)" }}>{kr.title}</span>
                               <div className="flex items-center gap-2">
-                                {/* Custom stepper — native number-input arrows are invisible on the dark theme */}
-                                <div className="flex items-center rounded-lg overflow-hidden border"
-                                  style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}
-                                  onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => updateKR(goal.id, kr.id, { current_value: Math.max(0, kr.current_value - 1) })}
-                                    className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
-                                    style={{ color: "var(--text-secondary)" }}>
-                                    −
-                                  </button>
-                                  <input type="number" value={kr.current_value}
-                                    onChange={(e) => updateKR(goal.id, kr.id, { current_value: Number(e.target.value) })}
-                                    className="w-12 text-xs text-center bg-transparent outline-none py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    style={{ color: "var(--text-primary)" }}
-                                  />
-                                  <button
-                                    onClick={() => updateKR(goal.id, kr.id, { current_value: kr.current_value + 1 })}
-                                    className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
-                                    style={{ color: "var(--text-secondary)" }}>
-                                    +
-                                  </button>
-                                </div>
+                                {editable ? (
+                                  <div className="flex items-center rounded-lg overflow-hidden border"
+                                    style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}
+                                    onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => updateKR(goal.id, kr.id, { current_value: Math.max(0, kr.current_value - 1) })}
+                                      className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
+                                      style={{ color: "var(--text-secondary)" }}>
+                                      −
+                                    </button>
+                                    <input type="number" value={kr.current_value}
+                                      onChange={(e) => updateKR(goal.id, kr.id, { current_value: Number(e.target.value) })}
+                                      className="w-12 text-xs text-center bg-transparent outline-none py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      style={{ color: "var(--text-primary)" }}
+                                    />
+                                    <button
+                                      onClick={() => updateKR(goal.id, kr.id, { current_value: kr.current_value + 1 })}
+                                      className="w-6 h-6 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-white/10"
+                                      style={{ color: "var(--text-secondary)" }}>
+                                      +
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" title="Ask the goal creator to invite you to update progress"
+                                    style={{ background: "var(--bg-primary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                                    <Lock size={9} /> {kr.current_value}
+                                  </span>
+                                )}
                                 <span className="text-xs" style={{ color: "var(--text-secondary)" }}>/ {kr.target_value} {kr.unit}</span>
                                 <span className="text-xs font-bold w-8 text-right" style={{ color: krPct >= 100 ? "#22c55e" : "var(--text-secondary)" }}>{krPct}%</span>
                               </div>
@@ -192,9 +352,11 @@ export default function GoalsPage() {
                         );
                       })}
                     </div>
-                    <button onClick={() => addKR(goal.id)} className="flex items-center gap-1 text-xs mt-3 hover:bg-white/10" style={{ color: "var(--accent-purple)" }}>
-                      <Plus size={12} /> Add key result
-                    </button>
+                    {editable && (
+                      <button onClick={() => addKR(goal.id)} className="flex items-center gap-1 text-xs mt-3 hover:opacity-80" style={{ color: "var(--accent-purple)" }}>
+                        <Plus size={12} /> Add key result
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

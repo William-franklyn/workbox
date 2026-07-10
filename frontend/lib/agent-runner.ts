@@ -193,6 +193,18 @@ export async function executeTool(
 
     case "update_goal_progress": {
       const { goal_id, kr_id, current_value } = args as Record<string, unknown>;
+      // Only the creator, invited participants, or admins may move progress
+      const { data: goal } = await supabase.from("goals").select("created_by").eq("id", goal_id as string).maybeSingle();
+      if (goal && goal.created_by !== userId) {
+        const [{ data: member }, { data: prof }] = await Promise.all([
+          supabase.from("goal_members").select("user_id").eq("goal_id", goal_id as string).eq("user_id", userId).maybeSingle(),
+          supabase.from("profiles").select("role").eq("id", userId).maybeSingle(),
+        ]);
+        const role = (prof as Record<string, string> | null)?.role;
+        if (!member && role !== "admin" && role !== "owner") {
+          return "You're not a participant of this goal. Ask the goal creator to invite you, then you can update progress.";
+        }
+      }
       const { error } = await supabase.from("key_results").update({ current_value }).eq("id", kr_id as string).eq("goal_id", goal_id as string);
       if (error) return `Error: ${error.message}`;
       return `Progress updated to ${current_value}.`;
