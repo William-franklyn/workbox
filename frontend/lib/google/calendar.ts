@@ -4,13 +4,35 @@ export interface GCalEvent {
   id: string;
   summary: string;
   description?: string;
+  location?: string;
   start: { dateTime?: string; date?: string; timeZone?: string };
   end: { dateTime?: string; date?: string; timeZone?: string };
   attendees?: { email: string; displayName?: string; responseStatus?: string }[];
   hangoutLink?: string;
+  conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] };
   htmlLink: string;
   status: string;
   created?: string;
+}
+
+/**
+ * Best-effort joining link for an event. Google Meet lives in hangoutLink,
+ * but Zoom/Teams/Webex events keep their link in conferenceData, location,
+ * or the description body.
+ */
+export function getJoinLink(e: GCalEvent): string | null {
+  if (e.hangoutLink) return e.hangoutLink;
+  const video = e.conferenceData?.entryPoints?.find(p => p.entryPointType === "video" && p.uri);
+  if (video?.uri) return video.uri;
+  const urlRe = /https?:\/\/[^\s<>"')\]]+/g;
+  for (const field of [e.location, e.description]) {
+    if (!field) continue;
+    const urls = field.match(urlRe) ?? [];
+    const conf = urls.find(u => /zoom\.us|meet\.google\.com|teams\.microsoft\.com|webex\.com|whereby\.com/i.test(u));
+    if (conf) return conf;
+    if (e.location && field === e.location && urls[0]) return urls[0];
+  }
+  return null;
 }
 
 export async function getValidToken(userId: string, supabase: SupabaseClient): Promise<string | null> {

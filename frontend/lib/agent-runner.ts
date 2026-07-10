@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { getValidToken, listEvents, createCalendarEvent } from "@/lib/google/calendar";
+import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/lib/google/calendar";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workbox-blue.vercel.app";
 
@@ -249,8 +249,17 @@ export async function executeTool(
       const events = await listEvents(token, days);
       if (!events.length) return "No upcoming meetings.";
       return events.map(e => {
-        const start = e.start.dateTime ?? e.start.date;
-        return `• ${e.summary} — ${start}${e.hangoutLink ? `\n  Meet: ${e.hangoutLink}` : ""}`;
+        const iso = e.start.dateTime ?? e.start.date ?? "";
+        let when = iso;
+        try {
+          when = new Date(iso).toLocaleString("en-US", {
+            weekday: "short", month: "short", day: "numeric",
+            ...(e.start.dateTime ? { hour: "numeric", minute: "2-digit" } : {}),
+            timeZone: e.start.timeZone ?? undefined,
+          });
+        } catch { /* keep raw ISO if timezone id is unknown */ }
+        const link = getJoinLink(e);
+        return `• ${e.summary} — ${when}${link ? `\n  Join: ${link}` : ""}`;
       }).join("\n");
     }
 
