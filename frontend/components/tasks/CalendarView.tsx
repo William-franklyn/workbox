@@ -209,7 +209,7 @@ export default function CalendarView({ listId }: { listId: string }) {
                       return (
                         <div key={ev.id}
                           onClick={e => { e.stopPropagation(); window.open(ev.meetLink ?? ev.externalLink, "_blank"); }}
-                          className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80"
+                          className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:bg-white/10"
                           style={{ background: `${meta.color}22`, color: meta.color, border: `1px solid ${meta.color}44` }}
                           title={`${ev.title}${ev.start.includes("T") ? ` · ${fmtTime(ev.start)}` : ""}`}>
                           <Video size={9} className="shrink-0" />
@@ -221,7 +221,7 @@ export default function CalendarView({ listId }: { listId: string }) {
                     {dayTasks.slice(0, Math.max(0, 3 - Math.min(dayEvents.length, 2))).map(t => (
                       <div key={t.id}
                         onClick={e => { e.stopPropagation(); setSelectedTask(t.id); }}
-                        className="text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80"
+                        className="text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:bg-white/10"
                         style={{ background: `${STATUS_COLOR[t.status]}22`, color: STATUS_COLOR[t.status], border: `1px solid ${STATUS_COLOR[t.status]}44` }}>
                         {t.title}
                       </div>

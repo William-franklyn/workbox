@@ -164,7 +164,7 @@ export default function TableView({ listId }: { listId: string }) {
               <tr>
                 <td colSpan={5} className="px-3 py-2">
                   <button onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 text-xs hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-2 text-xs hover:bg-white/10 transition-colors"
                     style={{ color: "var(--text-secondary)" }}>
                     <Plus size={12} /> Add task
                   </button>

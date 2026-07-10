@@ -122,7 +122,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowShortcuts(false)} className="mt-4 w-full text-xs py-2 rounded-lg hover:opacity-80" style={{ background: "var(--bg-primary)", color: "var(--text-secondary)" }}>Close</button>
+            <button onClick={() => setShowShortcuts(false)} className="mt-4 w-full text-xs py-2 rounded-lg hover:bg-white/10" style={{ background: "var(--bg-primary)", color: "var(--text-secondary)" }}>Close</button>
           </div>
         </div>
       )}

@@ -414,7 +414,7 @@ export default function KnowledgePage() {
             </div>
           ) : (
             <button onClick={() => setShowCatForm(true)}
-              className="w-full flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg hover:opacity-80"
+              className="w-full flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg hover:bg-white/10"
               style={{ color: "var(--text-secondary)", border: "1px dashed var(--border)" }}>
               <FolderPlus size={12} /> Add category
             </button>

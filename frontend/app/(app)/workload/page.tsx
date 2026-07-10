@@ -290,7 +290,7 @@ function MemberCard({ member }: { member: Member }) {
         <>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium transition-opacity hover:opacity-80 border-t"
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors hover:bg-white/10 border-t"
             style={{
               color: "var(--text-secondary)",
               borderColor: "var(--border)",

@@ -416,7 +416,7 @@ function ResponsesModal({ form, onClose }: { form: WorkboxForm; onClose: () => v
           <div className="flex items-center gap-2">
             {submissions.length > 0 && (
               <button onClick={() => exportCSV(form, submissions)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors hover:bg-white/10"
                 style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
                 <Download size={12} /> Export CSV
               </button>
@@ -711,7 +711,7 @@ function FormModal({ initial, lists, onSave, onClose }: {
 
               <div className="relative mt-3">
                 <button onClick={() => setShowTypeMenu(v => !v)}
-                  className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border w-full justify-center hover:opacity-80 transition-opacity"
+                  className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border w-full justify-center hover:bg-white/10 transition-colors"
                   style={{ borderColor: "var(--border)", color: "var(--text-secondary)", borderStyle: "dashed" }}>
                   <Plus size={14} /> Add field
                 </button>
@@ -789,7 +789,7 @@ function FormCard({ form, onEdit, onDelete, onToggleActive, onViewResponses, onS
 
       <div className="flex items-center gap-1 flex-wrap">
         <button onClick={onShare}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors hover:opacity-80"
+          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors hover:bg-white/10"
           style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
           <Share2 size={11} /> Share
         </button>

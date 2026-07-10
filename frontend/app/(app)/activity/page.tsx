@@ -287,7 +287,7 @@ export default function ActivityPage() {
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/10 disabled:opacity-50"
                   style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
                 >
                   {loadingMore ? (

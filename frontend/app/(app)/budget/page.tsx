@@ -287,7 +287,7 @@ function BudgetCard({ budget, onEdit, onDelete }: { budget: Budget; onEdit: () =
             ))}
             {!addingItem && !editingItem && (
               <button onClick={() => setAddingItem(true)}
-                className="mt-2 w-full text-xs py-2 rounded-lg border hover:opacity-80"
+                className="mt-2 w-full text-xs py-2 rounded-lg border hover:bg-white/10"
                 style={{ borderColor: "var(--border)", borderStyle: "dashed", color: "var(--text-secondary)" }}>
                 + Add line item
               </button>

@@ -182,7 +182,7 @@ export default function UniverSheet({ sheet }: { sheet: SheetRecord }) {
             style={{ color: "var(--text-primary)", borderColor: "var(--accent-purple)" }}
           />
         ) : (
-          <span className="text-sm font-semibold cursor-pointer hover:opacity-70 transition-opacity"
+          <span className="text-sm font-semibold cursor-pointer hover:bg-white/10 transition-colors"
             style={{ color: "var(--text-primary)" }}
             onDoubleClick={() => setEditingName(true)}>
             {name}

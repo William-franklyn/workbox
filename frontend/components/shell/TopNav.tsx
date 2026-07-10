@@ -157,7 +157,7 @@ export default function TopNav({ orgName, userName, userId }: Props) {
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
               <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Notifications</span>
               {unread > 0 && (
-                <button onClick={markAllRead} className="flex items-center gap-1 text-xs hover:opacity-80 transition-opacity" style={{ color: "var(--accent-purple)" }}>
+                <button onClick={markAllRead} className="flex items-center gap-1 text-xs hover:bg-white/10 transition-colors" style={{ color: "var(--accent-purple)" }}>
                   <CheckCheck size={12} /> Mark all read
                 </button>
               )}

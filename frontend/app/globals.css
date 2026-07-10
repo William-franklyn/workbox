@@ -103,4 +103,11 @@
   ::-webkit-scrollbar-thumb:hover{ background: #3a3a56; }
 
   ::selection { background: rgba(124,58,237,0.3); color: #fff; }
+
+  /* Click feedback: no fuzzy focus ring or tap flash on mouse clicks —
+     buttons rely on their hover background instead. Keyboard users still
+     get a clear focus ring via :focus-visible. */
+  * { -webkit-tap-highlight-color: transparent; }
+  :focus:not(:focus-visible) { outline: none; }
+  :focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; border-radius: 4px; }
 }

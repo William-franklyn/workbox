@@ -23,7 +23,7 @@ export default function Toaster() {
           {t.actionLabel && (
             <button
               onClick={async () => { await t.onAction?.(); dismiss(t.id); }}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg hover:opacity-80"
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-white/10"
               style={{ background: "rgba(124,58,237,0.15)", color: "var(--accent-purple)" }}>
               {t.actionLabel}
             </button>

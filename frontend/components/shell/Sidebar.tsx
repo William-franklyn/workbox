@@ -352,7 +352,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           <div className="px-2 pt-2 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between px-2 mb-1.5">
               <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Integrations</span>
-              <Link href="/integrations" className="text-xs transition-opacity hover:opacity-70" style={{ color: "var(--accent-purple)" }}>Manage</Link>
+              <Link href="/integrations" className="text-xs transition-colors hover:bg-white/10" style={{ color: "var(--accent-purple)" }}>Manage</Link>
             </div>
             <Link href={gcalConnected ? "/meetings" : "/integrations"}
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-xs"

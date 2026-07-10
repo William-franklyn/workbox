@@ -192,7 +192,7 @@ export default function GoalsPage() {
                         );
                       })}
                     </div>
-                    <button onClick={() => addKR(goal.id)} className="flex items-center gap-1 text-xs mt-3 hover:opacity-80" style={{ color: "var(--accent-purple)" }}>
+                    <button onClick={() => addKR(goal.id)} className="flex items-center gap-1 text-xs mt-3 hover:bg-white/10" style={{ color: "var(--accent-purple)" }}>
                       <Plus size={12} /> Add key result
                     </button>
                   </div>

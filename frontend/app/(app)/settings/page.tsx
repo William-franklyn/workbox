@@ -424,7 +424,7 @@ export default function SettingsPage() {
             <>
               <h1 className="text-lg font-bold mb-6" style={{ color: "var(--text-primary)" }}>Security</h1>
               <SettingRow label="Password" description="Last changed: never">
-                <button className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
+                <button className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-white/10"
                   style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                   Change password
                 </button>

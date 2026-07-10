@@ -73,7 +73,7 @@ export default function GanttView({ listId }: { listId: string }) {
           <ChevronLeft size={16} />
         </button>
         <button onClick={() => setAnchor(() => { const d = new Date(today); d.setDate(1); return d; })}
-          className="text-xs px-3 py-1.5 rounded-lg hover:opacity-80" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+          className="text-xs px-3 py-1.5 rounded-lg hover:bg-white/10" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
           Today
         </button>
         <button onClick={() => setAnchor((a) => addDays(a, 30))} className="p-1.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>

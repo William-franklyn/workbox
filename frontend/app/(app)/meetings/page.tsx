@@ -623,7 +623,7 @@ export default function MeetingsPage() {
             {syncResult.count} meeting{syncResult.count !== 1 ? "s" : ""} added as tasks in <strong>{syncResult.listName}</strong>
           </span>
           <button onClick={() => router.push(`/tasks/${syncResult.listId}?view=calendar`)}
-            className="text-xs underline hover:opacity-70 transition-opacity shrink-0">
+            className="text-xs underline hover:bg-white/10 transition-colors shrink-0">
             View in Calendar →
           </button>
         </div>

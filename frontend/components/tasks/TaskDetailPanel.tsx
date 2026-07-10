@@ -291,7 +291,7 @@ export default function TaskDetailPanel() {
             style={{ color: "var(--text-primary)", borderColor: "var(--accent-purple)" }} />
         ) : (
           <h2 onClick={() => { if (!isLocked) { setTitle(task.title); setEditingTitle(true); } }}
-            className={`text-lg font-semibold ${isLocked ? "cursor-default" : "cursor-text hover:opacity-80"}`} style={{ color: "var(--text-primary)" }}>
+            className={`text-lg font-semibold ${isLocked ? "cursor-default" : "cursor-text hover:bg-white/10"}`} style={{ color: "var(--text-primary)" }}>
             {task.title}
           </h2>
         )}
@@ -529,7 +529,7 @@ export default function TaskDetailPanel() {
           {/* Add dependency */}
           {!isLocked && !showDepSearch && (
             <button onClick={() => setShowDepSearch(true)}
-              className="flex items-center gap-1.5 text-xs mt-1 hover:opacity-80"
+              className="flex items-center gap-1.5 text-xs mt-1 hover:bg-white/10"
               style={{ color: "var(--accent-purple)" }}>
               <Plus size={12} /> Add dependency
             </button>
