@@ -78,6 +78,21 @@ export async function listEvents(accessToken: string, days = 30): Promise<GCalEv
   return (data.items ?? []) as GCalEvent[];
 }
 
+/** Fetch the user's primary-calendar timezone (e.g. "America/New_York"). */
+async function getCalendarTimeZone(accessToken: string): Promise<string | null> {
+  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return (data.timeZone as string) ?? null;
+}
+
+/** True when an ISO datetime carries no offset (e.g. "2026-07-10T14:00:00"). */
+function isNaiveDateTime(dt: string): boolean {
+  return !/(?:Z|[+-]\d{2}:?\d{2})$/.test(dt);
+}
+
 export async function createCalendarEvent(accessToken: string, event: {
   title: string;
   description?: string;
@@ -86,11 +101,18 @@ export async function createCalendarEvent(accessToken: string, event: {
   attendeeEmails?: string[];
   addMeetLink?: boolean;
 }): Promise<GCalEvent | null> {
+  // Google rejects naive datetimes ("Missing time zone definition") — attach
+  // the calendar's own timezone so "tomorrow at 2pm" means the user's 2pm.
+  let timeZone: string | undefined;
+  if (isNaiveDateTime(event.startDateTime) || isNaiveDateTime(event.endDateTime)) {
+    timeZone = (await getCalendarTimeZone(accessToken)) ?? "UTC";
+  }
+
   const body: Record<string, unknown> = {
     summary: event.title,
     description: event.description ?? "",
-    start: { dateTime: event.startDateTime },
-    end: { dateTime: event.endDateTime },
+    start: { dateTime: event.startDateTime, ...(timeZone ? { timeZone } : {}) },
+    end: { dateTime: event.endDateTime, ...(timeZone ? { timeZone } : {}) },
     attendees: (event.attendeeEmails ?? []).map(email => ({ email })),
   };
 

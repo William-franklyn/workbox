@@ -131,7 +131,7 @@ function EmployeeForm({ initial, employees, onSave, onClose }: {
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.full_name.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -188,7 +188,7 @@ function LeaveForm({ employees, onSave, onClose }: {
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.employee_id || !f.start_date || !f.end_date}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Submit Request
         </button>
       </div>
@@ -281,7 +281,7 @@ export default function HRPage() {
             </div>
             <button onClick={() => { setEditing(null); setModal(tab === "leave" ? "leave" : "employee"); }}
               className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium"
-              style={{ background: "var(--accent-purple)", color: "#000" }}>
+              style={{ background: "var(--accent-purple)", color: "#fff" }}>
               <Plus size={14} /> {tab === "leave" ? "Request Leave" : "Add Employee"}
             </button>
           </div>

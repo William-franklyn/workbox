@@ -28,8 +28,8 @@ interface Deal {
 
 const STAGES = ["prospect", "qualified", "proposal", "negotiation", "won", "lost"];
 const STAGE_COLOR: Record<string, string> = {
-  prospect: "#606060", qualified: "#909090", proposal: "#c0c0c0",
-  negotiation: "#ffffff", won: "#d0d0d0", lost: "#383838",
+  prospect: "#71717a", qualified: "#60a5fa", proposal: "#a78bfa",
+  negotiation: "#fbbf24", won: "#4ade80", lost: "#f87171",
 };
 
 const CONTACT_STATUS = ["lead", "active", "inactive", "customer"];
@@ -138,7 +138,7 @@ function ContactForm({ initial, companies, onSave, onClose }: {
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.first_name.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -197,7 +197,7 @@ function CompanyForm({ initial, onSave, onClose }: { initial?: Company; onSave: 
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.name.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -277,7 +277,7 @@ function DealForm({ initial, contacts, companies, onSave, onClose }: {
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.title.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -385,7 +385,7 @@ export default function CRMPage() {
               </div>
               <button onClick={() => { setEditing(null); setModal(tab === "pipeline" ? "deal" : tab === "companies" ? "company" : "contact"); }}
                 className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium"
-                style={{ background: "var(--accent-purple)", color: "#000" }}>
+                style={{ background: "var(--accent-purple)", color: "#fff" }}>
                 <Plus size={14} /> Add {tab === "pipeline" ? "Deal" : tab === "companies" ? "Company" : "Contact"}
               </button>
             </div>

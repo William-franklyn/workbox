@@ -3,31 +3,31 @@
 
 :root {
   /* ── Backgrounds ─────────────────────────────────────────────────── */
-  --bg-primary:    #000000;   /* pure black */
-  --bg-secondary:  #080808;   /* sidebar / panels */
-  --bg-surface:    #0e0e0e;   /* cards / inputs */
-  --bg-elevated:   #161616;   /* dropdowns / modals */
-  --bg-hover:      rgba(255,255,255,0.04);
-  --bg-active:     rgba(255,255,255,0.08);
+  --bg-primary:    #050505;   /* near black */
+  --bg-secondary:  #0c0c0e;   /* sidebar / panels */
+  --bg-surface:    #131316;   /* cards / inputs */
+  --bg-elevated:   #1b1b1f;   /* dropdowns / modals */
+  --bg-hover:      rgba(255,255,255,0.06);
+  --bg-active:     rgba(255,255,255,0.12);
 
   /* ── Accent ──────────────────────────────────────────────────────── */
-  --accent-purple: #ffffff;
-  --accent-purple-glow: rgba(255,255,255,0.10);
-  --accent-blue:   #c8c8c8;
+  --accent-purple: #8b5cf6;
+  --accent-purple-glow: rgba(139,92,246,0.18);
+  --accent-blue:   #60a5fa;
 
   /* ── Text ────────────────────────────────────────────────────────── */
-  --text-primary:   #f0f0f0;
-  --text-secondary: #585858;
-  --text-muted:     #2c2c2c;
+  --text-primary:   #f4f4f5;
+  --text-secondary: #9d9da8;  /* was #585858 — failed WCAG on black */
+  --text-muted:     #6e6e78;  /* was #2c2c2c — effectively invisible */
 
   /* ── Borders ─────────────────────────────────────────────────────── */
-  --border:        #181818;
-  --border-strong: #262626;
+  --border:        #242429;
+  --border-strong: #3a3a42;
 
   /* ── Status ──────────────────────────────────────────────────────── */
-  --success: #d0d0d0;
-  --warning: #888888;
-  --danger:  #f0f0f0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger:  #f87171;
 
   /* ── Layout ──────────────────────────────────────────────────────── */
   --sidebar-width:           220px;

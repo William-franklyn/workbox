@@ -77,7 +77,7 @@ function AIPanel({ articles }: { articles: KBArticle[] }) {
           style={{ background: "var(--bg-primary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
         <button onClick={ask} disabled={loading || !question.trim()}
           className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {loading ? <Loader2 size={12} className="animate-spin" /> : "Ask"}
         </button>
       </div>
@@ -167,7 +167,7 @@ function ArticleEditor({ article, categories, onSave, onClose }: {
           </label>
           <button onClick={save} disabled={saving || !title.trim()}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             Save
           </button>
@@ -406,7 +406,7 @@ export default function KnowledgePage() {
               <div className="flex gap-1.5">
                 <button onClick={createCategory}
                   className="flex-1 text-xs py-1.5 rounded font-medium"
-                  style={{ background: "var(--accent-purple)", color: "#000" }}>Add</button>
+                  style={{ background: "var(--accent-purple)", color: "#fff" }}>Add</button>
                 <button onClick={() => setShowCatForm(false)}
                   className="flex-1 text-xs py-1.5 rounded"
                   style={{ color: "var(--text-secondary)", background: "var(--bg-primary)", border: "1px solid var(--border)" }}>Cancel</button>
@@ -435,7 +435,7 @@ export default function KnowledgePage() {
           </div>
           <button onClick={() => setEditing("new")}
             className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg font-medium"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             <Plus size={13} /> New Article
           </button>
         </div>

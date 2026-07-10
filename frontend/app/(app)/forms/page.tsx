@@ -280,7 +280,7 @@ function FormPreview({ form, onClose }: { form: { name: string; description?: st
             </div>
           ))}
           <button disabled className="w-full py-2.5 rounded-lg text-sm font-semibold opacity-70"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             Submit
           </button>
         </div>
@@ -344,7 +344,7 @@ function ShareModal({ form, onClose }: { form: WorkboxForm; onClose: () => void 
                 </button>
                 <a href={url} target="_blank" rel="noreferrer"
                   className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
-                  style={{ background: "var(--accent-purple)", color: "#000", border: "1px solid transparent" }}>
+                  style={{ background: "var(--accent-purple)", color: "#fff", border: "1px solid transparent" }}>
                   <ExternalLink size={13} /> Open
                 </a>
               </div>
@@ -542,7 +542,7 @@ function AIGeneratePanel({ onGenerated }: {
       {error && <p className="text-xs" style={{ color: "var(--danger)" }}>{error}</p>}
       <button onClick={generate} disabled={loading || !prompt.trim()}
         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity disabled:opacity-50"
-        style={{ background: "var(--accent-purple)", color: "#000" }}>
+        style={{ background: "var(--accent-purple)", color: "#fff" }}>
         {loading ? <><Loader2 size={12} className="animate-spin" /> Generating…</> : <><Sparkles size={12} /> Generate fields</>}
       </button>
     </div>
@@ -738,7 +738,7 @@ function FormModal({ initial, lists, onSave, onClose }: {
             <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
             <button onClick={handleSave} disabled={saving}
               className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-60"
-              style={{ background: "var(--accent-purple)", color: "#000" }}>
+              style={{ background: "var(--accent-purple)", color: "#fff" }}>
               {saving && <Loader2 size={13} className="animate-spin" />}
               {initial ? "Save changes" : "Create form"}
             </button>
@@ -893,7 +893,7 @@ export default function FormsPage() {
           </div>
           <button onClick={() => { setEditingForm(null); setShowModal(true); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             <Plus size={14} /> Create Form
           </button>
         </div>
@@ -911,7 +911,7 @@ export default function FormsPage() {
             </p>
             <button onClick={() => { setEditingForm(null); setShowModal(true); }}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
-              style={{ background: "var(--accent-purple)", color: "#000" }}>
+              style={{ background: "var(--accent-purple)", color: "#fff" }}>
               <Sparkles size={15} /> Create your first form
             </button>
           </div>

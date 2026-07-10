@@ -47,7 +47,7 @@ function Pct({ spent, allocated }: { spent: number; allocated: number }) {
       </div>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
         <div className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(100, pct)}%`, background: over ? "var(--danger)" : pct > 80 ? "#909090" : "var(--accent-purple)" }} />
+          style={{ width: `${Math.min(100, pct)}%`, background: over ? "var(--danger)" : pct > 80 ? "var(--warning)" : "var(--accent-purple)" }} />
       </div>
     </div>
   );
@@ -112,7 +112,7 @@ function BudgetForm({ initial, onSave, onClose }: { initial?: Budget; onSave: (b
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.name.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -161,7 +161,7 @@ function ItemForm({ budgetId, initial, onSave, onClose }: {
         <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>Cancel</button>
         <button onClick={save} disabled={saving || !f.category.trim()}
           className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: "var(--accent-purple)", color: "#000" }}>
+          style={{ background: "var(--accent-purple)", color: "#fff" }}>
           {saving && <Loader2 size={13} className="animate-spin" />} Save
         </button>
       </div>
@@ -354,7 +354,7 @@ export default function BudgetPage() {
           </div>
           <button onClick={() => { setEditing(null); setModal(true); }}
             className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             <Plus size={14} /> New Budget
           </button>
         </div>
@@ -370,7 +370,7 @@ export default function BudgetPage() {
             </p>
             <button onClick={() => setModal(true)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
-              style={{ background: "var(--accent-purple)", color: "#000" }}>
+              style={{ background: "var(--accent-purple)", color: "#fff" }}>
               <Plus size={15} /> Create first budget
             </button>
           </div>

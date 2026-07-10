@@ -201,7 +201,7 @@ export default function FormClient({ form }: { form: PublicForm }) {
 
       <button type="submit" disabled={submitting}
         className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 transition-opacity hover:opacity-90"
-        style={{ background: "var(--accent-purple)", color: "#000" }}>
+        style={{ background: "var(--accent-purple)", color: "#fff" }}>
         {submitting && <Loader2 size={15} className="animate-spin" />}
         Submit
       </button>

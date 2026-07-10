@@ -44,7 +44,7 @@ interface Goal { id: string; title: string; due_date: string; key_results: { cur
 interface ActivityEntry { id: string; user_name: string; action: string; entity_name: string; entity_type: string; created_at: string; }
 
 const STATUS_COLOR: Record<string, string> = {
-  todo: "#383838", in_progress: "#909090", in_review: "#c0c0c0", done: "#f0f0f0",
+  todo: "#71717a", in_progress: "#60a5fa", in_review: "#fbbf24", done: "#4ade80",
 };
 
 function timeAgo(iso: string) {
@@ -372,10 +372,10 @@ export default function HomePage() {
           {/* Quick actions strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Templates", desc: "Start a new project fast", icon: <Layout size={16} />, href: "/templates", color: "#ffffff" },
-              { label: "Automations", desc: "Set up workflow rules", icon: <Zap size={16} />, href: "/automations", color: "#c0c0c0" },
-              { label: "Workload", desc: "See team capacity", icon: <TrendingUp size={16} />, href: "/workload", color: "#909090" },
-              { label: "Portfolio", desc: "Executive overview", icon: <Target size={16} />, href: "/portfolio", color: "#606060" },
+              { label: "Templates", desc: "Start a new project fast", icon: <Layout size={16} />, href: "/templates", color: "#a78bfa" },
+              { label: "Automations", desc: "Set up workflow rules", icon: <Zap size={16} />, href: "/automations", color: "#fbbf24" },
+              { label: "Workload", desc: "See team capacity", icon: <TrendingUp size={16} />, href: "/workload", color: "#60a5fa" },
+              { label: "Portfolio", desc: "Executive overview", icon: <Target size={16} />, href: "/portfolio", color: "#4ade80" },
             ].map(({ label, desc, icon, href, color }) => (
               <Link key={label} href={href}
                 className="rounded-xl border p-3.5 flex items-center gap-3 transition-colors hover:bg-white/5"

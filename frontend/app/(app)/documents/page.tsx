@@ -441,7 +441,7 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
           {dirty && <span className="text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
           <button onClick={save} disabled={saving}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-60"
-            style={{ background: "var(--accent-purple)", color: "#000" }}>
+            style={{ background: "var(--accent-purple)", color: "#fff" }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
           </button>
         </div>
@@ -761,7 +761,7 @@ export default function DocumentsPage() {
             {/* New button */}
             <button onClick={() => setTemplateOpen(true)}
               className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg font-semibold"
-              style={{ background: "var(--accent-purple)", color: "#000" }}>
+              style={{ background: "var(--accent-purple)", color: "#fff" }}>
               <Plus size={14} /> New
             </button>
           </div>
@@ -777,7 +777,7 @@ export default function DocumentsPage() {
                 <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>Create your first document from a template or blank</p>
                 <button onClick={() => setTemplateOpen(true)}
                   className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-xl font-medium"
-                  style={{ background: "var(--accent-purple)", color: "#000" }}>
+                  style={{ background: "var(--accent-purple)", color: "#fff" }}>
                   <LayoutTemplate size={14} /> Browse templates
                 </button>
               </div>

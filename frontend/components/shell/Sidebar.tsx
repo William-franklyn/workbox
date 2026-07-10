@@ -15,7 +15,7 @@ import {
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
 
 const SPACE_ICONS  = ["🚀","📦","🎨","📣","🏠","⚙️","🔬","💼","🌍","🎯"];
-const SPACE_COLORS = ["#ffffff","#e0e0e0","#c0c0c0","#a0a0a0","#808080","#606060","#404040","#282828"];
+const SPACE_COLORS = ["#8b5cf6","#60a5fa","#4ade80","#fbbf24","#f87171","#f472b6","#22d3ee","#a3a3a3"];
 
 export default function Sidebar({ orgName, userRole, userName, userEmail, userId }: Props) {
   const router   = useRouter();
