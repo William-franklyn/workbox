@@ -356,36 +356,37 @@ export async function executeTool(
     }
 
     case "list_spreadsheets": {
-      const q = supabase.from("docs").select("id, title, blocks, updated_at")
-        .like("title", "__sheet__%").order("updated_at", { ascending: false });
-      const { data } = orgId ? await q.eq("org_id", orgId) : await q;
+      const q = supabase.from("spreadsheets").select("id, name, row_data, updated_at")
+        .order("updated_at", { ascending: false });
+      const { data } = orgId ? await q.eq("organization_id", orgId) : await q;
       if (!data?.length) return "No spreadsheets found.";
-      return (data as Record<string, unknown>[]).map(d => {
-        const tb = (d.blocks as Record<string, unknown>[] ?? []).find(b => b.type === "table");
-        const rows = (tb?.rows as unknown[] ?? []).length;
-        return `• ${(d.title as string).replace("__sheet__", "")} (${rows} rows) — ${BASE_URL}/docs/${d.id} [ID: ${d.id}]`;
-      }).join("\n");
+      return (data as Record<string, unknown>[]).map(d =>
+        `• ${d.name} (${(d.row_data as unknown[] ?? []).length} rows) — ${BASE_URL}/spreadsheet/${d.id} [ID: ${d.id}]`
+      ).join("\n");
     }
 
     case "create_spreadsheet": {
-      const { title, headers = [], rows = [], description } = args as Record<string, unknown>;
-      const blocks: unknown[] = [{ id: crypto.randomUUID(), type: "table", headers, rows }];
-      if (description) blocks.push({ id: crypto.randomUUID(), type: "paragraph", content: [{ type: "text", text: description }] });
-      const docId = crypto.randomUUID();
-      const { error } = await supabase.from("docs").insert({ id: docId, title: `__sheet__${title}`, blocks, org_id: orgId, created_by: userId });
+      const { title, headers = [], rows = [] } = args as Record<string, unknown>;
+      const sheetId = crypto.randomUUID();
+      const { error } = await supabase.from("spreadsheets").insert({
+        id: sheetId,
+        name: (title as string) || "Untitled Spreadsheet",
+        organization_id: orgId,
+        created_by: userId,
+        col_headers: (headers as string[]).length ? headers : ["A", "B", "C", "D", "E"],
+        row_data: rows,
+      });
       if (error) return `Error: ${error.message}`;
-      return `Created spreadsheet "${title}" — ${BASE_URL}/docs/${docId} [ID: ${docId}]`;
+      return `Created spreadsheet "${title}" — ${BASE_URL}/spreadsheet/${sheetId} [ID: ${sheetId}]`;
     }
 
     case "read_spreadsheet": {
-      const { data } = await supabase.from("docs").select("title, blocks").eq("id", args.spreadsheet_id as string).maybeSingle();
+      const { data } = await supabase.from("spreadsheets").select("name, col_headers, row_data").eq("id", args.spreadsheet_id as string).maybeSingle();
       if (!data) return "Spreadsheet not found.";
-      const tb = (((data as Record<string, unknown>).blocks) as Record<string, unknown>[] ?? []).find(b => b.type === "table");
-      if (!tb) return "No table data.";
-      const title = ((data as Record<string, string>).title).replace("__sheet__", "");
-      const header = (tb.headers as string[] ?? []).join(" | ");
-      const rowLines = (tb.rows as string[][] ?? []).map(r => r.join(" | ")).join("\n");
-      return `"${title}"\n${header}\n${rowLines || "(empty)"}`;
+      const d = data as Record<string, unknown>;
+      const header = (d.col_headers as string[] ?? []).join(" | ");
+      const rowLines = (d.row_data as string[][] ?? []).map(r => r.join(" | ")).join("\n");
+      return `"${d.name}"\n${header}\n${rowLines || "(empty)"}`;
     }
 
     case "create_form": {
@@ -418,19 +419,14 @@ export async function executeTool(
 
     case "update_spreadsheet": {
       const { spreadsheet_id, rows, headers, title } = args as Record<string, unknown>;
-      const { data: doc } = await supabase.from("docs").select("blocks, title").eq("id", spreadsheet_id as string).maybeSingle();
-      if (!doc) return "Spreadsheet not found.";
-      const blocks = ((doc as Record<string, unknown>).blocks as Record<string, unknown>[] ?? []);
-      const ti = blocks.findIndex(b => b.type === "table");
-      if (ti >= 0) {
-        if (headers) blocks[ti].headers = headers;
-        if (rows) blocks[ti].rows = rows;
-      } else {
-        blocks.unshift({ id: crypto.randomUUID(), type: "table", headers: headers ?? [], rows: rows ?? [] });
-      }
-      const patch: Record<string, unknown> = { blocks, updated_at: new Date().toISOString() };
-      if (title) patch.title = `__sheet__${title}`;
-      const { error } = await supabase.from("docs").update(patch).eq("id", spreadsheet_id as string);
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (headers) patch.col_headers = headers;
+      if (rows) patch.row_data = rows;
+      if (title) patch.name = title;
+      // Agent edits bypass the Univer editor — drop the stale snapshot so the
+      // editor rebuilds from the fresh values on next open (formatting resets).
+      if (headers || rows) patch.workbook = null;
+      const { error } = await supabase.from("spreadsheets").update(patch).eq("id", spreadsheet_id as string);
       if (error) return `Error: ${error.message}`;
       return "Spreadsheet updated.";
     }
