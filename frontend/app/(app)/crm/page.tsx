@@ -3,9 +3,10 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Plus, Search, Users, Building2, TrendingUp, X, Loader2,
   Trash2, Edit3, Mail, Phone, Globe, ChevronDown, DollarSign,
-  Calendar, Target,
+  Calendar, Target, Sparkles,
 } from "lucide-react";
 import Chart from "@/components/charts/Chart";
+import { toast } from "@/store/toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -297,6 +298,27 @@ export default function CRMPage() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"contact" | "company" | "deal" | null>(null);
   const [editing, setEditing] = useState<Contact | Company | Deal | null>(null);
+  const [enriching, setEnriching] = useState<string | null>(null);
+
+  async function enrich(contactId: string) {
+    setEnriching(contactId);
+    try {
+      const res = await fetch("/api/crm/enrich", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contactId }),
+      });
+      const d = await res.json();
+      if (!res.ok) { toast(d.error ?? "Enrichment failed", { type: "error" }); return; }
+      if (!d.found) { toast(d.message ?? "No match found", { type: "error" }); return; }
+      const parts = Object.entries(d.filled).filter(([, v]) => v).map(([k]) => k);
+      toast(parts.length ? `Enriched: added ${parts.join(", ")}` : "Already up to date");
+      load();
+    } catch {
+      toast("Enrichment failed", { type: "error" });
+    } finally {
+      setEnriching(null);
+    }
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -444,6 +466,10 @@ export default function CRMPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => enrich(c.id)} disabled={enriching === c.id} title="Find email & phone via Apollo"
+                        className="p-1.5 rounded hover:bg-white/5 disabled:opacity-50" style={{ color: "var(--accent-purple)" }}>
+                        {enriching === c.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      </button>
                       <button onClick={() => { setEditing(c); setModal("contact"); }} className="p-1.5 rounded hover:bg-white/5" style={{ color: "var(--text-secondary)" }}><Edit3 size={12} /></button>
                       <button onClick={() => deleteItem(c.id, "contact")} className="p-1.5 rounded hover:bg-red-500/10" style={{ color: "var(--danger)" }}><Trash2 size={12} /></button>
                     </div>
