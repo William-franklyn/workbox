@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2, CreditCard } from "lucide-react";
+import { EmailVerification, PhoneVerification } from "@/components/settings/VerificationRows";
 
 type Tab = "profile" | "workspace" | "members" | "billing" | "notifications" | "security" | "appearance";
 
@@ -188,7 +189,7 @@ export default function SettingsPage() {
 
   async function saveSettings() {
     if (tab === "profile") {
-      await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: fullName, phone_number: phoneNumber }) });
+      await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: fullName }) });
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -228,9 +229,9 @@ export default function SettingsPage() {
                 </div>
               </div>
               <SettingRow label="Full name"><Input value={fullName} onChange={setFullName} placeholder="Your name" /></SettingRow>
-              <SettingRow label="Email" description="Contact support to change your email"><span className="text-sm" style={{ color: "var(--text-secondary)" }}>{email}</span></SettingRow>
               <SettingRow label="Bio" description="Tell your team about yourself"><Input value={bio} onChange={setBio} placeholder="A short bio..." /></SettingRow>
-              <SettingRow label="Phone number" description="Used for SMS access to WorkBox Agent via Twilio"><Input value={phoneNumber} onChange={setPhoneNumber} placeholder="+12345678901" /></SettingRow>
+              <EmailVerification />
+              <PhoneVerification />
             </>
           )}
 

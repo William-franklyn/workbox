@@ -122,18 +122,66 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // wa_id has no "+"; profiles store numbers like "+15551234567" — try both
   const supabase = createServiceClient();
+
+  // Phone-verification handshake: user sends "VERIFY 123456" from their own
+  // phone; WhatsApp attests the sender, so this binds the number securely.
+  const verifyMatch = messageBody.match(/^verify\s+(\d{6})$/i);
+  if (verifyMatch) {
+    const code = verifyMatch[1];
+    const { data: pv } = await supabase
+      .from("phone_verifications")
+      .select("id, user_id, expires_at")
+      .eq("code", code)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (!pv) {
+      await sendWhatsApp(fromWaId, "That verification code is invalid or expired. Generate a new one in WorkBox → Settings → Profile.");
+      return NextResponse.json({ ok: true });
+    }
+
+    const phone = `+${fromWaId}`;
+    // Release the number if a different account currently holds it unverified;
+    // a verified claim by another account wins and blocks this one.
+    const { data: holder } = await supabase.from("profiles")
+      .select("id, phone_verified").eq("phone_number", phone).maybeSingle();
+    if (holder && holder.id !== pv.user_id) {
+      if (holder.phone_verified) {
+        await sendWhatsApp(fromWaId, "This WhatsApp number is already verified on another WorkBox account. Unlink it there first.");
+        return NextResponse.json({ ok: true });
+      }
+      await supabase.from("profiles").update({ phone_number: null, phone_verified: false }).eq("id", holder.id);
+    }
+
+    const { error: bindErr } = await supabase.from("profiles")
+      .update({ phone_number: phone, phone_verified: true }).eq("id", pv.user_id);
+    if (bindErr) {
+      await sendWhatsApp(fromWaId, "Couldn't link this number right now. Try again in a moment.");
+      return NextResponse.json({ ok: true });
+    }
+    await supabase.from("phone_verifications").update({ used_at: new Date().toISOString() }).eq("id", pv.id);
+
+    const { data: owner } = await supabase.from("profiles").select("full_name").eq("id", pv.user_id).maybeSingle();
+    await sendWhatsApp(fromWaId, `✅ Done${owner?.full_name ? ", " + owner.full_name : ""}! This WhatsApp number is now linked to your WorkBox account. Ask me anything — try "what tasks do I have?"`);
+    return NextResponse.json({ ok: true });
+  }
+
+  // wa_id has no "+"; profiles store numbers like "+15551234567" — try both.
+  // Only verified numbers may act on an account.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, organization_id")
+    .select("id, full_name, organization_id, phone_verified")
     .in("phone_number", [`+${fromWaId}`, fromWaId])
     .maybeSingle();
 
-  if (!profile) {
+  if (!profile || !(profile as Record<string, unknown>).phone_verified) {
     await sendWhatsApp(
       fromWaId,
-      "This number isn't linked to a WorkBox account yet. Log in to WorkBox → Settings → Profile and add your phone number as +" + fromWaId,
+      profile
+        ? "This number is linked but not verified yet. Go to WorkBox → Settings → Profile and tap Verify via WhatsApp."
+        : "This number isn't linked to a WorkBox account yet. Log in to WorkBox → Settings → Profile → Verify via WhatsApp, then send me the code shown.",
     );
     return NextResponse.json({ ok: true });
   }
