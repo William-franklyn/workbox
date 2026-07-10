@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore, Space } from "@/store/workspace";
 import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 const STEPS = ["Name your workspace", "Create a space", "Invite your team"];
 const ICONS = ["🚀", "📦", "🎨", "📣", "⚙️", "🔬", "💼", "🎯", "🏠", "🌍"];
@@ -75,6 +76,7 @@ export default function OnboardingPage() {
 
   function skipToApp() {
     localStorage.setItem("wb_onboarded", "1");
+    track("onboarding_completed");
     router.push("/home");
   }
 

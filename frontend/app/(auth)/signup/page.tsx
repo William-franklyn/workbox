@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { track, identify } from "@/lib/analytics";
 
 export default function SignupPage() {
   const [form, setForm] = useState({ companyName: "", fullName: "", email: "", password: "" });
@@ -18,47 +19,33 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const supabase = createClient();
+      // Server route creates the auth user, profile (owner role), and the
+      // organizations row — keep signup logic in one place.
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        setError(result.error ?? "Signup failed. Please try again.");
+        setLoading(false);
+        return;
+      }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
-        options: {
-          data: {
-            full_name: form.fullName,
-            company_name: form.companyName,
-            role: "admin",
-          },
-        },
       });
-
-      if (signUpError) {
-        setError(signUpError.message);
+      if (signInError) {
+        setError("Account created — please sign in.");
         setLoading(false);
         return;
       }
 
-      if (!data.session) {
-        setError("Check your email for a confirmation link, then sign in.");
-        setLoading(false);
-        return;
-      }
-
-      // Set organization_id now that we have the user ID — trigger sets role from metadata
-      const { error: upsertError } = await supabase.from("profiles").upsert({
-        id: data.user!.id,
-        email: form.email,
-        full_name: form.fullName,
-        role: "admin",
-        organization_id: data.user!.id,
-      });
-
-      if (upsertError) {
-        setError("Account created but profile setup failed: " + upsertError.message);
-        setLoading(false);
-        return;
-      }
-
+      identify(result.userId, { email: form.email, company: form.companyName });
+      track("signup_completed", { company: form.companyName });
       window.location.href = "/home";
     } catch (err: any) {
       setError(err?.message || "Unexpected error. Please try again.");

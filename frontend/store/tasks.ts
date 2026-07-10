@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Task } from "./workspace";
 import { toast } from "./toast";
+import { track } from "@/lib/analytics";
 
 interface TasksState {
   tasks: Record<string, Task[]>; // keyed by list_id
@@ -73,6 +74,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
           actionLabel: "Undo",
           onAction: () => get().deleteTask(saved.id ?? task.id),
         });
+        track("task_created", { has_due_date: !!task.due_date, priority: task.priority });
       } else {
         const err = await res.json().catch(() => ({}));
         toast(err.error ?? "Failed to create task", { type: "error" });

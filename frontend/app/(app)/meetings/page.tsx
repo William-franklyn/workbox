@@ -8,6 +8,7 @@ import {
   Loader2, X, Check, AlertCircle, ExternalLink, Copy, ClipboardList,
 } from "lucide-react";
 import { toast } from "@/store/toast";
+import { track } from "@/lib/analytics";
 
 interface GCalEvent {
   id: string;
@@ -167,6 +168,7 @@ function ScheduleModal({ lists, events, onClose, onCreated, calendarProvider }: 
       if (!res.ok) { setError(data.error ?? "Failed to create meeting"); setSaving(false); return; }
 
       const event: GCalEvent = isGoogle ? data.event : (data.event as GCalEvent);
+      track("meeting_scheduled", { provider: calendarProvider, attendees: attendeeEmails.length, video_link: addMeet });
       onCreated(event);
     } catch { setError("Network error. Please try again."); setSaving(false); }
   }
@@ -682,6 +684,7 @@ export default function MeetingsPage() {
               navigator.clipboard?.writeText(url).catch(() => {});
               window.open(url, "_blank", "noopener");
               toast("Instant meeting started — link copied to clipboard");
+              track("instant_meeting_started");
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
             style={{ border: "1px solid var(--border-strong)", color: "var(--text-primary)" }}>

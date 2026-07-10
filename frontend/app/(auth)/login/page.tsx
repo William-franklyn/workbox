@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { identify, track } from "@/lib/analytics";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -32,6 +33,8 @@ export default function LoginPage() {
       }
 
       console.log("[login] success — redirecting to /home");
+      if (data?.user?.id) identify(data.user.id, { email });
+      track("login_completed");
       window.location.href = "/home";
     } catch (err: any) {
       console.error("[login] caught exception:", err);

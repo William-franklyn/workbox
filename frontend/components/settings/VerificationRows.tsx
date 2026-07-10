@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, Loader2, MessageCircle, ShieldAlert } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 function VerifiedChip() {
   return (
@@ -56,6 +57,7 @@ export function EmailVerification() {
       const s = await fetch("/api/email-verification").then(r => r.json()).catch(() => null);
       if (s?.email_verified) {
         setVerified(true); setStage("idle");
+        track("email_verified");
         if (emailPollRef.current) clearInterval(emailPollRef.current);
       }
     }, 3000);
@@ -161,6 +163,7 @@ export function PhoneVerification() {
       const s = await refresh();
       if (s.phone_verified) {
         setPending(null);
+        track("whatsapp_verified");
         if (pollRef.current) clearInterval(pollRef.current);
       }
     }, 3000);

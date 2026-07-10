@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Plus, Target, ChevronDown, ChevronRight, Trash2, TrendingUp, Loader2 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 interface KeyResult { id: string; goal_id: string; title: string; current_value: number; target_value: number; unit: string; }
 interface Goal { id: string; title: string; description: string; due_date: string; expanded: boolean; keyResults: KeyResult[]; }
@@ -40,6 +41,7 @@ export default function GoalsPage() {
     setGoals((gs) => [{ ...saved, expanded: true, keyResults: [] }, ...gs]);
     setNewGoal({ title: "", description: "", due_date: "" });
     setCreating(false);
+    track("goal_created", { has_due_date: !!saved.due_date });
   }
 
   async function deleteGoal(id: string) {
