@@ -227,7 +227,7 @@ function TimeTab({ entries, onAdd, onDelete }: { entries: TimeEntry[]; onAdd: (e
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Date</label>
               <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none focus:border-purple-500"
-                style={{ borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
+                style={{ borderColor: "var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Hours</label>
@@ -374,7 +374,7 @@ function ExpensesTab({ entries, onAdd, onDelete }: { entries: Expense[]; onAdd: 
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Date</label>
               <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none focus:border-purple-500"
-                style={{ borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
+                style={{ borderColor: "var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -574,7 +574,7 @@ function InvoiceForm({ timeEntries, expenses, onSave, onCancel }: any) {
           <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Due Date</label>
           <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
             className="w-full px-3 py-2 rounded-lg text-sm bg-transparent border outline-none focus:border-purple-500"
-            style={{ borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }} />
         </div>
         <div>
           <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Tax Rate (%)</label>

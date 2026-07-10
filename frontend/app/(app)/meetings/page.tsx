@@ -227,13 +227,13 @@ function ScheduleModal({ lists, events, onClose, onCreated, calendarProvider }: 
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Date</label>
               <input type="date" value={date} onChange={e => { setDate(e.target.value); setConfirmed(false); }}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
-                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
+                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
             </div>
             <div>
               <label className="text-xs mb-1 block" style={{ color: "var(--text-secondary)" }}>Start time</label>
               <input type="time" value={startTime} onChange={e => { setStartTime(e.target.value); setConfirmed(false); }}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none border"
-                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)", colorScheme: "dark" }} />
+                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
             </div>
           </div>
 

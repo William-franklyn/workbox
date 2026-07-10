@@ -15,9 +15,15 @@ export const viewport = {
   themeColor: "#7c3aed",
 };
 
+// Applied before hydration so the chosen theme never flashes.
+const themeInit = `(function(){try{var t=localStorage.getItem("wb_theme")||"light";var d=document.documentElement;d.setAttribute("data-theme",t);d.classList.toggle("dark",t==="dark");}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full dark">
+    <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body className={`${inter.variable} h-full font-sans`}>
         <PostHogProvider>{children}</PostHogProvider>
       </body>

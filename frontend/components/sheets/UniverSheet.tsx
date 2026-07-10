@@ -93,7 +93,7 @@ export default function UniverSheet({ sheet }: { sheet: SheetRecord }) {
       const { univer, univerAPI } = createUniver({
         locale: LocaleType.EN_US,
         locales: { [LocaleType.EN_US]: merge({}, coreLocale.default) },
-        darkMode: true,
+        darkMode: document.documentElement.getAttribute("data-theme") !== "light",
         presets: [corePreset.UniverSheetsCorePreset({ container: containerRef.current })],
       });
       univerInstance = univer;

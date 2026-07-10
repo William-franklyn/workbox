@@ -180,6 +180,9 @@ export default function SettingsPage() {
   const [accentColor, setAccentColor] = useState(() =>
     (typeof window !== "undefined" && localStorage.getItem("wb_accent_color")) || "#7c3aed"
   );
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    (typeof window !== "undefined" && (localStorage.getItem("wb_theme") as "light" | "dark")) || "light"
+  );
 
   function applyAccent(color: string) {
     setAccentColor(color);
@@ -441,8 +444,25 @@ export default function SettingsPage() {
           {tab === "appearance" && (
             <>
               <h1 className="text-lg font-bold mb-6" style={{ color: "var(--text-primary)" }}>Appearance</h1>
-              <SettingRow label="Theme" description="WorkBox always uses dark mode">
-                <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--bg-primary)", color: "var(--text-secondary)" }}>Dark</span>
+              <SettingRow label="Theme" description="Switch between light and dark mode">
+                <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+                  {(["light", "dark"] as const).map((t) => (
+                    <button key={t}
+                      onClick={() => {
+                        setTheme(t);
+                        localStorage.setItem("wb_theme", t);
+                        document.documentElement.setAttribute("data-theme", t);
+                        document.documentElement.classList.toggle("dark", t === "dark");
+                      }}
+                      className="px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors"
+                      style={{
+                        background: theme === t ? "var(--accent-purple)" : "transparent",
+                        color: theme === t ? "#fff" : "var(--text-secondary)",
+                      }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </SettingRow>
               <SettingRow label="Accent color" description="Primary color for buttons and highlights">
                 <div className="flex items-center gap-2">
