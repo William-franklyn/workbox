@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "goal") {
-    const { data, error } = await ctx.supabase.from("goals")
+    const { data, error } = await createServiceClient().from("goals")
       .insert({ ...row, org_id: ctx.orgId, created_by: ctx.userId }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     if (row.goal_id && !(await canUpdateGoal(row.goal_id, ctx.userId, ctx.isAdmin))) {
       return NextResponse.json({ error: "Only participants can add key results" }, { status: 403 });
     }
-    const { data, error } = await ctx.supabase.from("key_results").insert(row).select().single();
+    const { data, error } = await createServiceClient().from("key_results").insert(row).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
   }
