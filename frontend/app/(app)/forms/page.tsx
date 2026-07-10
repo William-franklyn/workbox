@@ -623,7 +623,7 @@ function FormModal({ initial, lists, onSave, onClose }: {
   return (
     <>
       {preview && <FormPreview form={{ name, description, fields }} onClose={() => setPreview(false)} />}
-      <div className="fixed inset-0 z-40 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
         <div className="w-full max-w-2xl rounded-2xl border shadow-2xl flex flex-col"
           style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", maxHeight: "90vh" }}>
           {/* Header */}

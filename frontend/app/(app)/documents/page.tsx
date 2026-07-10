@@ -416,7 +416,9 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
   function TSep() { return <div className="w-px h-5 mx-0.5 shrink-0" style={{ background: "#d1d5db" }} />; }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col">
+    // Fills the content area rather than the viewport — a fixed overlay slid
+    // under the icon rail (z-50) and hid the Back button and title.
+    <div className="h-full flex flex-col">
       {/* App-themed top bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
