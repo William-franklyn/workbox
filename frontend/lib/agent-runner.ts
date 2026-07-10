@@ -56,7 +56,7 @@ export async function executeTool(
         id: crypto.randomUUID(), title, list_id, status, priority,
         due_date: due_date || null, description: description || null,
         assignee_id: assignee_id || null,
-        created_by: userId, position: 0,
+        created_by: userId, org_id: orgId, position: 0,
       }).select("id, title").single();
       if (error) return `Error: ${error.message}`;
       return `Created task "${(data as Record<string, string>).title}" (ID: ${(data as Record<string, string>).id})`;

@@ -222,6 +222,34 @@ export default function ApiKeysPage() {
           </li>
         </ol>
       </div>
+
+      {/* REST endpoint reference */}
+      <div className="rounded-xl border p-5 mt-6" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+        <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>REST API endpoints</h2>
+        <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
+          All endpoints accept <code className="px-1 rounded" style={{ background: "var(--bg-primary)" }}>Authorization: Bearer wbx_…</code>
+        </p>
+        <div className="space-y-1.5 text-xs font-mono" style={{ color: "var(--text-secondary)" }}>
+          {[
+            ["GET", "/api/v1/tasks", "list tasks (?list_id, ?status, ?due)"],
+            ["POST", "/api/v1/tasks", "create — title, list_id, assignee_id, due_date…"],
+            ["PATCH", "/api/v1/tasks", "update / assign — id + fields"],
+            ["GET", "/api/v1/members", "org members (use ids for assignee_id)"],
+            ["GET", "/api/v1/search?q=", "semantic search over docs + knowledge base"],
+            ["GET", "/api/v1/spreadsheets", "list / read (?id=)"],
+            ["POST", "/api/v1/spreadsheets", "create — title, headers, rows"],
+            ["PATCH", "/api/v1/spreadsheets", "update values — id, headers, rows"],
+            ["GET", "/api/v1/meetings", "upcoming meetings"],
+            ["GET", "/api/v1/docs · /goals · /lists · /spaces · /messages", "more modules"],
+          ].map(([m, path, desc]) => (
+            <div key={path + m} className="flex items-start gap-2">
+              <span className="w-12 shrink-0 font-bold" style={{ color: m === "GET" ? "var(--accent-blue)" : m === "POST" ? "var(--success)" : "var(--warning)" }}>{m}</span>
+              <span style={{ color: "var(--text-primary)" }}>{path}</span>
+              <span className="opacity-70">— {desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

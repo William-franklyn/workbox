@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { title, list_id, status = "todo", priority = "normal", due_date, tags, description } = body;
+  const { title, list_id, status = "todo", priority = "normal", due_date, tags, description, assignee_id } = body;
 
   if (!title || !list_id) {
     return NextResponse.json({ error: "title and list_id are required" }, { status: 400 });
@@ -66,6 +66,13 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await supabase
     .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
   const orgId = profile?.organization_id;
+
+  // Assignee must belong to the same organization
+  if (assignee_id) {
+    const { data: member } = await supabase.from("profiles")
+      .select("id").eq("id", assignee_id).eq("organization_id", orgId).maybeSingle();
+    if (!member) return NextResponse.json({ error: "assignee_id is not a member of your organization" }, { status: 400 });
+  }
 
   // Get next position
   const { count } = await supabase
@@ -79,7 +86,9 @@ export async function POST(req: NextRequest) {
       due_date: due_date ?? null,
       tags: tags ?? [],
       description: description ?? null,
+      assignee_id: assignee_id ?? null,
       created_by: userId,
+      org_id: orgId,
       position: count ?? 0,
       created_at: new Date().toISOString(),
     })
@@ -88,6 +97,47 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ task: data }, { status: 201 });
+}
+
+/**
+ * PATCH /api/v1/tasks — update a task (status, priority, due date, title,
+ * description, tags, or assignment). Body: { id, ...fields }.
+ */
+export async function PATCH(req: NextRequest) {
+  const userId = await validateApiKey(req.headers.get("authorization"));
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const { id, ...fields } = body;
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  const supabase = createServiceClient();
+  const { data: profile } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  const orgId = profile?.organization_id;
+  if (!orgId) return NextResponse.json({ error: "No organization" }, { status: 400 });
+
+  // The task must belong to the caller's organization
+  const { data: task } = await supabase.from("tasks").select("id, org_id, list_id").eq("id", id).maybeSingle();
+  if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  if (task.org_id && task.org_id !== orgId) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  const allowed = ["title", "status", "priority", "due_date", "description", "tags", "assignee_id", "list_id", "position"];
+  const patch: Record<string, unknown> = {};
+  for (const k of allowed) if (k in fields) patch[k] = fields[k];
+  if (!Object.keys(patch).length) return NextResponse.json({ error: "No updatable fields provided" }, { status: 400 });
+
+  if (patch.assignee_id) {
+    const { data: member } = await supabase.from("profiles")
+      .select("id").eq("id", patch.assignee_id as string).eq("organization_id", orgId).maybeSingle();
+    if (!member) return NextResponse.json({ error: "assignee_id is not a member of your organization" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase.from("tasks").update(patch).eq("id", id).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ task: data });
 }
 
 /** Batch create: POST /api/v1/tasks/batch  — handled here via ?batch=true */
