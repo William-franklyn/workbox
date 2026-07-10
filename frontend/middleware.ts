@@ -43,6 +43,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/reports") ||
+    pathname.startsWith("/outreach") ||
     pathname.startsWith("/integrations");
 
   if (!user && isAppRoute) {
