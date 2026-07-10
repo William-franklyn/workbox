@@ -5,6 +5,7 @@ import {
   Trash2, Edit3, Mail, Phone, Globe, ChevronDown, DollarSign,
   Calendar, Target,
 } from "lucide-react";
+import Chart from "@/components/charts/Chart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -499,7 +500,18 @@ export default function CRMPage() {
               ))}
             </div>
           ) : (
-            /* Pipeline Kanban */
+            /* Pipeline: value-by-stage chart + Kanban */
+            <>
+            {deals.length > 0 && (
+              <div className="rounded-xl border p-4 mb-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-secondary)" }}>Pipeline value by stage</p>
+                <Chart kind="bar" height={200} showLegend={false}
+                  labels={STAGES.map(s => s.charAt(0).toUpperCase() + s.slice(1))}
+                  values={STAGES.map(stage => deals.filter(d => d.stage === stage).reduce((s, d) => s + (d.value ?? 0), 0))}
+                  datasetLabel="Deal value"
+                />
+              </div>
+            )}
             <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: "60vh" }}>
               {STAGES.map(stage => {
                 const stageDeals = deals.filter(d => d.stage === stage);
@@ -562,6 +574,7 @@ export default function CRMPage() {
                 );
               })}
             </div>
+            </>
           )}
         </div>
       </div>

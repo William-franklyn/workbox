@@ -4,6 +4,7 @@ import {
   Plus, X, Loader2, Trash2, Edit3, DollarSign, TrendingUp,
   AlertCircle, CheckCircle, ChevronDown, ChevronRight,
 } from "lucide-react";
+import Chart from "@/components/charts/Chart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -265,6 +266,15 @@ function BudgetCard({ budget, onEdit, onDelete }: { budget: Budget; onEdit: () =
             {editingItem && (
               <div className="mb-3 p-3 rounded-lg border" style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
                 <ItemForm budgetId={budget.id} initial={editingItem} onSave={handleSavedItem} onClose={() => setEditingItem(null)} />
+              </div>
+            )}
+            {items.length >= 2 && (
+              <div className="mb-4 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
+                <Chart kind="doughnut" height={220}
+                  labels={items.map(i => i.category)}
+                  values={items.map(i => Number(i.spent ?? 0))}
+                  datasetLabel="Spent"
+                />
               </div>
             )}
             {items.length === 0 && !addingItem ? (
