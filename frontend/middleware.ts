@@ -45,6 +45,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/reports") ||
     pathname.startsWith("/outreach") ||
     pathname.startsWith("/notes") ||
+    pathname.startsWith("/operator") ||
     pathname.startsWith("/integrations");
 
   if (!user && isAppRoute) {
