@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Search, FolderOpen, FileText, X, Loader2, Trash2, Edit3,
-  Grid3X3, List, Share2, ChevronRight, ArrowLeft, Eye, Save,
+  Grid3X3, List, Share2, ChevronRight, ArrowLeft, Eye, Save, Download,
   LayoutTemplate, Copy, Check, Link2, Lock, Table2, Upload,
   ListOrdered, Code, Minus, Undo2, Redo2,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Highlighter,
@@ -358,6 +358,50 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
   const [me, setMe] = useState<{ name: string; color: string }>({ name: "You", color: CURSOR_COLORS[0] });
   const [peers, setPeers] = useState(1);
   const seededRef = useRef(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  async function exportDocx() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/documents/export", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: doc.id, html: editor?.getHTML() ?? "", name: nameRef.current }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${nameRef.current || "Document"}.docx`; a.click();
+      URL.revokeObjectURL(url);
+    } finally { setExporting(false); }
+  }
+
+  function exportPdf() {
+    // Print the document body to PDF via the browser (selectable text, free).
+    const html = editor?.getHTML() ?? "";
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>${nameRef.current || "Document"}</title>
+      <style>
+        @page { margin: 24mm 20mm; }
+        body { font-family: Georgia, 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #111; max-width: 720px; margin: 0 auto; }
+        h1{font-size:22pt;margin:0 0 8pt} h2{font-size:17pt;margin:14pt 0 6pt} h3{font-size:14pt;margin:12pt 0 4pt}
+        img{max-width:100%} table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:6px 10px}
+        pre{background:#f4f4f4;padding:10px;border-radius:4px;overflow:auto;font-family:monospace}
+        ul[data-type=taskList]{list-style:none;padding-left:0} blockquote{border-left:3px solid #ccc;padding-left:12px;color:#555}
+      </style></head><body>${html}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 400);
+  }
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) { if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false); }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
   const { ydoc, provider } = useMemo(() => acquireCollab(doc.id), [doc.id]);
 
   useEffect(() => {
@@ -521,6 +565,31 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
             </span>
           )}
           {dirty && <span className="text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
+
+          {/* Export menu */}
+          <div className="relative" ref={exportRef}>
+            <button onClick={() => setExportOpen(o => !o)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium"
+              style={{ border: "1px solid var(--border-strong)", color: "var(--text-secondary)" }}>
+              <Download size={12} /> Export
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border shadow-2xl z-30 py-1"
+                style={{ background: "var(--bg-elevated)", borderColor: "var(--border-strong)" }}>
+                <button onClick={() => { setExportOpen(false); exportDocx(); }} disabled={exporting}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors hover:bg-white/10 disabled:opacity-50"
+                  style={{ color: "var(--text-primary)" }}>
+                  {exporting ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />} Word (.docx)
+                </button>
+                <button onClick={() => { setExportOpen(false); exportPdf(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors hover:bg-white/10"
+                  style={{ color: "var(--text-primary)" }}>
+                  <FileText size={12} /> PDF
+                </button>
+              </div>
+            )}
+          </div>
+
           <button onClick={save} disabled={saving}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-60"
             style={{ background: "var(--accent-purple)", color: "#fff" }}>
