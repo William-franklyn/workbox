@@ -7,7 +7,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("id, full_name, role, organization_id, created_at, phone_number, phone_verified").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("id, full_name, role, organization_id, created_at").eq("id", user.id).maybeSingle();
 
   if (!profile?.organization_id) {
     // Solo user — return just themselves so self-assignment works
@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, role, created_at, phone_number, phone_verified")
+    .select("id, full_name, role, created_at")
     .eq("organization_id", profile.organization_id)
     .order("created_at");
 

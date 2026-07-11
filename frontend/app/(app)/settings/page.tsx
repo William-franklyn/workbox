@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2, CreditCard, MessageCircle } from "lucide-react";
+import { User, Building2, Bell, Shield, Palette, Users, Mail, Loader2, Crown, Trash2, CreditCard } from "lucide-react";
 import { EmailVerification, PhoneVerification } from "@/components/settings/VerificationRows";
-import { toast } from "@/store/toast";
 
 type Tab = "profile" | "workspace" | "members" | "billing" | "notifications" | "security" | "appearance";
 
@@ -64,7 +63,7 @@ function Input({ value, onChange, placeholder, type = "text" }: { value: string;
   );
 }
 
-interface Member { id: string; full_name: string; role: string; created_at: string; phone_number?: string | null; phone_verified?: boolean }
+interface Member { id: string; full_name: string; role: string; created_at: string; }
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
@@ -76,42 +75,16 @@ export default function SettingsPage() {
   const [bio, setBio] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  const [myRole, setMyRole] = useState<string>("member");
   useEffect(() => {
     fetch("/api/profile").then((r) => r.json()).then((d) => {
       if (d.full_name) setFullName(d.full_name);
       if (d.email) setEmail(d.email);
       if (d.phone_number) setPhoneNumber(d.phone_number);
-      if (d.role) setMyRole(d.role);
     }).catch(() => {});
   }, []);
 
   // Members state
   const [members, setMembers] = useState<Member[]>([]);
-  const [waFor, setWaFor] = useState<string | null>(null);
-  const [waPhone, setWaPhone] = useState("");
-  const [waBusy, setWaBusy] = useState(false);
-
-  async function linkMemberWhatsApp(userId: string) {
-    if (!waPhone.trim()) return;
-    setWaBusy(true);
-    try {
-      const res = await fetch("/api/members/whatsapp", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, phone: waPhone }),
-      });
-      const d = await res.json();
-      if (!res.ok) { toast(d.error ?? "Couldn't link", { type: "error" }); return; }
-      setMembers(ms => ms.map(m => m.id === userId ? { ...m, phone_number: d.phone, phone_verified: true } : m));
-      setWaFor(null); setWaPhone("");
-      toast("WhatsApp linked — they can message the bot now");
-    } finally { setWaBusy(false); }
-  }
-
-  async function unlinkMemberWhatsApp(userId: string) {
-    await fetch("/api/members/whatsapp", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) });
-    setMembers(ms => ms.map(m => m.id === userId ? { ...m, phone_number: null, phone_verified: false } : m));
-  }
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -336,58 +309,20 @@ export default function SettingsPage() {
               ) : (
                 <div className="space-y-2">
                   {members.map((m) => (
-                    <div key={m.id} className="rounded-xl border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-                      <div className="flex items-center gap-3 p-3">
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: "var(--accent-purple)" }}>
-                          {(m.full_name || "?")[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{m.full_name || "Unnamed"}</p>
-                          <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-                            Joined {new Date(m.created_at).toLocaleDateString()}
-                            {m.phone_verified && m.phone_number && (
-                              <span className="flex items-center gap-1" style={{ color: "#25D366" }}>· <MessageCircle size={10} /> {m.phone_number}</span>
-                            )}
-                          </p>
-                        </div>
-                        {/* Admin: onboard this member to the WhatsApp bot */}
-                        {(myRole === "admin" || myRole === "owner") && (
-                          m.phone_verified ? (
-                            <button onClick={() => unlinkMemberWhatsApp(m.id)} title="Unlink WhatsApp"
-                              className="text-xs px-2 py-1 rounded-lg" style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                              Unlink WhatsApp
-                            </button>
-                          ) : (
-                            <button onClick={() => { setWaFor(waFor === m.id ? null : m.id); setWaPhone(""); }}
-                              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-medium text-white"
-                              style={{ background: "#25D366" }}>
-                              <MessageCircle size={11} /> Add to bot
-                            </button>
-                          )
-                        )}
-                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full capitalize"
-                          style={{ background: (m.role === "admin" || m.role === "owner") ? "rgba(124,58,237,0.15)" : "var(--bg-secondary)", color: (m.role === "admin" || m.role === "owner") ? "var(--accent-purple)" : "var(--text-secondary)" }}>
-                          {(m.role === "admin" || m.role === "owner") && <Crown size={10} />}{m.role}
-                        </span>
+                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: "var(--accent-purple)" }}>
+                        {(m.full_name || "?")[0].toUpperCase()}
                       </div>
-                      {waFor === m.id && (
-                        <div className="flex items-center gap-2 px-3 pb-3">
-                          <input autoFocus value={waPhone} onChange={e => setWaPhone(e.target.value)}
-                            placeholder="Their WhatsApp number, e.g. +2348012345678"
-                            onKeyDown={e => { if (e.key === "Enter") linkMemberWhatsApp(m.id); }}
-                            className="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
-                          <button onClick={() => linkMemberWhatsApp(m.id)} disabled={waBusy || !waPhone.trim()}
-                            className="text-xs px-3 py-2 rounded-lg font-medium text-white disabled:opacity-50" style={{ background: "var(--accent-purple)" }}>
-                            {waBusy ? "Linking…" : "Link"}
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{m.full_name || "Unnamed"}</p>
+                        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full capitalize"
+                        style={{ background: (m.role === "admin" || m.role === "owner") ? "rgba(124,58,237,0.15)" : "var(--bg-secondary)", color: (m.role === "admin" || m.role === "owner") ? "var(--accent-purple)" : "var(--text-secondary)" }}>
+                        {(m.role === "admin" || m.role === "owner") && <Crown size={10} />}{m.role}
+                      </span>
                     </div>
                   ))}
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    &ldquo;Add to bot&rdquo; links a teammate&apos;s WhatsApp so they can message the WorkBox bot and it acts on their account. They can also self-connect in their own Settings → Profile.
-                  </p>
                 </div>
               )}
             </>
