@@ -7,6 +7,8 @@ import {
   LayoutTemplate, Copy, Check, Link2, Lock, Table2, Upload,
   ListOrdered, Code, Minus, Undo2, Redo2,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Highlighter,
+  ListChecks, Image as ImageIcon, MonitorPlay as Youtube2,
+  Subscript as SubscriptIcon, Superscript as SuperscriptIcon,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -21,6 +23,18 @@ import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Image from "@tiptap/extension-image";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+import Typography from "@tiptap/extension-typography";
+import Youtube from "@tiptap/extension-youtube";
+import CharacterCount from "@tiptap/extension-character-count";
+import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
+
+const lowlight = createLowlight(common);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -337,18 +351,27 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] }, codeBlock: false }),
       TiptapUnderline,
       TiptapLink.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Table.configure({ resizable: false }),
+      Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
-      Placeholder.configure({ placeholder: "Start typing your document…" }),
+      Placeholder.configure({ placeholder: "Start typing, or use the toolbar…" }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Image.configure({ inline: false, allowBase64: true }),
+      Subscript,
+      Superscript,
+      Typography,
+      Youtube.configure({ width: 640, height: 360, nocookie: true }),
+      CharacterCount,
+      CodeBlockLowlight.configure({ lowlight }),
     ],
     content: initialHtml,
     editorProps: { attributes: { class: "doc-body", spellcheck: "true" } },
@@ -530,6 +553,18 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
         }}><Link2 size={13} /></TBtn>
         <TBtn title="Insert 3×3 table" onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><Table2 size={13} /></TBtn>
         <TBtn title="Horizontal rule" onClick={() => editor?.chain().focus().setHorizontalRule().run()}><Minus size={13} /></TBtn>
+        <TSep />
+        <TBtn title="Checklist" active={!!editor?.isActive("taskList")} onClick={() => editor?.chain().focus().toggleTaskList().run()}><ListChecks size={13} /></TBtn>
+        <TBtn title="Insert image (URL)" onClick={() => {
+          const url = window.prompt("Image URL:");
+          if (url) editor?.chain().focus().setImage({ src: url }).run();
+        }}><ImageIcon size={13} /></TBtn>
+        <TBtn title="Embed YouTube video" onClick={() => {
+          const url = window.prompt("YouTube URL:");
+          if (url) editor?.commands.setYoutubeVideo({ src: url });
+        }}><Youtube2 size={13} /></TBtn>
+        <TBtn title="Subscript" active={!!editor?.isActive("subscript")} onClick={() => editor?.chain().focus().toggleSubscript().run()}><SubscriptIcon size={13} /></TBtn>
+        <TBtn title="Superscript" active={!!editor?.isActive("superscript")} onClick={() => editor?.chain().focus().toggleSuperscript().run()}><SuperscriptIcon size={13} /></TBtn>
       </div>
 
       {/* Word-like page workspace */}
@@ -546,6 +581,13 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
           <EditorContent editor={editor} />
         </div>
         <div style={{ height: 48 }} />
+      </div>
+
+      {/* Status bar with live word/character count */}
+      <div className="flex items-center justify-end gap-4 px-4 py-1.5 border-t shrink-0 text-xs"
+        style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+        <span>{editor?.storage.characterCount?.words() ?? 0} words</span>
+        <span>{editor?.storage.characterCount?.characters() ?? 0} characters</span>
       </div>
 
       <style>{`
@@ -572,6 +614,26 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
         .doc-body td.selectedCell, .doc-body th.selectedCell { background: #eff6ff; }
         .doc-body mark { border-radius: 2px; padding: 1px 0; }
         .doc-body .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 3px; background: #93c5fd; pointer-events: none; }
+        /* Task list checkboxes */
+        .doc-body ul[data-type="taskList"] { list-style: none; padding-left: 0.2em; }
+        .doc-body ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+        .doc-body ul[data-type="taskList"] li > label { margin-top: 3px; }
+        .doc-body ul[data-type="taskList"] li > div { flex: 1; }
+        .doc-body ul[data-type="taskList"] input[type="checkbox"] { width: 15px; height: 15px; accent-color: #7c3aed; cursor: pointer; }
+        .doc-body ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #9ca3af; }
+        /* Images + video */
+        .doc-body img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.6em 0; }
+        .doc-body img.ProseMirror-selectednode { outline: 3px solid #93c5fd; }
+        .doc-body [data-youtube-video] { margin: 0.8em 0; }
+        .doc-body [data-youtube-video] iframe { max-width: 100%; border-radius: 8px; border: none; }
+        /* Syntax highlighting (lowlight / highlight.js tokens) */
+        .doc-body pre .hljs-comment, .doc-body pre .hljs-quote { color: #94a3b8; font-style: italic; }
+        .doc-body pre .hljs-keyword, .doc-body pre .hljs-selector-tag { color: #c792ea; }
+        .doc-body pre .hljs-string, .doc-body pre .hljs-attr { color: #c3e88d; }
+        .doc-body pre .hljs-number, .doc-body pre .hljs-literal { color: #f78c6c; }
+        .doc-body pre .hljs-title, .doc-body pre .hljs-function { color: #82aaff; }
+        .doc-body pre .hljs-built_in, .doc-body pre .hljs-type { color: #ffcb6b; }
+        .doc-body pre .hljs-tag, .doc-body pre .hljs-name { color: #f07178; }
       `}</style>
     </div>
   );
