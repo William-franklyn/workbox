@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
   Briefcase, UserCheck, Activity, FormInput,
-  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart, Send, StickyNote,
+  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart, Send, StickyNote, Settings,
 } from "lucide-react";
 
 // Grouped so the rail reads as sections instead of one long stack.
@@ -116,15 +116,43 @@ export default function IconRail({ userName }: { userName: string }) {
         ))}
       </div>
 
-      {/* User avatar */}
-      <div className="pt-2 pb-3 flex justify-center w-full">
+      {/* Settings — pinned above the avatar so it's always reachable */}
+      <div className="w-full px-1.5 pt-1">
+        <div className="w-5 h-px mb-1.5 mx-auto" style={{ background: "var(--border)" }} />
+        <Link
+          href="/settings"
+          className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100 hover:bg-white/5"
+          style={{
+            background: pathname.startsWith("/settings") ? "var(--bg-active)" : "transparent",
+            color: pathname.startsWith("/settings") ? "#ffffff" : "var(--text-secondary)",
+          }}
+          onMouseEnter={e => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setTooltip({ label: "Settings", y: rect.top + rect.height / 2 });
+          }}
+          onMouseLeave={() => setTooltip(null)}
+        >
+          {pathname.startsWith("/settings") && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full" style={{ width: 3, height: 18, background: "var(--accent-purple)" }} />
+          )}
+          <Settings size={16} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.75} />
+        </Link>
+      </div>
+
+      {/* User avatar → profile settings */}
+      <Link href="/settings" className="pt-2 pb-3 flex justify-center w-full"
+        onMouseEnter={e => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setTooltip({ label: userName || "Account", y: rect.top + rect.height / 2 });
+        }}
+        onMouseLeave={() => setTooltip(null)}>
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
           style={{ background: "#ffffff", color: "#000000" }}
         >
           {initial}
         </div>
-      </div>
+      </Link>
 
       {/* Tooltip — position:fixed + explicit zIndex escapes any stacking context */}
       {tooltip && (
