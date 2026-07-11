@@ -39,7 +39,7 @@ const INTEGRATIONS: Integration[] = [
   },
 
   // Video
-  { name: "Zoom", description: "Access meeting recordings and transcripts", category: "Video & Calls", color: "#2D8CFF", letter: "Z" },
+  { name: "Zoom", description: "Start instant Zoom meetings from WorkBox", category: "Video & Calls", color: "#2D8CFF", letter: "Z", live: true, connectHref: "/api/auth/zoom/redirect" },
   { name: "Google Meet", description: "Sync meetings and call history", category: "Video & Calls", color: "#00AC47", letter: "M" },
   { name: "Microsoft Teams", description: "Connect calls, chats and channels", category: "Video & Calls", color: "#5558AF", letter: "T" },
 
@@ -75,6 +75,8 @@ export default function IntegrationsClient() {
   const [gcalEmail, setGcalEmail] = useState<string | null>(null);
   const [outlookConnected, setOutlookConnected] = useState<boolean | null>(null);
   const [outlookEmail, setOutlookEmail] = useState<string | null>(null);
+  const [zoomConnected, setZoomConnected] = useState<boolean | null>(null);
+  const [zoomEmail, setZoomEmail] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/google-calendar/status")
@@ -85,7 +87,17 @@ export default function IntegrationsClient() {
       .then(r => r.json())
       .then(d => { setOutlookConnected(d.connected); setOutlookEmail(d.email); })
       .catch(() => setOutlookConnected(false));
+    fetch("/api/zoom/status")
+      .then(r => r.json())
+      .then(d => { setZoomConnected(d.connected); setZoomEmail(d.email); })
+      .catch(() => setZoomConnected(false));
   }, []);
+
+  async function disconnectZoom() {
+    if (!confirm("Disconnect Zoom?")) return;
+    await fetch("/api/zoom/status", { method: "DELETE" });
+    setZoomConnected(false); setZoomEmail(null);
+  }
 
   async function disconnectGcal() {
     if (!confirm("Disconnect Google Calendar?")) return;
@@ -172,6 +184,30 @@ export default function IntegrationsClient() {
       return (
         <button onClick={() => handleConnect(integration)}
           className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#0078D4] hover:text-[#0078D4] transition-colors">
+          Connect
+        </button>
+      );
+    }
+
+    if (integration.name === "Zoom") {
+      if (zoomConnected === null) return null;
+      if (zoomConnected) {
+        return (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg" style={{ background: "#22c55e22", color: "#22c55e" }}>
+              <Check size={11} /> Connected{zoomEmail ? ` · ${zoomEmail}` : ""}
+            </span>
+            <button onClick={() => router.push("/meetings")}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#2D8CFF] hover:text-[#2D8CFF] transition-colors">
+              Start a meeting
+            </button>
+            <button onClick={disconnectZoom} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Disconnect</button>
+          </div>
+        );
+      }
+      return (
+        <button onClick={() => handleConnect(integration)}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-[#2D8CFF] hover:text-[#2D8CFF] transition-colors">
           Connect
         </button>
       );

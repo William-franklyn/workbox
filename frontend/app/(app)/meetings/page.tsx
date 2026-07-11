@@ -398,6 +398,31 @@ export default function MeetingsPage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [autoSyncing, setAutoSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ count: number; listName: string; listId: string } | null>(null);
+  const [startingZoom, setStartingZoom] = useState(false);
+
+  async function startZoomMeeting() {
+    setStartingZoom(true);
+    try {
+      const res = await fetch("/api/zoom/instant-meeting", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) {
+        if (d.needsConnect) {
+          toast("Connect your Zoom account in Integrations first");
+          router.push("/integrations");
+        } else {
+          toast(d.error ?? "Couldn't start a Zoom meeting", { type: "error" });
+        }
+        return;
+      }
+      navigator.clipboard?.writeText(d.join_url).catch(() => {});
+      // Host opens the start_url (starts the meeting); join link is copied to share
+      window.open(d.start_url || d.join_url, "_blank", "noopener");
+      toast("Zoom meeting started — join link copied to clipboard");
+      track("instant_meeting_started");
+    } finally {
+      setStartingZoom(false);
+    }
+  }
 
   useEffect(() => {
     if (searchParams.get("connected") === "1") {
@@ -676,19 +701,11 @@ export default function MeetingsPage() {
             <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={() => {
-              // Instant Jitsi room — free, no account needed. Random suffix
-              // keeps rooms unguessable; link copied so it can be shared.
-              const room = `WorkBox-${crypto.randomUUID().slice(0, 12)}`;
-              const url = `https://meet.jit.si/${room}`;
-              navigator.clipboard?.writeText(url).catch(() => {});
-              window.open(url, "_blank", "noopener");
-              toast("Instant meeting started — link copied to clipboard");
-              track("instant_meeting_started");
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5"
+            onClick={startZoomMeeting}
+            disabled={startingZoom}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-white/5 disabled:opacity-50"
             style={{ border: "1px solid var(--border-strong)", color: "var(--text-primary)" }}>
-            <Video size={15} /> Instant meeting
+            {startingZoom ? <Loader2 size={15} className="animate-spin" /> : <Video size={15} />} Instant Zoom
           </button>
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
