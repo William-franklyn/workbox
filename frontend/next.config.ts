@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Bundle the sticky-notes font + resvg wasm into the image-render function.
+  // Bundle the sticky-notes font into the image-render function (next/og).
   outputFileTracingIncludes: {
-    "/api/sticky-notes/image": ["./lib/notes/font.ttf", "./node_modules/@resvg/resvg-wasm/index_bg.wasm"],
+    "/api/sticky-notes/image": ["./lib/notes/font.ttf"],
   },
 };
 

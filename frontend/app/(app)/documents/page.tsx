@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Search, FolderOpen, FileText, X, Loader2, Trash2, Edit3,
@@ -33,8 +33,12 @@ import Youtube from "@tiptap/extension-youtube";
 import CharacterCount from "@tiptap/extension-character-count";
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+import { acquireCollab, releaseCollab } from "@/lib/collab/manager";
 
 const lowlight = createLowlight(common);
+const CURSOR_COLORS = ["#8b5cf6", "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#ec4899"];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,9 +353,36 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
     ? (doc.content ?? "")
     : renderMarkdown(doc.content ?? "");
 
+  // Real-time collaboration (free): a shared Yjs doc synced over Supabase
+  // Realtime broadcast. HTML still persists via autosave below.
+  const [me, setMe] = useState<{ name: string; color: string }>({ name: "You", color: CURSOR_COLORS[0] });
+  const [peers, setPeers] = useState(1);
+  const seededRef = useRef(false);
+  const { ydoc, provider } = useMemo(() => acquireCollab(doc.id), [doc.id]);
+
+  useEffect(() => {
+    return () => releaseCollab(doc.id);
+  }, [doc.id]);
+
+  useEffect(() => {
+    fetch("/api/profile").then(r => r.json()).then(d =>
+      setMe({ name: d.full_name || d.email?.split("@")[0] || "You", color: CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)] })
+    ).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const aw = provider.awareness;
+    const update = () => setPeers(aw.getStates().size || 1);
+    aw.on("change", update);
+    update();
+    return () => aw.off("change", update);
+  }, [provider]);
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] }, codeBlock: false }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] }, codeBlock: false, undoRedo: false }),
+      Collaboration.configure({ document: ydoc }),
+      CollaborationCaret.configure({ provider, user: me }),
       TiptapUnderline,
       TiptapLink.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -373,7 +404,7 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
       CharacterCount,
       CodeBlockLowlight.configure({ lowlight }),
     ],
-    content: initialHtml,
+    // No `content` — Collaboration owns the doc; we seed it once below.
     editorProps: { attributes: { class: "doc-body", spellcheck: "true" } },
     onUpdate({ editor }) {
       setDirty(true);
@@ -389,6 +420,26 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   });
+
+  useEffect(() => { editor?.commands.updateUser?.(me); }, [editor, me]);
+
+  // Seed the shared doc from stored HTML once, only while it's still empty
+  // (the first person to open a not-yet-collaborated document).
+  useEffect(() => {
+    if (!editor) return;
+    const seed = () => {
+      if (seededRef.current) return;
+      seededRef.current = true;
+      const empty = ydoc.getXmlFragment("default").length === 0;
+      if (empty && initialHtml && initialHtml.replace(/<[^>]*>/g, "").trim()) {
+        editor.commands.setContent(initialHtml, { emitUpdate: false });
+      }
+    };
+    provider.on("synced", seed);
+    const t = setTimeout(seed, 1500);
+    return () => { clearTimeout(t); provider.off("synced", seed); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   async function autosaveHtml(n: string, html: string) {
     await fetch("/api/documents", {
@@ -463,6 +514,12 @@ function DocEditor({ doc, onClose, onSave }: { doc: OrgDocument; onClose: () => 
           placeholder="Document title"
         />
         <div className="flex items-center gap-2 shrink-0">
+          {peers > 1 && (
+            <span className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg" title={`${peers} people editing now`}
+              style={{ background: "rgba(34,197,94,0.12)", color: "var(--success)" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--success)" }} /> {peers} live
+            </span>
+          )}
           {dirty && <span className="text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>Unsaved</span>}
           <button onClick={save} disabled={saving}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-60"
