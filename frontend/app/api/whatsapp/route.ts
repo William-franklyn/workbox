@@ -27,6 +27,11 @@ const HISTORY_TTL = 86400; // 24 hours
 const HISTORY_MAX = 10;
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
+// Voice-note transcription. Defaults to Groq's OpenAI-compatible Whisper endpoint
+// (has a free tier); override the URL/model/key via env for OpenAI or self-hosted.
+const TRANSCRIBE_URL = process.env.TRANSCRIBE_API_URL || "https://api.groq.com/openai/v1/audio/transcriptions";
+const TRANSCRIBE_MODEL = process.env.TRANSCRIBE_MODEL || "whisper-large-v3-turbo";
+
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type AnthropicBlock = { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> };
 
@@ -95,6 +100,54 @@ function extractChartImage(reply: string): { text: string; imageUrl: string | nu
   return { text: reply.replace(/\n*CHART_IMAGE:\s*\S+/, "").trim(), imageUrl: m[1] };
 }
 
+/**
+ * Download a WhatsApp voice note / audio message and transcribe it to text.
+ * Returns null if transcription isn't configured or the audio can't be processed.
+ */
+async function transcribeWhatsAppAudio(mediaId: string): Promise<string | null> {
+  const key = process.env.TRANSCRIBE_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  try {
+    // 1) Resolve the temporary media URL from the media ID.
+    const metaRes = await fetch(`${GRAPH_API}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` },
+    });
+    if (!metaRes.ok) return null;
+    const meta = await metaRes.json();
+    const mediaUrl = meta.url as string | undefined;
+    if (!mediaUrl) return null;
+
+    // 2) Download the audio bytes (the same bearer token is required).
+    const audioRes = await fetch(mediaUrl, {
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` },
+    });
+    if (!audioRes.ok) return null;
+    const audioBuf = await audioRes.arrayBuffer();
+    if (audioBuf.byteLength === 0 || audioBuf.byteLength > 24 * 1024 * 1024) return null;
+
+    const mime = (meta.mime_type as string | undefined)?.split(";")[0] || "audio/ogg";
+    const ext = mime.includes("mpeg") ? "mp3" : mime.includes("wav") ? "wav"
+      : mime.includes("mp4") || mime.includes("m4a") ? "m4a" : mime.includes("amr") ? "amr" : "ogg";
+
+    // 3) Send to the OpenAI-compatible Whisper endpoint.
+    const form = new FormData();
+    form.append("file", new Blob([audioBuf], { type: mime }), `voice.${ext}`);
+    form.append("model", TRANSCRIBE_MODEL);
+    form.append("response_format", "text");
+
+    const tRes = await fetch(TRANSCRIBE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+      body: form,
+    });
+    if (!tRes.ok) return null;
+    const text = (await tRes.text()).trim();
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
 async function markRead(messageId: string): Promise<void> {
   await fetch(`${GRAPH_API}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: "POST",
@@ -123,16 +176,31 @@ export async function POST(req: NextRequest) {
   const value = change?.value as Record<string, unknown> | undefined;
   const message = (value?.messages as Array<Record<string, unknown>> | undefined)?.[0];
 
-  if (!message || message.type !== "text") {
+  const msgType = message?.type as string | undefined;
+  if (!message || (msgType !== "text" && msgType !== "audio" && msgType !== "voice")) {
     return NextResponse.json({ ok: true });
   }
 
   const fromWaId = message.from as string;                      // e.g. "15551234567" (no +)
   const messageId = message.id as string;
-  const messageBody = ((message.text as Record<string, string>)?.body ?? "").trim();
-  if (!fromWaId || !messageBody) return NextResponse.json({ ok: true });
+  if (!fromWaId) return NextResponse.json({ ok: true });
 
   void markRead(messageId);
+
+  // Resolve the text to act on: typed body, or a transcribed voice note.
+  let messageBody: string;
+  if (msgType === "text") {
+    messageBody = ((message.text as Record<string, string>)?.body ?? "").trim();
+  } else {
+    const audio = (message.audio ?? message.voice) as Record<string, string> | undefined;
+    const transcript = audio?.id ? await transcribeWhatsAppAudio(audio.id) : null;
+    if (!transcript) {
+      await sendWhatsApp(fromWaId, "I couldn't make out that voice note. Please try recording again, or type your message.");
+      return NextResponse.json({ ok: true });
+    }
+    messageBody = transcript.trim();
+  }
+  if (!messageBody) return NextResponse.json({ ok: true });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || apiKey === "your_anthropic_api_key_here") {
