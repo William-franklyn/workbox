@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTasksStore } from "@/store/tasks";
 import { useWorkspaceStore, Task } from "@/store/workspace";
 import { useMembers, getMemberName } from "@/hooks/useMembers";
-import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send, Lock, Unlock, Link2, Search } from "lucide-react";
+import { X, Flag, Calendar, Tag, AlignLeft, Trash2, User, Clock, Play, Square, Plus, CheckSquare, Square as SquareIcon, MessageCircle, Send, Lock, Unlock, Link2, Search, Repeat } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 
 const PRIORITY_COLOR: Record<Task["priority"], string> = {
@@ -373,6 +373,37 @@ export default function TaskDetailPanel() {
               )
             )}
           </div>
+        </div>
+
+        {/* Repeat / recurrence */}
+        <div>
+          <p className="text-xs mb-1.5 font-medium uppercase tracking-wide flex items-center gap-1" style={{ color: "var(--text-secondary)" }}>
+            <Repeat size={10} /> Repeat
+          </p>
+          <div className="flex items-center gap-2">
+            <select value={task.recurrence ?? ""}
+              onChange={(e) => updateTask(taskId, { recurrence: (e.target.value || null) as Task["recurrence"] })}
+              disabled={isLocked}
+              className="flex-1 text-xs px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer disabled:opacity-50"
+              style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              <option value="">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Every weekday</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            {task.recurrence && (
+              <input type="date" title="Repeat until (optional)" value={task.recurrence_until ?? ""}
+                onChange={(e) => updateTask(taskId, { recurrence_until: e.target.value || null })}
+                className="text-xs px-2 py-1.5 rounded-lg outline-none"
+                style={{ background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }} />
+            )}
+          </div>
+          {task.recurrence && !task.due_date && (
+            <p className="text-xs mt-1" style={{ color: "var(--warning)" }}>Set a due date — the next occurrence is scheduled from it.</p>
+          )}
         </div>
 
         {/* Description */}

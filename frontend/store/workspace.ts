@@ -13,6 +13,8 @@ export interface Task {
   tags: string[];
   created_at: string;
   locked?: boolean;
+  recurrence?: "daily" | "weekdays" | "weekly" | "biweekly" | "monthly" | "yearly" | null;
+  recurrence_until?: string | null;
 }
 
 export interface List {

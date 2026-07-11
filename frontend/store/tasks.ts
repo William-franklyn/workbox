@@ -105,6 +105,17 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
+    }).then(async (res) => {
+      if (!res.ok && prev) {
+        // Roll back the optimistic change (e.g. blocked by dependencies)
+        const err = await res.json().catch(() => ({}));
+        set((s) => {
+          const next = { ...s.tasks };
+          for (const listId in next) next[listId] = next[listId].map((t) => (t.id === id ? prev : t));
+          return { tasks: next };
+        });
+        toast(err.error ?? "Couldn't update the task", { type: "error" });
+      }
     }).catch(() => {});
     // Notify on completion
     if (patch.status === "done" && prev?.status !== "done") {

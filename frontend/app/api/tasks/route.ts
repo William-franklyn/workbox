@@ -64,6 +64,20 @@ export async function PATCH(req: NextRequest) {
     .eq("id", id).eq("org_id", ctx.orgId).maybeSingle();
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Dependency gate: can't complete a task while the tasks it depends on are
+  // still open.
+  if (patch.status === "done" && before.status !== "done") {
+    const { data: deps } = await ctx.svc.from("task_dependencies").select("depends_on_id").eq("task_id", id);
+    const blockerIds = (deps ?? []).map(d => d.depends_on_id);
+    if (blockerIds.length) {
+      const { data: blockers } = await ctx.svc.from("tasks").select("title, status").in("id", blockerIds);
+      const open = (blockers ?? []).filter(b => b.status !== "done");
+      if (open.length) {
+        return NextResponse.json({ error: `Blocked: finish ${open.map(b => `"${b.title}"`).join(", ")} first.`, blocked: true }, { status: 409 });
+      }
+    }
+  }
+
   const { data, error } = await ctx.svc
     .from("tasks").update(patch).eq("id", id).eq("org_id", ctx.orgId).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -89,7 +103,7 @@ export async function PATCH(req: NextRequest) {
         assignee_id: before.assignee_id,
         tags: before.tags,
         due_date: nextDue,
-        position: Date.now(),
+        position: 0,
         created_by: ctx.userId,
         recurrence: before.recurrence,
         recurrence_until: before.recurrence_until,
