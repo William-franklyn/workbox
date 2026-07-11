@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Target, Clock, Users, Bot,
   CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
   Briefcase, UserCheck, Activity, FormInput,
-  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart, Send,
+  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart, Send, StickyNote,
 } from "lucide-react";
 
 // Grouped so the rail reads as sections instead of one long stack.
@@ -32,8 +32,9 @@ const NAV_GROUPS: { icon: typeof LayoutDashboard; href: string; label: string }[
   [
     { icon: Zap,       href: "/automations", label: "Automations" },
     { icon: Layout,    href: "/templates",   label: "Templates" },
-    { icon: FormInput, href: "/forms",       label: "Forms" },
-    { icon: Activity,  href: "/activity",    label: "Activity" },
+    { icon: FormInput,  href: "/forms",       label: "Forms" },
+    { icon: StickyNote, href: "/notes",       label: "Sticky Notes" },
+    { icon: Activity,   href: "/activity",    label: "Activity" },
   ],
   [
     { icon: UserCheck, href: "/guests",                label: "Guests" },

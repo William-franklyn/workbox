@@ -3,6 +3,7 @@ import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/l
 import { searchChunks, reindexSource, removeSource } from "@/lib/embeddings";
 import { generateOutreachEmail } from "@/lib/outreach/draft";
 import { buildChartConfig, chartImageUrl, type ChartKind as VizKind } from "@/lib/viz/quickchart";
+import { signImageToken } from "@/lib/notes/render";
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
 
@@ -453,6 +454,32 @@ export async function executeTool(
       return `"${d.name}"\n${header}\n${rowLines || "(empty)"}`;
     }
 
+    case "list_sticky_notes": {
+      const { data } = await supabase.from("sticky_notes").select("content, color, remind_at").eq("user_id", userId).order("created_at");
+      if (!data?.length) return "You have no sticky notes.";
+      return "Your sticky notes:\n" + data.map((n, i) => `${i + 1}. [${n.color}] ${n.content || "(empty)"}${n.remind_at ? ` — reminder ${new Date(n.remind_at).toLocaleString()}` : ""}`).join("\n");
+    }
+
+    case "create_sticky_note": {
+      const { content, color, remind_at } = args as Record<string, string>;
+      const colors = ["yellow", "pink", "blue", "green", "purple", "orange"];
+      const { data: prof } = await supabase.from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+      const { error } = await supabase.from("sticky_notes").insert({
+        user_id: userId, org_id: (prof as Record<string, string> | null)?.organization_id ?? null,
+        content: content ?? "", color: colors.includes(color) ? color : "yellow",
+        x: 40 + Math.floor(Math.random() * 120), y: 40 + Math.floor(Math.random() * 80),
+        remind_at: remind_at || null,
+      });
+      if (error) return `Error: ${error.message}`;
+      return `Added a ${colors.includes(color) ? color : "yellow"} sticky note${remind_at ? ` with a reminder for ${new Date(remind_at).toLocaleString()}` : ""}.`;
+    }
+
+    case "screenshot_sticky_notes": {
+      const token = signImageToken(userId);
+      const url = `${BASE_URL}/api/sticky-notes/image?t=${token}`;
+      return `Here's your sticky notes board.\n\nCHART_IMAGE: ${url}`;
+    }
+
     case "analyze_data": {
       const sheet = await findSheet(supabase, orgId, args.name as string);
       if (!sheet) return `I couldn't find a spreadsheet matching "${args.name}". Ask me to "list spreadsheets" to see what's available.`;
@@ -597,6 +624,9 @@ export const TOOLS = [
   { name: "list_spreadsheets", description: "List all spreadsheets", input_schema: { type: "object", properties: {}, required: [] } },
   { name: "create_spreadsheet", description: "Create a spreadsheet with headers and rows of data", input_schema: { type: "object", properties: { title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } }, description: { type: "string" } }, required: ["title", "headers"] } },
   { name: "read_spreadsheet", description: "Read the data from a spreadsheet", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" } }, required: ["spreadsheet_id"] } },
+  { name: "list_sticky_notes", description: "List the user's sticky notes (reminders).", input_schema: { type: "object", properties: {}, required: [] } },
+  { name: "create_sticky_note", description: "Create a sticky note / reminder. Optionally set a color (yellow, pink, blue, green, purple, orange) and a reminder time (ISO datetime).", input_schema: { type: "object", properties: { content: { type: "string" }, color: { type: "string" }, remind_at: { type: "string", description: "ISO datetime for a reminder" } }, required: ["content"] } },
+  { name: "screenshot_sticky_notes", description: "Send an image/screenshot of the user's sticky notes board. Use when the user asks to see their notes as a picture.", input_schema: { type: "object", properties: {}, required: [] } },
   { name: "analyze_data", description: "Analyze a spreadsheet/data file by name (e.g. 'sales.csv' or 'Sales') and return a summary: row/column counts and per-column stats (total, average, min, max). Use when the user asks to analyze or summarize a file or dataset.", input_schema: { type: "object", properties: { name: { type: "string", description: "The spreadsheet/file name to analyze" } }, required: ["name"] } },
   { name: "visualize_data", description: "Create a chart image from a spreadsheet by name and return a shareable image URL (works over WhatsApp). Use when the user asks to visualize, chart, graph, or 'show me' data, or wants a screenshot of a graph.", input_schema: { type: "object", properties: { name: { type: "string", description: "Spreadsheet/file name" }, label_column: { type: "string", description: "Column to use for labels (category names)" }, value_column: { type: "string", description: "Numeric column to chart" }, chart_type: { type: "string", description: "bar (default), line, doughnut, polarArea, or pie" } }, required: ["name"] } },
   { name: "update_spreadsheet", description: "Update a spreadsheet's title, headers, or rows", input_schema: { type: "object", properties: { spreadsheet_id: { type: "string" }, title: { type: "string" }, headers: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["spreadsheet_id"] } },
