@@ -1,17 +1,29 @@
 {
+  "id": "/",
   "name": "WorkBox — All-in-One Productivity",
   "short_name": "WorkBox",
-  "description": "Fast, beautiful, AI-powered productivity platform for teams",
-  "start_url": "/home",
+  "description": "AI-native workspace for tasks, docs, CRM, goals and meetings — controllable by chat, WhatsApp, or API.",
+  "start_url": "/home?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0b0b12",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
   "theme_color": "#7c3aed",
+  "dir": "ltr",
+  "lang": "en",
+  "categories": ["productivity", "business"],
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/pwa-icon",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon?maskable=1",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
