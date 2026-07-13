@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { identify, track } from "@/lib/analytics";
+import BrandMark from "@/components/brand/BrandMark";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -47,7 +48,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--bg-primary)" }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold text-white mx-auto mb-4" style={{ background: "var(--accent-purple)" }}>W</div>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "linear-gradient(145deg, #8b5cf6, #6d28d9)", boxShadow: "0 10px 26px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.25)" }}>
+            <BrandMark size={22} color="#ffffff" />
+          </div>
           <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>Welcome back</h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Sign in to your WorkBox</p>
         </div>

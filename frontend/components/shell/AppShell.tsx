@@ -81,12 +81,13 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
       {/* Always-visible icon rail */}
       <IconRail userName={userName} />
 
-      {/* Collapsible main sidebar */}
+      {/* Collapsible main sidebar. On mobile it's an overlay drawer that starts
+          just right of the 56px icon rail so the rail never clips its labels. */}
       <div className={`
         md:relative md:flex md:shrink-0
-        fixed inset-y-0 left-0 z-40
+        fixed inset-y-0 left-[56px] md:left-0 z-40
         transition-transform duration-200
-        ${sidebarCollapsed ? "-translate-x-full md:translate-x-0" : "translate-x-0"}
+        ${sidebarCollapsed ? "-translate-x-[calc(100%+56px)] md:translate-x-0" : "translate-x-0"}
       `}>
         <Sidebar orgName={orgName} userRole={userRole} userName={userName} userEmail={userEmail} userId={userId} />
       </div>

@@ -11,17 +11,17 @@ import {
   LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus,
   Folder, Users, X, CheckCircle2,
 } from "lucide-react";
-import BrandMark from "@/components/brand/BrandMark";
+import { NAV_SECTIONS, ADMIN_SECTION, matchesPath } from "./navConfig";
 
-interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
+interface Props { orgName?: string; userRole: string; userName: string; userEmail: string; userId: string; }
 
 const SPACE_ICONS  = ["🚀","📦","🎨","📣","🏠","⚙️","🔬","💼","🌍","🎯"];
 const SPACE_COLORS = ["#8b5cf6","#60a5fa","#4ade80","#fbbf24","#f87171","#f472b6","#22d3ee","#a3a3a3"];
 
-export default function Sidebar({ orgName, userRole, userName, userEmail, userId }: Props) {
+export default function Sidebar({ userRole, userName, userEmail, userId }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useUIStore();
   const {
     spaces, activeListId,
     toggleSpaceExpanded, toggleFolderExpanded,
@@ -142,18 +142,7 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           style={{ height: "var(--topnav-height)", borderBottom: "1px solid var(--border)" }}
         >
           {!sidebarCollapsed && (
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(145deg, #2a2a2a, #161616)", boxShadow: "0 0 0 1px rgba(255,255,255,0.1)" }}
-              >
-                <BrandMark size={13} color="#ffffff" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-sm truncate leading-tight" style={{ color: "var(--text-primary)" }}>Workspace</p>
-                <p className="text-xs truncate leading-tight" style={{ color: "var(--text-muted)" }}>{orgName}</p>
-              </div>
-            </div>
+            <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>WorkBox</span>
           )}
           <button
             onClick={toggleSidebar}
@@ -167,6 +156,35 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
         {/* Main nav + spaces */}
         {!sidebarCollapsed && (
           <div className="flex-1 overflow-y-auto px-2 pt-3 pb-2">
+
+            {/* Mobile-only primary nav — the icon rail is label-less on touch,
+                so mirror it here with labels. Hidden on desktop (md+). */}
+            <div className="md:hidden mb-3">
+              <span className="text-xs font-semibold tracking-widest uppercase px-2.5" style={{ color: "var(--text-muted)" }}>Navigate</span>
+              <div className="mt-1.5 flex flex-col gap-0.5">
+                {[...NAV_SECTIONS, ADMIN_SECTION].map((s) => {
+                  const Icon = s.icon;
+                  const active = matchesPath(s.href, pathname) || (s.children?.some((c) => matchesPath(c.href, pathname)) ?? false);
+                  return (
+                    <Link
+                      key={s.id}
+                      href={s.href}
+                      onClick={() => setSidebarCollapsed(true)}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors"
+                      style={{
+                        background: active ? "var(--bg-active)" : "transparent",
+                        color: active ? "#ffffff" : "var(--text-secondary)",
+                        fontWeight: active ? 600 : 500,
+                      }}
+                    >
+                      <Icon size={17} className="shrink-0" />
+                      {s.label}
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="h-px my-3 mx-2" style={{ background: "var(--border)" }} />
+            </div>
 
             {/* Spaces section */}
             <div className="flex items-center justify-between px-2.5 mb-2">

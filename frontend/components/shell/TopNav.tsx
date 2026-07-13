@@ -1,16 +1,20 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
+import { sectionForPath } from "./navConfig";
 import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare, CalendarDays } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
-interface Props { orgName: string; userName: string; userId: string; }
+interface Props { orgName?: string; userName: string; userId: string; }
 
-export default function TopNav({ orgName, userName, userId }: Props) {
+export default function TopNav({ userName, userId }: Props) {
   const { setSearchOpen, toggleSidebar } = useUIStore();
   const { spaces, activeListId } = useWorkspaceStore();
+  const pathname = usePathname();
+  const pageTitle = sectionForPath(pathname)?.label ?? "";
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
@@ -64,20 +68,20 @@ export default function TopNav({ orgName, userName, userId }: Props) {
         <Menu size={18} />
       </button>
 
-      {/* Breadcrumb */}
+      {/* Breadcrumb — current page, or space › list on task views */}
       <div className="flex items-center gap-1.5 text-sm min-w-0 flex-1">
-        <span className="font-medium" style={{ color: "var(--text-muted)" }}>{orgName}</span>
-        {activeSpace && (
+        {activeList ? (
           <>
-            <ChevronRight size={12} style={{ color: "var(--text-muted)" }} />
-            <span style={{ color: "var(--text-secondary)" }}>{activeSpace.icon} {activeSpace.name}</span>
+            {activeSpace && (
+              <>
+                <span style={{ color: "var(--text-secondary)" }}>{activeSpace.icon} {activeSpace.name}</span>
+                <ChevronRight size={12} style={{ color: "var(--text-muted)" }} />
+              </>
+            )}
+            <span className="font-semibold truncate" style={{ color: "var(--text-primary)" }}>{activeList.name}</span>
           </>
-        )}
-        {activeList && (
-          <>
-            <ChevronRight size={12} style={{ color: "var(--text-muted)" }} />
-            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{activeList.name}</span>
-          </>
+        ) : (
+          <span className="font-semibold truncate" style={{ color: "var(--text-primary)" }}>{pageTitle}</span>
         )}
       </div>
 

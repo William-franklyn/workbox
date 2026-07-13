@@ -90,8 +90,8 @@
     background-color: var(--bg-primary);
     color: var(--text-primary);
     font-family: var(--font-inter, 'Inter'), system-ui, -apple-system, sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02","cv03","cv04","cv11";
