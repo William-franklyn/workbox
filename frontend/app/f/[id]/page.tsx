@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase/server";
 import FormClient from "./FormClient";
+import BrandMark from "@/components/brand/BrandMark";
 
 interface FormField {
   id: string;
@@ -58,10 +59,10 @@ export default async function PublicFormPage({ params }: { params: Promise<{ id:
         style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}
       >
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white"
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: "var(--accent-purple)" }}
         >
-          W
+          <BrandMark size={15} color="#ffffff" />
         </div>
         <span className="font-bold" style={{ color: "var(--text-primary)" }}>WorkBox</span>
       </div>

@@ -11,6 +11,7 @@ import {
   LogOut, List as ListIcon, FileText, BarChart2, Trash2, FolderPlus,
   Folder, Users, X, CheckCircle2,
 } from "lucide-react";
+import BrandMark from "@/components/brand/BrandMark";
 
 interface Props { orgName: string; userRole: string; userName: string; userEmail: string; userId: string; }
 
@@ -143,10 +144,10 @@ export default function Sidebar({ orgName, userRole, userName, userEmail, userId
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0"
+                className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
                 style={{ background: "linear-gradient(145deg, #2a2a2a, #161616)", boxShadow: "0 0 0 1px rgba(255,255,255,0.1)" }}
               >
-                W
+                <BrandMark size={13} color="#ffffff" />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate leading-tight" style={{ color: "var(--text-primary)" }}>Workspace</p>

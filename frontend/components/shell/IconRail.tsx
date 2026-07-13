@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { NAV_SECTIONS, ADMIN_SECTION, matchesPath, type NavSection } from "./navConfig";
+import BrandMark from "@/components/brand/BrandMark";
 
 const RAIL_COLLAPSED = 56;
 const RAIL_EXPANDED = 224;
@@ -67,10 +68,10 @@ export default function IconRail({ userName }: { userName: string }) {
         {/* Logo */}
         <div className="flex items-center h-14 shrink-0" style={{ paddingLeft: 12 }}>
           <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-            style={{ background: "#ffffff", color: "#000000", boxShadow: "0 0 0 1px rgba(255,255,255,0.15)" }}
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "#ffffff", boxShadow: "0 0 0 1px rgba(255,255,255,0.15)" }}
           >
-            W
+            <BrandMark size={17} color="#0b0b12" />
           </div>
           <span
             className="ml-3 text-sm font-semibold whitespace-nowrap overflow-hidden transition-opacity duration-150"
