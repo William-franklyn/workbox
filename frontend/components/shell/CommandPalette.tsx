@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
-import { Search, ArrowRight, List, MessageSquare, LayoutDashboard, Target, CheckSquare, FileText, BarChart2, Zap, Settings, Building2, User, Table, BookOpen } from "lucide-react";
+import { Search, ArrowRight, List, CheckSquare, FileText, Target, Building2, User, Table, BookOpen } from "lucide-react";
 import type { SearchResult } from "@/app/api/search/route";
+import { NAV_SECTIONS, ADMIN_SECTION } from "./navConfig";
 
 interface Result { id: string; label: string; sub?: string; icon: React.ReactNode; action: () => void; }
 
@@ -45,15 +46,23 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(t);
   }, [query]);
 
-  const staticItems: Result[] = [
-    { id: "home", label: "Home", sub: "Navigate", icon: <LayoutDashboard size={15} />, action: () => nav("/home") },
-    { id: "overview", label: "Overview", sub: "Navigate", icon: <BarChart2 size={15} />, action: () => nav("/overview") },
-    { id: "chat", label: "AI Chat", sub: "Navigate", icon: <MessageSquare size={15} />, action: () => nav("/chat/new") },
-    { id: "goals", label: "Goals", sub: "Navigate", icon: <Target size={15} />, action: () => nav("/goals") },
-    { id: "docs", label: "Docs", sub: "Navigate", icon: <FileText size={15} />, action: () => nav("/docs") },
-    { id: "automations", label: "Automations", sub: "Navigate", icon: <Zap size={15} />, action: () => nav("/automations") },
-    { id: "settings", label: "Settings", sub: "Navigate", icon: <Settings size={15} />, action: () => nav("/settings") },
-  ];
+  // Every navigable destination — sections + their nested children + admin —
+  // sourced from the shared nav config so the palette never goes stale.
+  const staticItems: Result[] = (() => {
+    const targets = [
+      ...NAV_SECTIONS.flatMap((s) => [{ label: s.label, href: s.href, icon: s.icon }, ...(s.children ?? [])]),
+      ...(ADMIN_SECTION.children ?? []),
+    ];
+    const seen = new Set<string>();
+    const items: Result[] = [];
+    for (const t of targets) {
+      if (seen.has(t.href)) continue;
+      seen.add(t.href);
+      const Icon = t.icon;
+      items.push({ id: `nav-${t.href}`, label: t.label, sub: "Navigate", icon: <Icon size={15} />, action: () => nav(t.href) });
+    }
+    return items;
+  })();
 
   const listItems: Result[] = spaces
     .flatMap((s) => [...s.lists, ...s.folders.flatMap((f) => f.lists)])

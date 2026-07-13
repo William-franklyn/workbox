@@ -4,6 +4,7 @@ import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import Sidebar from "./Sidebar";
 import IconRail from "./IconRail";
+import SubNav from "./SubNav";
 import TopNav from "./TopNav";
 import CommandPalette from "./CommandPalette";
 import AIAssistant from "@/components/ai/AIAssistant";
@@ -92,6 +93,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
 
       <div className="flex flex-col flex-1 min-w-0">
         <TopNav orgName={orgName} userName={userName} userId={userId} />
+        <SubNav />
         <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-primary)" }}>
           {children}
         </main>

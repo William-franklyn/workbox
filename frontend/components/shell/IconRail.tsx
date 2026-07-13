@@ -2,181 +2,119 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import {
-  LayoutDashboard, Target, Clock, Users, Bot,
-  CalendarDays, Plug, KeyRound, Zap, Layout, BarChart3,
-  Briefcase, UserCheck, Activity, FormInput,
-  BookOpen, Building2, UsersRound, FolderOpen, DollarSign, PieChart, Send, StickyNote, Settings,
-} from "lucide-react";
+import { NAV_SECTIONS, ADMIN_SECTION, matchesPath, type NavSection } from "./navConfig";
 
-// Grouped so the rail reads as sections instead of one long stack.
-// Team Chat intentionally lives in the top bar next to notifications only.
-const NAV_GROUPS: { icon: typeof LayoutDashboard; href: string; label: string }[][] = [
-  [
-    { icon: LayoutDashboard, href: "/home",     label: "Home" },
-    { icon: Bot,             href: "/chat/new", label: "AI Agent" },
-    { icon: CalendarDays,    href: "/meetings", label: "Meetings" },
-    { icon: Target,          href: "/goals",    label: "Goals" },
-  ],
-  [
-    { icon: PieChart,   href: "/reports",   label: "Reports" },
-    { icon: BarChart3,  href: "/portfolio", label: "Portfolio" },
-    { icon: Briefcase,  href: "/workload",  label: "Workload" },
-    { icon: BookOpen,   href: "/knowledge", label: "Knowledge Base" },
-    { icon: Building2,  href: "/crm",       label: "CRM" },
-    { icon: UsersRound, href: "/hr",        label: "People & HR" },
-    { icon: FolderOpen, href: "/documents", label: "Documents" },
-    { icon: DollarSign, href: "/budget",    label: "Budget" },
-    { icon: Send,       href: "/outreach",  label: "Outreach" },
-  ],
-  [
-    { icon: Zap,       href: "/automations", label: "Automations" },
-    { icon: Layout,    href: "/templates",   label: "Templates" },
-    { icon: FormInput,  href: "/forms",       label: "Forms" },
-    { icon: StickyNote, href: "/notes",       label: "Sticky Notes" },
-    { icon: Activity,   href: "/activity",    label: "Activity" },
-  ],
-  [
-    { icon: UserCheck, href: "/guests",                label: "Guests" },
-    { icon: Users,     href: "/settings?tab=members",  label: "Members" },
-    { icon: Clock,     href: "/timesheets",            label: "Timesheets" },
-    { icon: Plug,      href: "/integrations",          label: "Integrations" },
-    { icon: KeyRound,  href: "/settings/api-keys",     label: "API Keys" },
-  ],
-];
+const RAIL_COLLAPSED = 56;
+const RAIL_EXPANDED = 224;
+
+function isSectionActive(section: NavSection, pathname: string): boolean {
+  if (matchesPath(section.href, pathname)) return true;
+  return section.children?.some((c) => matchesPath(c.href, pathname)) ?? false;
+}
+
+function RailItem({ section, active, expanded }: { section: NavSection; active: boolean; expanded: boolean }) {
+  const Icon = section.icon;
+  return (
+    <Link
+      href={section.href}
+      title={section.label}
+      className="relative flex items-center h-10 mx-2 rounded-lg transition-colors duration-100 hover:bg-white/5"
+      style={{
+        paddingLeft: 10,
+        background: active ? "var(--bg-active)" : "transparent",
+        color: active ? "#ffffff" : "var(--text-secondary)",
+      }}
+    >
+      {active && (
+        <span
+          className="absolute top-1/2 -translate-y-1/2 rounded-r-full"
+          style={{ left: -8, width: 3, height: 18, background: "var(--accent-purple)" }}
+        />
+      )}
+      <Icon size={18} strokeWidth={active ? 2.2 : 1.75} className="shrink-0" />
+      <span
+        className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-opacity duration-150"
+        style={{ opacity: expanded ? 1 : 0 }}
+      >
+        {section.label}
+      </span>
+    </Link>
+  );
+}
 
 export default function IconRail({ userName }: { userName: string }) {
   const pathname = usePathname();
   const initial = userName?.[0]?.toUpperCase() ?? "?";
-  const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const settingsActive = isSectionActive(ADMIN_SECTION, pathname);
 
   return (
-    <div
-      className="flex flex-col items-center shrink-0 select-none z-50"
-      style={{
-        width: 52,
-        minWidth: 52,
-        background: "var(--bg-secondary)",
-        borderRight: "1px solid var(--border)",
-      }}
-    >
-      {/* Logo mark */}
-      <div className="flex items-center justify-center w-full pt-3 pb-2">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-          style={{
-            background: "#ffffff",
-            color: "#000000",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.15)",
-          }}
-        >
-          W
-        </div>
-      </div>
-
-      <div className="w-6 h-px mb-2 mx-auto" style={{ background: "var(--border)" }} />
-
-      {/* Nav items, grouped with separators */}
+    // Outer reserves the collapsed width; the inner panel overlays on expand.
+    <div className="relative shrink-0 z-50 select-none" style={{ width: RAIL_COLLAPSED }}>
       <div
-        className="flex-1 flex flex-col items-center w-full px-1.5 gap-0.5 overflow-y-auto py-1"
-        style={{ scrollbarWidth: "none" }}
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+        className="absolute inset-y-0 left-0 flex flex-col overflow-hidden"
+        style={{
+          width: expanded ? RAIL_EXPANDED : RAIL_COLLAPSED,
+          background: "var(--bg-secondary)",
+          borderRight: "1px solid var(--border)",
+          transition: "width 180ms ease",
+          boxShadow: expanded ? "8px 0 28px rgba(0,0,0,0.35)" : "none",
+        }}
       >
-        {NAV_GROUPS.map((group, gi) => (
-          <div key={gi} className="w-full flex flex-col items-center gap-0.5">
-            {gi > 0 && <div className="w-5 h-px my-1.5" style={{ background: "var(--border)" }} />}
-            {group.map(({ icon: Icon, href, label }) => {
-              const base = href.split("?")[0];
-              const active = pathname === base || (base !== "/home" && pathname.startsWith(base));
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100 hover:bg-white/5"
-                  style={{
-                    background: active ? "var(--bg-active)" : "transparent",
-                    color: active ? "#ffffff" : "var(--text-secondary)",
-                  }}
-                  onMouseEnter={e => {
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setTooltip({ label, y: rect.top + rect.height / 2 });
-                  }}
-                  onMouseLeave={() => setTooltip(null)}
-                >
-                  {active && (
-                    <span
-                      className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
-                      style={{ width: 3, height: 18, background: "var(--accent-purple)" }}
-                    />
-                  )}
-                  <Icon size={16} strokeWidth={active ? 2.2 : 1.75} />
-                </Link>
-              );
-            })}
+        {/* Logo */}
+        <div className="flex items-center h-14 shrink-0" style={{ paddingLeft: 12 }}>
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+            style={{ background: "#ffffff", color: "#000000", boxShadow: "0 0 0 1px rgba(255,255,255,0.15)" }}
+          >
+            W
           </div>
-        ))}
-      </div>
+          <span
+            className="ml-3 text-sm font-semibold whitespace-nowrap overflow-hidden transition-opacity duration-150"
+            style={{ opacity: expanded ? 1 : 0, color: "var(--text-primary)" }}
+          >
+            WorkBox
+          </span>
+        </div>
 
-      {/* Settings — pinned above the avatar so it's always reachable */}
-      <div className="w-full px-1.5 pt-1">
-        <div className="w-5 h-px mb-1.5 mx-auto" style={{ background: "var(--border)" }} />
-        <Link
-          href="/settings"
-          className="relative w-full h-9 rounded-lg flex items-center justify-center transition-all duration-100 hover:bg-white/5"
-          style={{
-            background: pathname.startsWith("/settings") ? "var(--bg-active)" : "transparent",
-            color: pathname.startsWith("/settings") ? "#ffffff" : "var(--text-secondary)",
-          }}
-          onMouseEnter={e => {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            setTooltip({ label: "Settings", y: rect.top + rect.height / 2 });
-          }}
-          onMouseLeave={() => setTooltip(null)}
-        >
-          {pathname.startsWith("/settings") && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full" style={{ width: 3, height: 18, background: "var(--accent-purple)" }} />
-          )}
-          <Settings size={16} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.75} />
+        <div className="w-6 h-px mb-1 ml-3" style={{ background: "var(--border)" }} />
+
+        {/* Primary sections */}
+        <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto py-1" style={{ scrollbarWidth: "none" }}>
+          {NAV_SECTIONS.map((section, i) => (
+            <div key={section.id} className="flex flex-col">
+              {/* Divider between the core surfaces and the hubs */}
+              {i === 4 && <div className="w-6 h-px my-1.5 ml-3" style={{ background: "var(--border)" }} />}
+              <RailItem section={section} active={isSectionActive(section, pathname)} expanded={expanded} />
+            </div>
+          ))}
+        </div>
+
+        {/* Settings — pinned above the avatar so it's always reachable */}
+        <div className="pb-1 pt-1">
+          <div className="w-6 h-px mb-1 ml-3" style={{ background: "var(--border)" }} />
+          <RailItem section={ADMIN_SECTION} active={settingsActive} expanded={expanded} />
+        </div>
+
+        {/* User avatar → profile settings */}
+        <Link href="/settings" className="flex items-center h-14 shrink-0" style={{ paddingLeft: 12 }} title={userName || "Account"}>
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+            style={{ background: "#ffffff", color: "#000000" }}
+          >
+            {initial}
+          </div>
+          <span
+            className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-opacity duration-150"
+            style={{ opacity: expanded ? 1 : 0, color: "var(--text-primary)" }}
+          >
+            {userName || "Account"}
+          </span>
         </Link>
       </div>
-
-      {/* User avatar → profile settings */}
-      <Link href="/settings" className="pt-2 pb-3 flex justify-center w-full"
-        onMouseEnter={e => {
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          setTooltip({ label: userName || "Account", y: rect.top + rect.height / 2 });
-        }}
-        onMouseLeave={() => setTooltip(null)}>
-        <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-          style={{ background: "#ffffff", color: "#000000" }}
-        >
-          {initial}
-        </div>
-      </Link>
-
-      {/* Tooltip — position:fixed + explicit zIndex escapes any stacking context */}
-      {tooltip && (
-        <div
-          className="pointer-events-none whitespace-nowrap"
-          style={{
-            position: "fixed",
-            left: 60,
-            top: tooltip.y,
-            transform: "translateY(-50%)",
-            zIndex: 9999,
-            background: "#161616",
-            color: "#f0f0f0",
-            border: "1px solid #303030",
-            borderRadius: 8,
-            padding: "5px 10px",
-            fontSize: 12,
-            fontWeight: 500,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-          }}
-        >
-          {tooltip.label}
-        </div>
-      )}
     </div>
   );
 }
