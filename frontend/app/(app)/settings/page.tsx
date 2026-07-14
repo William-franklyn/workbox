@@ -69,6 +69,13 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
   const [saved, setSaved] = useState(false);
 
+  // Open a specific tab via ?tab= (e.g. /settings?tab=members from nav links).
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    const valid: Tab[] = ["profile", "workspace", "members", "billing", "notifications", "security", "appearance"];
+    if (t && (valid as string[]).includes(t)) setTab(t as Tab);
+  }, []);
+
   // Profile state
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");

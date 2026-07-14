@@ -9,7 +9,8 @@ import Link from "next/link";
 function GettingStarted({ personalListId, onDismiss }: { personalListId: string | null; onDismiss: () => void }) {
   const steps = [
     { label: "Create your first task", desc: "Open your task list and add what you're working on", href: personalListId ? `/tasks/${personalListId}` : "/home" },
-    { label: "Invite a teammate", desc: "WorkBox is better together — add your team", href: "/settings" },
+    { label: "Connect WhatsApp", desc: "Run WorkBox by chat or voice — verify your number", href: "/settings?tab=profile" },
+    { label: "Invite a teammate", desc: "WorkBox is better together — add your team", href: "/settings?tab=members" },
     { label: "Connect your calendar", desc: "Sync Google or Outlook meetings into tasks", href: "/integrations" },
     { label: "Write your first doc", desc: "Meeting notes, specs, or a project brief", href: "/docs" },
   ];
