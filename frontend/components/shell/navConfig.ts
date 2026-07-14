@@ -4,7 +4,7 @@ import {
   FolderOpen, Building2, PieChart, UsersRound, Settings,
   BookOpen, Layout, FormInput, StickyNote, Send,
   BarChart3, Briefcase, Activity, DollarSign,
-  Users, UserCheck, Clock, Plug, Zap, KeyRound,
+  Users, UserCheck, Clock, Plug, Zap, KeyRound, Bookmark,
 } from "lucide-react";
 
 export interface NavChild { label: string; href: string; icon: LucideIcon }
@@ -34,6 +34,8 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   // Forms is a standalone feature (not nested under Docs) — room to grow.
   { id: "forms", label: "Forms", href: "/forms", icon: FormInput },
+  // Bookmarks — Chrome-style saved people/companies/opportunities.
+  { id: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
   {
     id: "crm", label: "CRM", href: "/crm", icon: Building2,
     children: [
