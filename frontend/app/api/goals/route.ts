@@ -34,31 +34,41 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const svc = createServiceClient();
-  const [{ data: allGoals }, { data: krs }, { data: memberRows }] = await Promise.all([
+  const [{ data: allGoals }, { data: krs }, { data: memberRows }, { data: contribRows }] = await Promise.all([
     svc.from("goals").select("*").eq("org_id", ctx.orgId).order("created_at"),
     svc.from("key_results").select("*").order("created_at"),
     svc.from("goal_members").select("goal_id, user_id"),
+    // Best-effort: null if the goal_contributions table isn't migrated yet.
+    svc.from("goal_contributions").select("goal_id, key_result_id, user_id, delta, new_value, created_at").order("created_at", { ascending: false }),
   ]);
 
   // Private goals are creator-only
   const goals = (allGoals ?? []).filter(g => g.visibility !== "private" || g.created_by === ctx.userId);
+  const goalIds = new Set(goals.map(g => g.id));
 
-  // Resolve participant names in one query
-  const memberIds = [...new Set((memberRows ?? []).map(m => m.user_id))];
+  // Resolve names for participants AND contributors in one query
+  const memberIds = [...new Set([
+    ...(memberRows ?? []).map(m => m.user_id),
+    ...(contribRows ?? []).map(c => c.user_id).filter(Boolean),
+  ])];
   const { data: profiles } = memberIds.length
     ? await svc.from("profiles").select("id, full_name").in("id", memberIds)
     : { data: [] };
   const nameById = Object.fromEntries((profiles ?? []).map(p => [p.id, p.full_name]));
 
-  const goalIds = new Set(goals.map(g => g.id));
   const members = (memberRows ?? [])
     .filter(m => goalIds.has(m.goal_id))
     .map(m => ({ goal_id: m.goal_id, user_id: m.user_id, full_name: nameById[m.user_id] ?? "Member" }));
+
+  const contributions = (contribRows ?? [])
+    .filter(c => goalIds.has(c.goal_id))
+    .map(c => ({ ...c, full_name: nameById[c.user_id] ?? "Member" }));
 
   return NextResponse.json({
     goals,
     keyResults: (krs ?? []).filter(k => goalIds.has(k.goal_id)),
     members,
+    contributions,
     me: { id: ctx.userId, isAdmin: ctx.isAdmin },
   });
 }
@@ -124,8 +134,34 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Only participants can update this goal" }, { status: 403 });
   }
 
+  // Snapshot the previous key-result value so we can log who moved it.
+  let previous: number | null = null;
+  if (type === "kr" && patch.current_value !== undefined) {
+    const { data: before } = await svc.from("key_results").select("current_value").eq("id", id).maybeSingle();
+    previous = Number(before?.current_value ?? 0);
+  }
+
   const { data, error } = await svc.from(table).update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Record the contribution (who changed the value, and by how much).
+  // Best-effort: if the table isn't migrated yet, the update still succeeds.
+  if (type === "kr" && previous !== null && goalId) {
+    const nextVal = Number(patch.current_value);
+    const delta = nextVal - previous;
+    if (delta !== 0) {
+      await svc.from("goal_contributions").insert({
+        id: `gc${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+        org_id: ctx.orgId || null,
+        goal_id: goalId,
+        key_result_id: id,
+        user_id: ctx.userId,
+        delta,
+        new_value: nextVal,
+      });
+    }
+  }
+
   return NextResponse.json(data);
 }
 

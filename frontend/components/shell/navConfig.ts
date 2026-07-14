@@ -29,10 +29,11 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Documents",      href: "/documents", icon: FolderOpen },
       { label: "Knowledge Base", href: "/knowledge", icon: BookOpen },
       { label: "Templates",      href: "/templates", icon: Layout },
-      { label: "Forms",          href: "/forms",     icon: FormInput },
       { label: "Sticky Notes",   href: "/notes",     icon: StickyNote },
     ],
   },
+  // Forms is a standalone feature (not nested under Docs) — room to grow.
+  { id: "forms", label: "Forms", href: "/forms", icon: FormInput },
   {
     id: "crm", label: "CRM", href: "/crm", icon: Building2,
     children: [

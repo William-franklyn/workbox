@@ -5,6 +5,7 @@ import { track } from "@/lib/analytics";
 
 interface KeyResult { id: string; goal_id: string; title: string; current_value: number; target_value: number; unit: string; }
 interface GoalMember { goal_id: string; user_id: string; full_name: string; }
+interface Contribution { goal_id: string; key_result_id: string | null; user_id: string; full_name: string; delta: number; new_value: number | null; created_at: string; }
 interface Goal {
   id: string; title: string; description: string; due_date: string;
   visibility: "private" | "team"; created_by: string;
@@ -40,6 +41,7 @@ function Avatar({ name, title }: { name: string; title?: string }) {
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [members, setMembers] = useState<GoalMember[]>([]);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
   const [me, setMe] = useState<{ id: string; isAdmin: boolean }>({ id: "", isAdmin: false });
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,10 +53,11 @@ export default function GoalsPage() {
   const inviteRef = useRef<HTMLDivElement>(null);
 
   function load() {
-    return fetch("/api/goals").then((r) => r.json()).then(({ goals: gs, keyResults: krs, members: ms, me: m }) => {
+    return fetch("/api/goals").then((r) => r.json()).then(({ goals: gs, keyResults: krs, members: ms, contributions: cs, me: m }) => {
       if (!Array.isArray(gs)) return;
       setGoals(gs.map((g: Goal) => ({ ...g, expanded: true, keyResults: (krs ?? []).filter((kr: KeyResult) => kr.goal_id === g.id) })));
       setMembers(ms ?? []);
+      setContributions(cs ?? []);
       if (m) setMe(m);
     });
   }
@@ -73,6 +76,18 @@ export default function GoalsPage() {
   }, []);
 
   function participantsOf(goalId: string) { return members.filter(m => m.goal_id === goalId); }
+
+  /** Net progress per contributor for a goal, most progress first. */
+  function leaderboardOf(goalId: string) {
+    const byUser = new Map<string, { user_id: string; full_name: string; total: number; count: number }>();
+    for (const c of contributions.filter(c => c.goal_id === goalId)) {
+      const e = byUser.get(c.user_id) ?? { user_id: c.user_id, full_name: c.full_name, total: 0, count: 0 };
+      e.total += Number(c.delta);
+      e.count += 1;
+      byUser.set(c.user_id, e);
+    }
+    return [...byUser.values()].sort((a, b) => b.total - a.total);
+  }
 
   function canUpdate(goal: Goal) {
     return me.isAdmin || goal.created_by === me.id || participantsOf(goal.id).some(m => m.user_id === me.id);
@@ -357,6 +372,39 @@ export default function GoalsPage() {
                         <Plus size={12} /> Add key result
                       </button>
                     )}
+
+                    {/* Contributions — who moved this goal, and by how much */}
+                    {(() => {
+                      const board = leaderboardOf(goal.id);
+                      if (!board.length) return null;
+                      const max = Math.max(...board.map(b => Math.abs(b.total)), 1);
+                      return (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                            <TrendingUp size={11} /> Contributions
+                          </p>
+                          <div className="space-y-1.5">
+                            {board.map((b, i) => (
+                              <div key={b.user_id} className="flex items-center gap-2">
+                                <Avatar name={b.full_name} />
+                                <span className="text-xs w-28 truncate flex items-center gap-1" style={{ color: "var(--text-primary)" }}>
+                                  {b.full_name}{i === 0 && board.length > 1 && b.total > 0 && <span title="Most progress">🏆</span>}
+                                </span>
+                                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+                                  <div className="h-2 rounded-full" style={{ width: `${(Math.abs(b.total) / max) * 100}%`, background: b.total >= 0 ? "var(--accent-purple)" : "var(--danger)" }} />
+                                </div>
+                                <span className="text-xs font-bold w-12 text-right" style={{ color: b.total >= 0 ? "var(--text-primary)" : "var(--danger)" }}>
+                                  {b.total >= 0 ? "+" : ""}{b.total}
+                                </span>
+                                <span className="text-xs w-20 text-right shrink-0" style={{ color: "var(--text-muted)" }}>
+                                  {b.count} update{b.count !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
