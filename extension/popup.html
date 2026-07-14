@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { width: 380px; margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #0a0c11; color: #e7e9ef; font-size: 13px; }
+    .hd { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-bottom: 1px solid #1a1e28; }
+    .logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(145deg, #8b5cf6, #6d28d9); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 12px; }
+    .hd b { font-size: 14px; font-weight: 600; flex: 1; }
+    .gear { background: none; border: none; color: #8a90a0; cursor: pointer; font-size: 16px; }
+    .tabs { display: flex; border-bottom: 1px solid #1a1e28; }
+    .tab { flex: 1; padding: 10px; text-align: center; font-size: 12px; color: #8a90a0; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.on { color: #fff; border-bottom-color: #8b5cf6; }
+    .panel { display: none; padding: 14px; min-height: 180px; }
+    .panel.on { display: block; }
+    .muted { color: #8a90a0; }
+    .dim { color: #5a606e; }
+    .pgurl { font-size: 11px; color: #6a7080; word-break: break-all; margin: 2px 0 12px; }
+    .pgtitle { font-weight: 600; margin-bottom: 2px; }
+    button.act { display: flex; width: 100%; align-items: center; gap: 8px; padding: 10px 12px; margin-bottom: 7px; border: 1px solid #232836; background: #10131a; color: #e7e9ef; border-radius: 9px; cursor: pointer; font-size: 13px; text-align: left; }
+    button.act:hover { border-color: #333a4a; }
+    button.act.primary { background: linear-gradient(145deg, #8b5cf6, #6d28d9); border: none; color: #fff; font-weight: 600; }
+    button.act .ic { font-size: 15px; }
+    select, input, textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 8px; border: 1px solid #232836; background: #0a0c11; color: #e7e9ef; font-size: 13px; outline: none; margin-bottom: 8px; }
+    select:focus, input:focus, textarea:focus { border-color: #8b5cf6; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #151922; }
+    .row:last-child { border-bottom: none; }
+    .pill { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: #1a1e28; color: #9aa0b0; }
+    .reply { background: #10131a; border: 1px solid #232836; border-radius: 10px; padding: 11px 13px; line-height: 1.5; white-space: pre-wrap; margin-top: 6px; }
+    .toast { padding: 9px 14px; font-size: 12px; border-top: 1px solid #1a1e28; min-height: 18px; }
+    .toast.ok { color: #4ade80; } .toast.err { color: #f87171; }
+    #setup { padding: 22px 16px; text-align: center; }
+    #setup button { margin-top: 12px; padding: 10px 18px; border: none; border-radius: 9px; background: linear-gradient(145deg, #8b5cf6, #6d28d9); color: #fff; font-weight: 600; cursor: pointer; }
+    a { color: #a78bfa; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="hd">
+    <div class="logo">W</div>
+    <b>WorkBox</b>
+    <button class="gear" id="gear" title="Settings">⚙</button>
+  </div>
+
+  <div id="setup" style="display:none">
+    <p class="muted">Connect this extension to your WorkBox account to start capturing.</p>
+    <button id="setupBtn">Connect WorkBox</button>
+  </div>
+
+  <div id="app" style="display:none">
+    <div class="tabs">
+      <div class="tab on" data-tab="capture">Capture</div>
+      <div class="tab" data-tab="today">Today</div>
+      <div class="tab" data-tab="search">Search</div>
+      <div class="tab" data-tab="ask">Ask AI</div>
+    </div>
+
+    <div class="panel on" id="panel-capture">
+      <div class="pgtitle" id="pgTitle">…</div>
+      <div class="pgurl" id="pgUrl"></div>
+      <button class="act primary" id="capTask"><span class="ic">✓</span> Save as task</button>
+      <button class="act" id="capJob"><span class="ic">💼</span> Save as job / opportunity <span class="dim">(due +5d)</span></button>
+      <button class="act" id="capLead" style="display:none"><span class="ic">👤</span> Save lead → CRM</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <select id="bmFolder" style="margin:0"><option value="">Unfiled</option></select>
+        <button class="act" id="capBookmark" style="margin:0;white-space:nowrap;width:auto"><span class="ic">🔖</span> Bookmark</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-today"><div class="muted">Loading…</div></div>
+
+    <div class="panel" id="panel-search">
+      <input id="searchInput" placeholder="Search tasks, docs, knowledge…" />
+      <div id="searchResults"></div>
+    </div>
+
+    <div class="panel" id="panel-ask">
+      <textarea id="askInput" rows="2" placeholder="Ask WorkBox — e.g. what's overdue this week?"></textarea>
+      <button class="act primary" id="askBtn"><span class="ic">✦</span> Ask</button>
+      <div id="askReply"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="wb.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

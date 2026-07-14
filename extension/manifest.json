@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "WorkBox",
+  "version": "0.1.0",
+  "description": "Capture jobs, leads, bookmarks and tasks into WorkBox — and ask its AI — from any tab.",
+  "permissions": ["activeTab", "scripting", "contextMenus", "storage", "notifications", "alarms"],
+  "host_permissions": [
+    "https://workbox-blue.vercel.app/*",
+    "http://localhost:3000/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WorkBox",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "options_page": "options.html"
+}
