@@ -8,6 +8,7 @@ import SubNav from "./SubNav";
 import TopNav from "./TopNav";
 import CommandPalette from "./CommandPalette";
 import AIAssistant from "@/components/ai/AIAssistant";
+import FloatingNotes from "@/components/notes/FloatingNotes";
 import Toaster from "@/components/ui/Toaster";
 
 interface Props {
@@ -101,6 +102,7 @@ export default function AppShell({ userId, orgId, orgName, userRole, userName, u
       </div>
 
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
+      <FloatingNotes />
       <AIAssistant />
       <Toaster />
 

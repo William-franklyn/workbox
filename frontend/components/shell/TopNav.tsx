@@ -6,13 +6,13 @@ import { useUIStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import { sectionForPath } from "./navConfig";
 import ThemeToggle from "./ThemeToggle";
-import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare, CalendarDays } from "lucide-react";
+import { Search, Bell, CheckCheck, Menu, ChevronRight, MessageSquare, CalendarDays, StickyNote } from "lucide-react";
 
 interface Notification { id: string; type: string; title: string; body?: string; read: boolean; created_at: string; }
 interface Props { orgName?: string; userName: string; userId: string; }
 
 export default function TopNav({ userName, userId }: Props) {
-  const { setSearchOpen, toggleSidebar } = useUIStore();
+  const { setSearchOpen, toggleSidebar, notesOpen, toggleNotes } = useUIStore();
   const { spaces, activeListId } = useWorkspaceStore();
   const pathname = usePathname();
   const pageTitle = sectionForPath(pathname)?.label ?? "";
@@ -108,6 +108,17 @@ export default function TopNav({ userName, userId }: Props) {
 
       {/* Divider between search and the action cluster */}
       <div className="w-px h-5 mx-1 hidden sm:block" style={{ background: "var(--border)" }} />
+
+      {/* Sticky notes — toggle the floating notes layer */}
+      <button
+        onClick={toggleNotes}
+        title="Sticky notes"
+        aria-label="Toggle sticky notes"
+        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/5"
+        style={{ color: notesOpen ? "var(--accent-purple)" : "var(--text-secondary)", background: notesOpen ? "var(--bg-surface)" : "transparent" }}
+      >
+        <StickyNote size={16} strokeWidth={1.75} />
+      </button>
 
       {/* Light / dark mode */}
       <ThemeToggle />
