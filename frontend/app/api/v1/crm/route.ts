@@ -71,16 +71,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const linkedin = body.url || apollo || null;
-  const notes = [body.notes, linkedin ? `LinkedIn: ${linkedin}` : null].filter(Boolean).join("\n") || null;
+  const linkedin_url = body.linkedin_url || body.url || apollo || null;
 
-  const { data, error } = await svc.from("crm_contacts").insert({
+  const insertRow = {
     first_name, last_name: last_name || null,
     email, phone,
     job_title: body.job_title || null,
+    linkedin_url,
     company_id, org_id: orgId, created_by: userId,
-    status: "lead", notes,
-  }).select("*, company:crm_companies(id,name)").single();
+    status: "lead", notes: body.notes || null,
+  };
+  const sel = "*, company:crm_companies(id,name)";
+  let { data, error } = await svc.from("crm_contacts").insert(insertRow).select(sel).single();
+  // Resilient to migration 031 (linkedin_url) not being applied yet.
+  if (error && /linkedin_url/.test(error.message)) {
+    const { linkedin_url: _drop, ...rest } = insertRow;
+    const notes = [insertRow.notes, linkedin_url ? `LinkedIn: ${linkedin_url}` : null].filter(Boolean).join("\n") || null;
+    ({ data, error } = await svc.from("crm_contacts").insert({ ...rest, notes }).select(sel).single());
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({ contact: data }, { status: 201 });

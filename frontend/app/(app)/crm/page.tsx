@@ -18,6 +18,7 @@ interface Company {
 interface Contact {
   id: string; first_name: string; last_name?: string; email?: string;
   phone?: string; job_title?: string; company_id?: string; status?: string;
+  linkedin_url?: string;
   notes?: string; tags: string[]; last_contacted?: string; created_at: string;
   company?: { id: string; name: string } | null;
 }
@@ -91,6 +92,7 @@ function ContactForm({ initial, companies, onSave, onClose }: {
     first_name: initial?.first_name ?? "", last_name: initial?.last_name ?? "",
     email: initial?.email ?? "", phone: initial?.phone ?? "",
     job_title: initial?.job_title ?? "", company_id: initial?.company_id ?? "",
+    linkedin_url: initial?.linkedin_url ?? "",
     status: initial?.status ?? "lead", notes: initial?.notes ?? "",
     tags: (initial?.tags ?? []).join(", "),
   });
@@ -135,6 +137,7 @@ function ContactForm({ initial, companies, onSave, onClose }: {
           </select>
         </Field>
       </div>
+      <Field label="LinkedIn URL"><input value={f.linkedin_url} onChange={e => upd("linkedin_url", e.target.value)} type="url" placeholder="https://linkedin.com/in/…" className={inputCls} style={inputStyle} /></Field>
       <Field label="Tags (comma-separated)"><input value={f.tags} onChange={e => upd("tags", e.target.value)} placeholder="client, vip, enterprise" className={inputCls} style={inputStyle} /></Field>
       <Field label="Notes"><textarea value={f.notes} onChange={e => upd("notes", e.target.value)} rows={3} className={`${inputCls} resize-none`} style={inputStyle} /></Field>
       <div className="flex justify-end gap-2 pt-2">
@@ -487,6 +490,7 @@ export default function CRMPage() {
                   <div className="space-y-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
                     {c.email && <p className="flex items-center gap-2"><Mail size={11} /> {c.email}</p>}
                     {c.phone && <p className="flex items-center gap-2"><Phone size={11} /> {c.phone}</p>}
+                    {c.linkedin_url && <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline" style={{ color: "var(--accent-purple)" }} onClick={e => e.stopPropagation()}><span className="inline-flex items-center justify-center rounded-sm font-bold" style={{ width: 12, height: 12, fontSize: 8, background: "#0a66c2", color: "#fff" }}>in</span> LinkedIn</a>}
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-xs px-2 py-0.5 rounded-full capitalize"

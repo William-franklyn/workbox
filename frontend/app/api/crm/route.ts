@@ -49,7 +49,14 @@ export async function POST(req: NextRequest) {
   const { type, ...fields } = body;
 
   const table = type === "company" ? "crm_companies" : type === "deal" ? "crm_deals" : "crm_contacts";
-  const { data, error } = await svc.from(table).insert({ ...fields, org_id: orgId, created_by: user.id }).select().single();
+  const payload = { ...fields, org_id: orgId, created_by: user.id };
+  let { data, error } = await svc.from(table).insert(payload).select().single();
+  // Resilient to the linkedin_url column not being migrated yet (031).
+  if (error && /linkedin_url/.test(error.message)) {
+    const { linkedin_url: _drop, ...rest } = payload;
+    void _drop;
+    ({ data, error } = await svc.from(table).insert(rest).select().single());
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
@@ -62,7 +69,13 @@ export async function PATCH(req: NextRequest) {
   const { id, type, ...updates } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const table = type === "company" ? "crm_companies" : type === "deal" ? "crm_deals" : "crm_contacts";
-  const { data, error } = await svc.from(table).update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  const patch = { ...updates, updated_at: new Date().toISOString() };
+  let { data, error } = await svc.from(table).update(patch).eq("id", id).select().single();
+  if (error && /linkedin_url/.test(error.message)) {
+    const { linkedin_url: _drop, ...rest } = patch;
+    void _drop;
+    ({ data, error } = await svc.from(table).update(rest).eq("id", id).select().single());
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
