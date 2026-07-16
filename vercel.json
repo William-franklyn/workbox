@@ -1,12 +1,15 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "crons": [
         { "path": "/api/cron/automations", "schedule": "0 9 * * *" }
     ],
-    "experimentalServices": {
+    "services": {
         "frontend": {
-            "root": "frontend",
-            "routePrefix": "/",
+            "root": "frontend/",
             "framework": "nextjs"
         }
-    }
+    },
+    "rewrites": [
+        { "source": "/(.*)", "destination": { "service": "frontend" } }
+    ]
 }
