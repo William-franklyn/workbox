@@ -148,10 +148,17 @@ Routes return a clear `503` naming the missing key rather than failing deep in t
 
 **New internal content type (e.g. meetings, tasks):** add a `case` to `resolveText()` in `ingest.ts`, allow the `type` in the migration's check constraint (new migration: `alter table … drop constraint …; add constraint … check (type in (…))`), and add the fetch loop to `/api/knowledge/sync`.
 
-**External connector (e.g. Google Drive — planned next):**
-1. OAuth + change detection live in the connector; each remote file becomes a `knowledge_sources` row with `type: 'connector'`, `origin_id` = remote file id, and downloaded content stored via `storage_path` or `raw_text`.
-2. Run `runIngest` per item from a background path (cron route or queue), not the request path — `ingest_jobs` already records per-run state for retries.
-3. Map the connector's sharing model onto `space_id` (or extend the ACL — see below).
+**External connectors — Google Drive (shipped, the reference implementation):**
+
+Files: [`lib/knowledge/connectors/gdrive.ts`](../frontend/lib/knowledge/connectors/gdrive.ts), OAuth routes [`app/api/auth/google-drive/{redirect,callback}`](../frontend/app/api/auth/google-drive/redirect/route.ts), API [`app/api/knowledge/connectors/gdrive`](../frontend/app/api/knowledge/connectors/gdrive/route.ts), UI card in the Knowledge Hub Sources tab.
+
+How it works:
+1. **Auth:** its own `user_integrations` row (`provider: "google_drive"`, scope `drive.readonly`) — deliberately separate from `google_calendar` so connecting one never forces re-consent on the other. Token refresh reuses `getValidToken()` from `lib/google/calendar.ts` (now provider-parameterized). Requires the **Drive API enabled** in the same Google Cloud project as the existing `GOOGLE_CLIENT_ID` (and the scope added to the OAuth consent screen).
+2. **Sync** (`POST /api/knowledge/connectors/gdrive`, member+): lists the connecting user's 40 most-recently-modified ingestable files (Google Docs/Slides → `export` as text, Sheets → CSV, PDF/DOCX/text → download + `extract.ts`). **Incremental:** a file is skipped when the source's `last_ingested_at` ≥ Drive's `modifiedTime`. Extracted text (capped 800K chars) is stored in `raw_text`, so re-ingest never needs Drive access. Each file upserts on `(org_id, 'connector', 'gdrive:<fileId>')` then runs `runIngest`. Per-file failures are collected, not fatal.
+3. **Scale note:** sync runs inline (`maxDuration 300`). When an org needs more than ~40 files/run or scheduled syncs, move the loop behind a cron route or queue — `ingest_jobs` already records per-run state, and `syncDrive()` is callable from any server context.
+4. **ACL:** synced sources are org-wide (`space_id` null → hidden from guests, visible to members). Drive's own per-file sharing model is *not* mapped yet — see "Richer ACLs" below before exposing this to orgs with sensitive Drive content.
+
+**A new connector (Slack, Notion, GitHub…)** follows the same shape: provider row in `user_integrations` + OAuth routes → a `lib/knowledge/connectors/<name>.ts` with `sync<Name>(orgId, userId)` that upserts `knowledge_sources` (`type: 'connector'`, `origin_id: '<name>:<remote id>'`, extracted text in `raw_text`) and calls `runIngest` → a status/sync API route → a card in the hub.
 
 **Richer ACLs (per-document permissions from connectors):** today the anchor is one nullable `space_id`. When connectors bring per-user document ACLs, add an ACL table keyed by `source_id` and extend the `where` clause in `match_knowledge_chunks` — keep enforcement in the RPC, and keep the guest default conservative.
 

@@ -35,12 +35,21 @@ export function getJoinLink(e: GCalEvent): string | null {
   return null;
 }
 
-export async function getValidToken(userId: string, supabase: SupabaseClient): Promise<string | null> {
+/**
+ * Valid Google access token for one of our Google providers
+ * ("google_calendar" default; "google_drive" for the knowledge connector),
+ * refreshing via the stored refresh_token when it's about to expire.
+ */
+export async function getValidToken(
+  userId: string,
+  supabase: SupabaseClient,
+  provider: "google_calendar" | "google_drive" = "google_calendar",
+): Promise<string | null> {
   const { data: integration } = await supabase
     .from("user_integrations")
     .select("*")
     .eq("user_id", userId)
-    .eq("provider", "google_calendar")
+    .eq("provider", provider)
     .maybeSingle();
 
   if (!integration?.access_token) return null;
@@ -70,7 +79,7 @@ export async function getValidToken(userId: string, supabase: SupabaseClient): P
       access_token: data.access_token,
       token_expires_at: new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString(),
       updated_at: new Date().toISOString(),
-    }).eq("user_id", userId).eq("provider", "google_calendar");
+    }).eq("user_id", userId).eq("provider", provider);
 
     return data.access_token;
   }

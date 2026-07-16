@@ -257,6 +257,8 @@ function SourcesPanel() {
   const [textTitle, setTextTitle] = useState("");
   const [textBody, setTextBody] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
+  const [driveSyncing, setDriveSyncing] = useState(false);
 
   async function load() {
     const res = await fetch("/api/knowledge/sources");
@@ -265,7 +267,29 @@ function SourcesPanel() {
     if (typeof d?.embeddings_configured === "boolean") setEmbeddingsOk(d.embeddings_configured);
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    fetch("/api/knowledge/connectors/gdrive")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setDriveConnected(Boolean(d?.connected)))
+      .catch(() => setDriveConnected(false));
+  }, []);
+
+  async function syncDrive() {
+    setDriveSyncing(true);
+    try {
+      const res = await fetch("/api/knowledge/connectors/gdrive", { method: "POST" });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) toast(d?.error ?? "Drive sync failed", { type: "error" });
+      else toast(
+        `Drive sync: ${d.ingested} ingested, ${d.skipped} up to date${d.failed ? `, ${d.failed} failed` : ""}`,
+        { type: d.failed ? "info" : "success" },
+      );
+    } finally {
+      setDriveSyncing(false);
+      void load();
+    }
+  }
 
   async function upload(file: File) {
     setUploading(true);
@@ -349,6 +373,41 @@ function SourcesPanel() {
           Embeddings are not configured — set VOYAGE_API_KEY (or OPENAI_API_KEY) on the server to enable ingestion and search.
         </div>
       )}
+
+      {/* Connectors — Drive is the first (docs/knowledge-platform.md → Extending) */}
+      <div
+        className="mb-4 rounded-xl border px-4 py-3 flex items-center gap-3"
+        style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}
+      >
+        <Database size={16} className="shrink-0" style={{ color: "var(--accent-blue, #3b82f6)" }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Google Drive</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {driveConnected === null ? "Checking connection…"
+              : driveConnected ? "Connected — sync pulls your Docs, Slides, Sheets and files (read-only)"
+              : "Connect your Drive to make its documents searchable and askable"}
+          </p>
+        </div>
+        {driveConnected ? (
+          <button
+            onClick={syncDrive}
+            disabled={driveSyncing}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 border disabled:opacity-50 shrink-0"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          >
+            {driveSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Sync Drive
+          </button>
+        ) : driveConnected === false ? (
+          <a
+            href="/api/auth/google-drive/redirect"
+            className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white shrink-0"
+            style={{ background: "linear-gradient(135deg, var(--accent-purple), var(--accent-blue))" }}
+          >
+            Connect
+          </a>
+        ) : null}
+      </div>
 
       <div className="flex items-center gap-2 mb-4">
         <input
@@ -471,7 +530,16 @@ function KnowledgeHub() {
   // useSearchParams needs a Suspense boundary (see page default export).
   const searchParams = useSearchParams();
   const initialQuestion = searchParams.get("q")?.trim() || undefined;
-  const [tab, setTab] = useState<"ask" | "sources">("ask");
+  const driveJustConnected = searchParams.get("drive_connected") === "1";
+  const authError = searchParams.get("error");
+  const [tab, setTab] = useState<"ask" | "sources">(driveJustConnected ? "sources" : "ask");
+
+  // Landing back from the Google Drive OAuth callback
+  useEffect(() => {
+    if (driveJustConnected) toast("Google Drive connected — hit Sync Drive to ingest", { type: "success" });
+    else if (authError?.startsWith("drive_")) toast("Google Drive connection failed — try again", { type: "error" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="h-full min-h-0 overflow-y-auto">

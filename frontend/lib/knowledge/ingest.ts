@@ -52,6 +52,7 @@ async function resolveText(svc: ReturnType<typeof createServiceClient>, source: 
     case "text":
     case "capture":
     case "url":
+    case "connector": // connectors store extracted text at sync time (e.g. gdrive.ts)
       return { title: source.title, text: source.raw_text ?? "" };
     default:
       throw new Error(`No ingester for source type "${source.type}"`);
