@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-export async function middleware(request: NextRequest) {
+// Next 16 Proxy (formerly middleware) — runs on the Node runtime, which the
+// Vercel `services` deployment model requires (Edge output is rejected).
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
