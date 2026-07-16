@@ -76,7 +76,7 @@ Enterprise-trust prerequisites for moving upmarket (Milestone 2+, do not forget)
 
 - AI-first: users ask "what do I want to accomplish?", not "where do I click?"
 - Context-first: every page knows the user, department, permissions, projects, recent activity.
-- Reduce cognitive load: 5 intelligent workspaces, not 40 menu items. IA: Home / Knowledge / Agents / Workflows / Insights / Integrations / Admin.
+- Reduce cognitive load: a handful of intelligent workspaces, not 40 menu items. IA (per the design doc's sidebar): Home / Knowledge / Agents / Workflows / Insights / Team / Integrations + pinned Admin.
 - Enterprise-grade: everything communicates trust, security, professionalism, performance.
 
 **Pre-release checklist for every screen:** Does this reduce complexity? Does AI make it easier? Is enterprise trust visible? Fewer steps? Does it feel calm? Is every action explainable? Would an executive feel confident using this?

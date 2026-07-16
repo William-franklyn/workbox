@@ -4,7 +4,7 @@ import {
   FolderOpen, Building2, PieChart, UsersRound, Settings,
   BookOpen, Layout, FormInput, StickyNote, Send,
   BarChart3, Briefcase, Activity, DollarSign,
-  Users, UserCheck, Clock, Plug, Zap, KeyRound, Bookmark, Brain,
+  Users, UserCheck, Clock, Plug, Zap, KeyRound, Bookmark, Brain, Cpu, Workflow,
 } from "lucide-react";
 
 export interface NavChild { label: string; href: string; icon: LucideIcon }
@@ -14,36 +14,42 @@ export interface NavSection { id: string; label: string; href: string; icon: Luc
  * Single source of truth for primary navigation. The icon rail, the contextual
  * sub-nav, and the command palette all read from this so they never drift.
  *
- * Design: only 8 primary destinations live in the rail. Related surfaces are
- * nested as children (shown as tabs inside the hub); admin/config lives under
- * Settings (ADMIN_SECTION) rather than competing for top-level space.
+ * The Enterprise Intelligence IA (docs/VISION.md → Design principles):
+ * Home / Knowledge / Agents / Workflows / Insights / Team / Integrations,
+ * with Admin pinned as the settings gear. Every legacy module lives inside
+ * one of these hubs — nothing else competes for top-level space.
  */
 export const NAV_SECTIONS: NavSection[] = [
-  { id: "home",     label: "Home",     href: "/home",     icon: LayoutDashboard },
-  { id: "agent",    label: "AI Agent", href: "/chat/new", icon: Bot },
-  { id: "goals",    label: "Goals",    href: "/goals",    icon: Target },
-  { id: "meetings", label: "Meetings", href: "/meetings", icon: CalendarDays },
+  { id: "home", label: "Home", href: "/home", icon: LayoutDashboard },
   {
-    id: "docs", label: "Docs", href: "/documents", icon: FolderOpen,
+    // The heart of the platform — ask, ingest, and browse org knowledge.
+    id: "knowledge", label: "Knowledge", href: "/knowledge-hub", icon: Brain,
     children: [
-      { label: "Documents",      href: "/documents",     icon: FolderOpen },
-      // Knowledge Hub — the Enterprise Intelligence pivot's ask/ingest surface
-      // (docs/knowledge-platform.md). Distinct from the KB article editor below.
       { label: "Knowledge Hub",  href: "/knowledge-hub", icon: Brain },
+      { label: "Documents",      href: "/documents",     icon: FolderOpen },
       { label: "Knowledge Base", href: "/knowledge",     icon: BookOpen },
       { label: "Templates",      href: "/templates",     icon: Layout },
       { label: "Sticky Notes",   href: "/notes",         icon: StickyNote },
+      { label: "Bookmarks",      href: "/bookmarks",     icon: Bookmark },
     ],
   },
-  // Forms is a standalone feature (not nested under Docs) — room to grow.
-  { id: "forms", label: "Forms", href: "/forms", icon: FormInput },
-  // Bookmarks — Chrome-style saved people/companies/opportunities.
-  { id: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
   {
-    id: "crm", label: "CRM", href: "/crm", icon: Building2,
+    id: "agents", label: "Agents", href: "/chat/new", icon: Bot,
     children: [
-      { label: "Contacts", href: "/crm",      icon: Building2 },
-      { label: "Outreach", href: "/outreach", icon: Send },
+      { label: "AI Agent", href: "/chat/new", icon: Bot },
+      { label: "Operator", href: "/operator", icon: Cpu },
+    ],
+  },
+  {
+    // Business work: goals, meetings, forms, customer pipeline, automation.
+    id: "workflows", label: "Workflows", href: "/goals", icon: Workflow,
+    children: [
+      { label: "Goals",       href: "/goals",       icon: Target },
+      { label: "Meetings",    href: "/meetings",    icon: CalendarDays },
+      { label: "Forms",       href: "/forms",       icon: FormInput },
+      { label: "CRM",         href: "/crm",         icon: Building2 },
+      { label: "Outreach",    href: "/outreach",    icon: Send },
+      { label: "Automations", href: "/automations", icon: Zap },
     ],
   },
   {
@@ -57,7 +63,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: "people", label: "People", href: "/hr", icon: UsersRound,
+    id: "team", label: "Team", href: "/hr", icon: UsersRound,
     children: [
       { label: "Directory",  href: "/hr",                   icon: UsersRound },
       { label: "Members",    href: "/settings?tab=members", icon: Users },
@@ -65,16 +71,15 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Timesheets", href: "/timesheets",           icon: Clock },
     ],
   },
+  { id: "integrations", label: "Integrations", href: "/integrations", icon: Plug },
 ];
 
 /** Admin/config — reached via the pinned Settings gear + command palette. */
 export const ADMIN_SECTION: NavSection = {
-  id: "settings", label: "Settings", href: "/settings", icon: Settings,
+  id: "settings", label: "Admin", href: "/settings", icon: Settings,
   children: [
-    { label: "Settings",     href: "/settings",          icon: Settings },
-    { label: "Integrations", href: "/integrations",      icon: Plug },
-    { label: "Automations",  href: "/automations",       icon: Zap },
-    { label: "API Keys",     href: "/settings/api-keys", icon: KeyRound },
+    { label: "Settings", href: "/settings",          icon: Settings },
+    { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
   ],
 };
 

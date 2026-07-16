@@ -70,7 +70,7 @@ CI (GitHub Actions): lint (non-blocking) + typecheck + build. There is no test s
 - Dark mode is the default; light mode optional.
 - Colors: blue primary, purple accent, green/amber/red semantic, neutral gray backgrounds. AI actions get the gradient accent.
 - Minimal, professional, calm — no visual clutter. Skeleton loading, streaming AI responses, optimistic UI.
-- Target information architecture: **Home / Knowledge / Agents / Workflows / Insights / Integrations / Admin**. Everything belongs inside one of those.
+- Information architecture (implemented in `frontend/components/shell/navConfig.ts`): **Home / Knowledge / Agents / Workflows / Insights / Team / Integrations** + pinned Admin. Everything belongs inside one of those — never add a new top-level nav destination; nest it in the right hub.
 
 ## Git conventions
 
