@@ -3,11 +3,14 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceStore } from "@/store/workspace";
 import { useTasksStore } from "@/store/tasks";
-import { Search, ArrowRight, List, CheckSquare, FileText, Target, Building2, User, Table, BookOpen } from "lucide-react";
+import { Search, ArrowRight, List, CheckSquare, FileText, Target, Building2, User, Table, BookOpen, Brain, Sparkles } from "lucide-react";
 import type { SearchResult } from "@/app/api/search/route";
 import { NAV_SECTIONS, ADMIN_SECTION } from "./navConfig";
 
 interface Result { id: string; label: string; sub?: string; icon: React.ReactNode; action: () => void; }
+
+/** Chunk match from GET /api/knowledge/search (semantic, permission-aware). */
+interface KnowledgeMatch { source_id: string; source_type: string; title: string; similarity: number; }
 
 const SERVER_TYPE_META: Record<SearchResult["type"], { sub: string; icon: React.ReactNode }> = {
   task:        { sub: "Task",        icon: <CheckSquare size={15} /> },
@@ -43,6 +46,30 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         .then(({ results }: { results: SearchResult[] }) => setServerResults(results ?? []))
         .catch(() => {});
     }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Debounced semantic search over the knowledge platform (docs/knowledge-platform.md).
+  // Slower + costs an embedding call, so longer debounce and min length than FTS.
+  // Silently empty when embeddings aren't configured (route returns 503).
+  const [knowledgeMatches, setKnowledgeMatches] = useState<KnowledgeMatch[]>([]);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) { setKnowledgeMatches([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/knowledge/search?q=${encodeURIComponent(q)}&k=6`)
+        .then(r => r.ok ? r.json() : { results: [] })
+        .then(({ results }: { results: KnowledgeMatch[] }) => {
+          // Chunks → one entry per source document, best similarity wins
+          const bySource = new Map<string, KnowledgeMatch>();
+          for (const m of results ?? []) {
+            const prev = bySource.get(m.source_id);
+            if (!prev || m.similarity > prev.similarity) bySource.set(m.source_id, m);
+          }
+          setKnowledgeMatches([...bySource.values()].slice(0, 4));
+        })
+        .catch(() => {});
+    }, 400);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -88,15 +115,37 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
     action: () => nav(r.href),
   }));
 
+  // Semantic hits + the "ask AI" escape hatch, both landing in the Knowledge Hub
+  const askHref = `/knowledge-hub?q=${encodeURIComponent(query.trim())}`;
+  const askItem: Result | null = query.trim().length >= 3
+    ? {
+        id: "ask-knowledge",
+        label: `Ask: "${query.trim()}"`,
+        sub: "AI answer",
+        icon: <Sparkles size={15} style={{ color: "var(--accent-purple)" }} />,
+        action: () => nav(askHref),
+      }
+    : null;
+  const knowledgeItems: Result[] = knowledgeMatches.map((m) => ({
+    id: `knw-${m.source_id}`,
+    label: m.title,
+    sub: `Knowledge · ${Math.round(m.similarity * 100)}%`,
+    icon: <Brain size={15} style={{ color: "var(--accent-purple)" }} />,
+    action: () => nav(askHref),
+  }));
+
   const all = [...staticItems, ...listItems, ...taskItems];
   const localMatches = query.trim()
     ? all.filter((r) => r.label.toLowerCase().includes(query.toLowerCase()))
     : all.slice(0, 12);
 
-  // Merge, de-duping server tasks already shown from local state
+  // Merge: ask action first, then local, semantic knowledge, FTS —
+  // de-duping server tasks already shown from local state
   const localIds = new Set(localMatches.map(r => r.id));
   const results = [
+    ...(askItem ? [askItem] : []),
     ...localMatches,
+    ...knowledgeItems,
     ...serverItems.filter(r => !localIds.has(r.id.replace(/^srv-task-/, "task-"))),
   ].slice(0, 20);
 
@@ -119,7 +168,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
           <Search size={16} style={{ color: "var(--text-secondary)" }} />
           <input ref={inputRef} value={query} onChange={(e) => { setQuery(e.target.value); setActive(0); }}
-            placeholder="Search tasks, lists, actions..."
+            placeholder="Search tasks, docs, knowledge — or ask a question..."
             className="flex-1 bg-transparent outline-none text-sm" style={{ color: "var(--text-primary)" }} />
           {query && <button onClick={() => setQuery("")} className="text-xs px-1.5 rounded hover:bg-white/10" style={{ color: "var(--text-secondary)" }}>✕</button>}
           <kbd className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--border)", color: "var(--text-secondary)" }}>ESC</kbd>

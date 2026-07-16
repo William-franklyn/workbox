@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Brain, Sparkles, FileText, BookOpen, Globe, Type, Upload, RefreshCw,
   Trash2, Loader2, X, AlertTriangle, CheckCircle2, Clock, Send, Database,
@@ -41,16 +42,17 @@ function formatBytes(n: number | null): string {
 
 // ─── Ask panel ───────────────────────────────────────────────────────────────
 
-function AskPanel() {
-  const [question, setQuestion] = useState("");
+function AskPanel({ initialQuestion }: { initialQuestion?: string }) {
+  const [question, setQuestion] = useState(initialQuestion ?? "");
   const [asking, setAsking] = useState(false);
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState<AskSource[]>([]);
   const [confidence, setConfidence] = useState<Confidence | null>(null);
   const [asked, setAsked] = useState<string | null>(null);
+  const autoAsked = useRef(false);
 
-  async function ask() {
-    const q = question.trim();
+  async function ask(text?: string) {
+    const q = (text ?? question).trim();
     if (!q || asking) return;
     setAsking(true);
     setAsked(q);
@@ -100,6 +102,15 @@ function AskPanel() {
     }
   }
 
+  // Arriving from ⌘K ("Ask: …") — run the handed-off question once.
+  useEffect(() => {
+    if (initialQuestion && !autoAsked.current) {
+      autoAsked.current = true;
+      void ask(initialQuestion);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuestion]);
+
   // Render the answer with [n] citations as accent-colored superscripts.
   function renderAnswer(text: string) {
     const parts = text.split(/(\[\d+\](?:\[\d+\])*)/g);
@@ -134,7 +145,7 @@ function AskPanel() {
             disabled={asking}
           />
           <button
-            onClick={ask}
+            onClick={() => ask()}
             disabled={asking || !question.trim()}
             className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 text-white"
             style={{ background: "linear-gradient(135deg, var(--accent-purple), var(--accent-blue))" }}
@@ -456,7 +467,10 @@ function SourcesPanel() {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function KnowledgeHubPage() {
+function KnowledgeHub() {
+  // useSearchParams needs a Suspense boundary (see page default export).
+  const searchParams = useSearchParams();
+  const initialQuestion = searchParams.get("q")?.trim() || undefined;
   const [tab, setTab] = useState<"ask" | "sources">("ask");
 
   return (
@@ -488,8 +502,16 @@ export default function KnowledgeHubPage() {
       </div>
 
       <div className="px-6 pb-10">
-        {tab === "ask" ? <AskPanel /> : <SourcesPanel />}
+        {tab === "ask" ? <AskPanel initialQuestion={initialQuestion} /> : <SourcesPanel />}
       </div>
     </div>
+  );
+}
+
+export default function KnowledgeHubPage() {
+  return (
+    <Suspense fallback={null}>
+      <KnowledgeHub />
+    </Suspense>
   );
 }

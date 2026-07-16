@@ -112,6 +112,10 @@ One self-contained client page (matching the app's convention — plain `useStat
 
 UI conventions to preserve when extending: no component library beyond `lucide-react` icons; colors only via CSS variables (`--bg-secondary`, `--border`, `--text-primary/secondary/muted`, `--accent-purple/blue`, `--success/warning/danger`); optimistic delete with reload-on-failure.
 
+### ⌘K semantic search
+
+The command palette ([`CommandPalette.tsx`](../frontend/components/shell/CommandPalette.tsx)) runs **two** debounced searches side by side: the existing Postgres FTS (`/api/search`, 200ms, min 2 chars) and semantic knowledge search (`/api/knowledge/search?k=6`, 400ms, min 3 chars — longer debounce because each call costs an embedding). Semantic chunk hits are collapsed to one row per source document (best similarity wins, capped at 4) and rendered with a Brain icon + match %. A `Sparkles` "Ask: …" action is pinned first whenever the query is ≥ 3 chars; both it and knowledge rows navigate to `/knowledge-hub?q=<query>`, where the hub auto-runs the question (the `q` param is read via `useSearchParams` behind a `Suspense` boundary — a Next 16 requirement). A 503 from the search route (embeddings unconfigured) degrades silently to no semantic rows.
+
 ## Configuration
 
 | Env var | Required for | Notes |
