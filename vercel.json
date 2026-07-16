@@ -1,18 +1,28 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "crons": [
         { "path": "/api/cron/automations", "schedule": "0 9 * * *" }
     ],
-    "experimentalServices": {
+    "services": {
         "frontend": {
-            "root": "frontend",
-            "routePrefix": "/",
+            "root": "frontend/",
             "framework": "nextjs"
         },
         "backend": {
-            "root": "backend",
-            "routePrefix": "/_/backend",
-            "builder": "@vercel/python",
-            "entrypoint": "main.py"
+            "root": "backend/",
+            "entrypoint": "main:app",
+            "routes": [
+                {
+                    "src": "/_/backend/(.*)",
+                    "transforms": [
+                        { "type": "request.path", "op": "set", "args": "/$1" }
+                    ]
+                }
+            ]
         }
-    }
+    },
+    "rewrites": [
+        { "source": "/_/backend/(.*)", "destination": { "service": "backend" } },
+        { "source": "/(.*)", "destination": { "service": "frontend" } }
+    ]
 }
