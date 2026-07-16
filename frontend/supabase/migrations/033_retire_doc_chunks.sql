@@ -1,13 +1,13 @@
 -- ============================================================
--- 033: Complete the knowledge-pipeline switchover.
---  1. match_knowledge_chunks now also returns origin_id + url so
---     callers (agent tool, v1 search, ask UI) can link back to the
---     source. Return type changes, so drop + recreate.
---  2. Drop the legacy 384-dim pipeline (doc_chunks + match_doc_chunks,
---     from 021) — all callers now use knowledge_chunks.
--- Run in Supabase SQL editor, AFTER deploying the app code that
--- stops using doc_chunks (commit order in git guarantees this if you
--- deploy first, then migrate).
+-- 033: Upgrade match_knowledge_chunks — also return origin_id + url
+-- so callers (agent tool, v1 search, ask UI) can link back to the
+-- source. Return type changes, so drop + recreate.
+--
+-- SAFE TO RUN ANYTIME: nothing on `main` (the portfolio WorkBox
+-- deployment) calls this function. The destructive retirement of the
+-- legacy doc_chunks pipeline lives in 034 — deliberately separate,
+-- because `main` still depends on doc_chunks. See 034's header.
+-- Run in Supabase SQL editor.
 -- ============================================================
 
 drop function if exists public.match_knowledge_chunks(vector(1024), text, uuid, text, int);
@@ -56,7 +56,3 @@ language sql stable as $$
   order by kc.embedding <=> query_embedding
   limit match_count;
 $$;
-
--- Legacy pipeline (021) — retired.
-drop function if exists public.match_doc_chunks(vector(384), text, int);
-drop table if exists public.doc_chunks;

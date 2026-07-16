@@ -6,7 +6,7 @@
 
 The knowledge platform turns an organization's content — uploaded files, internal WorkBox docs, KB articles, browser captures, and (later) external connectors — into a **permission-aware, semantically searchable knowledge base** that an AI can answer questions from **with citations**.
 
-It fully replaced the legacy RAG pipeline (`lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service) — all three were deleted after the switchover; migration `033` drops the database side. If you're reading old commits, that's what the references point to.
+It fully replaced the legacy RAG pipeline (`lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service) — all three were deleted from the `product` branch after the switchover. The database side of the legacy stack is intentionally **not** dropped yet (`034` is written but must not run) because the `main` branch — deployed as the original-WorkBox portfolio project — shares this database and still uses it.
 
 ## Architecture at a glance
 
@@ -129,7 +129,7 @@ Routes return a clear `503` naming the missing key rather than failing deep in t
 
 ## Operations runbook
 
-**Apply the migration:** run `032_knowledge_platform.sql` in the Supabase SQL editor (same manual process as all prior migrations). Safe to re-run (`if not exists` throughout).
+**Apply the migrations:** run `032_knowledge_platform.sql` then `033_retire_doc_chunks.sql` in the Supabase SQL editor (same manual process as all prior migrations). 032 is re-runnable (`if not exists` throughout); both are safe for the `main`/portfolio deployment sharing this database. **Do not run `034_drop_legacy_doc_chunks.sql`** — it kills the portfolio deployment's semantic search; see its header for when it becomes safe.
 
 **Smoke test (end to end):**
 1. `npm run dev` in `frontend/`, sign in.
@@ -162,7 +162,7 @@ How it works:
 
 **Richer ACLs (per-document permissions from connectors):** today the anchor is one nullable `space_id`. When connectors bring per-user document ACLs, add an ACL table keyed by `source_id` and extend the `where` clause in `match_knowledge_chunks` — keep enforcement in the RPC, and keep the guest default conservative.
 
-**Live re-indexing (shipped):** every doc/KB write path now re-indexes through the knowledge platform via [`lib/knowledge/internal.ts`](../frontend/lib/knowledge/internal.ts) — `reindexInternal()` (upsert source + `runIngest`, fire-and-forget, never throws) and `removeInternal()`. Call sites: `app/api/docs/route.ts`, `app/api/knowledge/route.ts` (KB), and the agent's `create_doc`/`update_doc`/`delete_doc` tools. The agent's `search_knowledge` tool, `/api/v1/search`, outreach draft grounding, and `/api/documents/upload` all use the new pipeline too — **nothing calls the legacy `doc_chunks` stack anymore**. Migration `033` extends `match_knowledge_chunks` to return `origin_id` + `url` (for links back to sources) and drops `doc_chunks`/`match_doc_chunks`. The legacy code is deleted: `lib/embeddings.ts`, the orphaned `ChatWindow.tsx`, the Python `backend/` directory, its `vercel.json` service entry, and the CI backend job.
+**Live re-indexing (shipped):** every doc/KB write path now re-indexes through the knowledge platform via [`lib/knowledge/internal.ts`](../frontend/lib/knowledge/internal.ts) — `reindexInternal()` (upsert source + `runIngest`, fire-and-forget, never throws) and `removeInternal()`. Call sites: `app/api/docs/route.ts`, `app/api/knowledge/route.ts` (KB), and the agent's `create_doc`/`update_doc`/`delete_doc` tools. The agent's `search_knowledge` tool, `/api/v1/search`, outreach draft grounding, and `/api/documents/upload` all use the new pipeline too — **nothing calls the legacy `doc_chunks` stack anymore**. Migration `033` extends `match_knowledge_chunks` to return `origin_id` + `url` (for links back to sources); `034` (deferred — see its header) drops `doc_chunks`/`match_doc_chunks` once the portfolio deployment no longer needs them. The legacy code is deleted from `product`: `lib/embeddings.ts`, the orphaned `ChatWindow.tsx`, the Python `backend/` directory, its `vercel.json` service entry, and the CI backend job.
 
 ## Design decisions (why it is the way it is)
 

@@ -12,8 +12,15 @@ Before building any feature, it must pass the five guiding questions:
 ## Branch workflow
 
 - `product` — the pivot. All Enterprise Intelligence work happens here.
-- `main` — stable WorkBox (the existing productivity suite). Hotfixes only.
-- Merge `main → product` periodically to limit drift. Never merge `product → main` until the pivot ships.
+- `main` — the **original WorkBox productivity suite, kept alive permanently as a portfolio deployment**. Hotfixes only; never merge `product → main`.
+- Merge `main → product` periodically to limit drift.
+
+### ⚠️ Shared database — migration discipline
+
+Both branches point at the **same Supabase project**. `main` (portfolio) still runs the legacy RAG stack (`doc_chunks`, `match_doc_chunks`, the Python backend at `/_/backend`). Therefore:
+
+- Migrations on `product` must stay **additive** with respect to anything `main` reads or writes. Never drop or alter legacy tables/functions while the portfolio deployment lives — that's why `034_drop_legacy_doc_chunks.sql` exists but must not be run (see its header).
+- If the pivot ever needs a breaking schema change to a shared table, first move the portfolio to its own database clone (pg_dump/restore), then proceed.
 
 ## Repo map
 
