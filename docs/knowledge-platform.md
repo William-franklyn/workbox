@@ -6,7 +6,7 @@
 
 The knowledge platform turns an organization's content — uploaded files, internal WorkBox docs, KB articles, browser captures, and (later) external connectors — into a **permission-aware, semantically searchable knowledge base** that an AI can answer questions from **with citations**.
 
-It replaces the legacy RAG pipeline (`frontend/lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service), which still runs for the old agent tool but receives no new features and will be removed once the agent is switched over.
+It fully replaced the legacy RAG pipeline (`lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service) — all three were deleted after the switchover; migration `033` drops the database side. If you're reading old commits, that's what the references point to.
 
 ## Architecture at a glance
 
@@ -162,7 +162,7 @@ How it works:
 
 **Richer ACLs (per-document permissions from connectors):** today the anchor is one nullable `space_id`. When connectors bring per-user document ACLs, add an ACL table keyed by `source_id` and extend the `where` clause in `match_knowledge_chunks` — keep enforcement in the RPC, and keep the guest default conservative.
 
-**Live re-indexing (shipped):** every doc/KB write path now re-indexes through the knowledge platform via [`lib/knowledge/internal.ts`](../frontend/lib/knowledge/internal.ts) — `reindexInternal()` (upsert source + `runIngest`, fire-and-forget, never throws) and `removeInternal()`. Call sites: `app/api/docs/route.ts`, `app/api/knowledge/route.ts` (KB), and the agent's `create_doc`/`update_doc`/`delete_doc` tools. The agent's `search_knowledge` tool, `/api/v1/search`, outreach draft grounding, and `/api/documents/upload` all use the new pipeline too — **nothing calls the legacy `doc_chunks` stack anymore**. Migration `033` extends `match_knowledge_chunks` to return `origin_id` + `url` (for links back to sources) and drops `doc_chunks`/`match_doc_chunks`. Remaining cleanup (pending explicit approval): delete `frontend/lib/embeddings.ts`, the orphaned `frontend/components/chat/ChatWindow.tsx`, the Python `backend/` directory, its `vercel.json` service entry, and the CI backend job.
+**Live re-indexing (shipped):** every doc/KB write path now re-indexes through the knowledge platform via [`lib/knowledge/internal.ts`](../frontend/lib/knowledge/internal.ts) — `reindexInternal()` (upsert source + `runIngest`, fire-and-forget, never throws) and `removeInternal()`. Call sites: `app/api/docs/route.ts`, `app/api/knowledge/route.ts` (KB), and the agent's `create_doc`/`update_doc`/`delete_doc` tools. The agent's `search_knowledge` tool, `/api/v1/search`, outreach draft grounding, and `/api/documents/upload` all use the new pipeline too — **nothing calls the legacy `doc_chunks` stack anymore**. Migration `033` extends `match_knowledge_chunks` to return `origin_id` + `url` (for links back to sources) and drops `doc_chunks`/`match_doc_chunks`. The legacy code is deleted: `lib/embeddings.ts`, the orphaned `ChatWindow.tsx`, the Python `backend/` directory, its `vercel.json` service entry, and the CI backend job.
 
 ## Design decisions (why it is the way it is)
 

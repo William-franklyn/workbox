@@ -19,10 +19,11 @@ Before building any feature, it must pass the five guiding questions:
 
 | Path | What it is |
 |---|---|
-| `frontend/` | Next.js 16 App Router, React 19, TypeScript, Tailwind v4. Nearly all product code AND the API. |
-| `backend/` | Python FastAPI RAG service (ingest + chat). Legacy — being absorbed into `frontend/` during Milestone 1. |
+| `frontend/` | Next.js 16 App Router, React 19, TypeScript, Tailwind v4. All product code AND the API. |
 | `extension/` | Chrome MV3 capture extension. Talks to the v1 API. |
 | `workbox-mcp/` | MCP server exposing the v1 API to LLM agents. |
+
+(The Python `backend/` RAG service was retired in Milestone 1 — fully absorbed into `frontend/lib/knowledge/`.)
 
 ## Commands
 
@@ -30,7 +31,6 @@ Before building any feature, it must pass the five guiding questions:
 cd frontend && npm run dev      # dev server
 cd frontend && npm run build    # production build
 cd frontend && npx tsc --noEmit # typecheck (CI runs this)
-cd backend && uvicorn main:app  # legacy RAG service (port 8000)
 ```
 
 CI (GitHub Actions): lint (non-blocking) + typecheck + build. There is no test suite yet — verify changes by running the app.
@@ -55,8 +55,7 @@ CI (GitHub Actions): lint (non-blocking) + typecheck + build. There is no test s
 
 ### AI layer
 - Agent loop: `frontend/lib/agent-runner.ts` (~25 tools) driven by `frontend/app/api/ai/chat/route.ts`, rate-limited via Upstash.
-- Vector search: `doc_chunks` table + `search_chunks` RPC (`frontend/supabase/migrations/021_semantic_search.sql`), pgvector HNSW.
-- **Target stack (product branch):** Claude Sonnet for answers/reasoning, Claude Haiku for cheap high-volume tasks, and a 1024+-dim embedding model (Voyage or OpenAI). Groq + HuggingFace MiniLM (384-dim) are legacy and being retired — don't build new features on them.
+- **Stack:** Claude Sonnet for answers/reasoning, Claude Haiku for the agent loop / cheap high-volume tasks, 1024-dim embeddings (Voyage preferred, OpenAI fallback). New Claude calls use the official `@anthropic-ai/sdk`. The Groq + HuggingFace MiniLM stack and the `doc_chunks` pipeline are gone (migration 033 drops them) — never reintroduce them.
 - **Knowledge platform (new, Milestone 1):** `frontend/lib/knowledge/` (embeddings provider, chunker, extraction, ingest, ask) + `frontend/app/api/knowledge/{sources,search,sync,ask}` over `knowledge_sources` / `ingest_jobs` / `knowledge_chunks` (migration 032, `match_knowledge_chunks` RPC — permission-aware). Requires `VOYAGE_API_KEY` (preferred) or `OPENAI_API_KEY`; ask also needs `ANTHROPIC_API_KEY`. **Full developer guide: [docs/knowledge-platform.md](docs/knowledge-platform.md)** — read it before modifying the pipeline.
 - Every AI answer must show sources/citations, confidence, and why it was generated (see Security UX in VISION.md).
 
