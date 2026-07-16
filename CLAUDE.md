@@ -57,6 +57,7 @@ CI (GitHub Actions): lint (non-blocking) + typecheck + build. There is no test s
 - Agent loop: `frontend/lib/agent-runner.ts` (~25 tools) driven by `frontend/app/api/ai/chat/route.ts`, rate-limited via Upstash.
 - Vector search: `doc_chunks` table + `search_chunks` RPC (`frontend/supabase/migrations/021_semantic_search.sql`), pgvector HNSW.
 - **Target stack (product branch):** Claude Sonnet for answers/reasoning, Claude Haiku for cheap high-volume tasks, and a 1024+-dim embedding model (Voyage or OpenAI). Groq + HuggingFace MiniLM (384-dim) are legacy and being retired — don't build new features on them.
+- **Knowledge platform (new, Milestone 1):** `frontend/lib/knowledge/` (embeddings provider, chunker, extraction, ingest) + `frontend/app/api/knowledge/{sources,search,sync}` over `knowledge_sources` / `ingest_jobs` / `knowledge_chunks` (migration 032, `match_knowledge_chunks` RPC — permission-aware). Requires `VOYAGE_API_KEY` (preferred) or `OPENAI_API_KEY`.
 - Every AI answer must show sources/citations, confidence, and why it was generated (see Security UX in VISION.md).
 
 ### Frontend patterns
