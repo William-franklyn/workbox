@@ -21,6 +21,8 @@ export interface AskSource {
   index: number;
   source_id: string;
   source_type: string;
+  origin_id: string | null;
+  url: string | null;
   title: string;
   space_id: string | null;
   similarity: number;
@@ -42,6 +44,8 @@ export function buildAskContext(matches: KnowledgeMatch[]): { sources: AskSource
         index: sources.length + 1,
         source_id: m.source_id,
         source_type: m.source_type,
+        origin_id: m.origin_id ?? null,
+        url: m.url ?? null,
         title: m.title || "Untitled",
         space_id: m.space_id,
         similarity: m.similarity,

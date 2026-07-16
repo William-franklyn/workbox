@@ -1,4 +1,4 @@
-import { searchChunks } from "@/lib/embeddings";
+import { searchKnowledge } from "@/lib/knowledge/ingest";
 
 /**
  * AI outreach email drafting — generalized from Advisor Vantage's lib/draft.ts.
@@ -41,11 +41,18 @@ export async function generateOutreachEmail(params: DraftParams): Promise<EmailD
   const first = (params.contact.first_name ?? "there").split(" ")[0];
   const greeting = params.useMergeTag ? "{{first_name}}" : first;
 
-  // Optional RAG: ground the email in the org's docs/knowledge base
+  // Optional RAG: ground the email in the org's knowledge platform.
+  // Drafting is a member+ action (guests can't reach these routes), so a
+  // fixed non-guest role is safe — the RPC only gates on guest vs not,
+  // and p_user is unused for non-guests.
   let context = "";
   if (params.orgId) {
     const query = `${params.intent} ${params.contact.company ?? ""} ${params.contact.job_title ?? ""}`.trim();
-    const chunks = await searchChunks(query, params.orgId, TOP_K).catch(() => null);
+    const chunks = await searchKnowledge(
+      { orgId: params.orgId, userId: "00000000-0000-0000-0000-000000000000", role: "member" },
+      query,
+      TOP_K,
+    ).catch(() => null);
     if (chunks?.length) {
       context = "\n\nRELEVANT CONTEXT FROM YOUR WORKSPACE (use naturally, don't quote verbatim):\n" +
         chunks.map((c, i) => `[${i + 1}] ${c.content.slice(0, 400)}`).join("\n");

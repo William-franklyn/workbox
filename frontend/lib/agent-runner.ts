@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getValidToken, listEvents, createCalendarEvent, getJoinLink } from "@/lib/google/calendar";
-import { searchChunks, reindexSource, removeSource } from "@/lib/embeddings";
+import { searchKnowledge } from "@/lib/knowledge/ingest";
+import { reindexInternal, removeInternal, sourceHref } from "@/lib/knowledge/internal";
 import { generateOutreachEmail } from "@/lib/outreach/draft";
 import { buildChartConfig, chartImageUrl, type ChartKind as VizKind } from "@/lib/viz/quickchart";
 import { signImageToken } from "@/lib/notes/render";
@@ -141,7 +142,7 @@ export async function executeTool(
       const docId = crypto.randomUUID();
       const { error } = await supabase.from("docs").insert({ id: docId, title, blocks, org_id: orgId, created_by: userId });
       if (error) return `Error: ${error.message}`;
-      void reindexSource("doc", docId, orgId, title, content as string);
+      void reindexInternal("doc", docId, orgId, title);
       return `Created document "${title}" — ${BASE_URL}/docs/${docId}`;
     }
 
@@ -162,26 +163,41 @@ export async function executeTool(
       const { error } = await supabase.from("docs").update(patch).eq("id", doc_id);
       if (error) return `Error: ${error.message}`;
       {
-        const { data: saved } = await supabase.from("docs").select("title, blocks").eq("id", doc_id).maybeSingle();
-        if (saved) void reindexSource("doc", doc_id, orgId, (saved as Record<string, string>).title, blocksToText((saved as Record<string, unknown>).blocks as unknown[] ?? []));
+        const { data: saved } = await supabase.from("docs").select("title").eq("id", doc_id).maybeSingle();
+        if (saved) void reindexInternal("doc", doc_id, orgId, (saved as Record<string, string>).title);
       }
       return "Document updated.";
     }
 
     case "delete_doc": {
       await supabase.from("docs").delete().eq("id", args.doc_id as string);
-      void removeSource("doc", args.doc_id as string);
+      void removeInternal("doc", args.doc_id as string);
       return "Document deleted.";
     }
 
     case "search_knowledge": {
       if (!orgId) return "No organization context.";
-      const matches = await searchChunks(args.query as string, orgId, 5);
-      if (matches === null) return "Semantic search isn't available right now.";
-      if (!matches.length) return "Nothing relevant found in documents or the knowledge base.";
-      return matches.map(m =>
-        `[${m.source_type === "kb" ? "Knowledge Base" : "Document"}: ${m.title}] (${BASE_URL}/${m.source_type === "kb" ? "knowledge" : "docs/" + m.source_id})\n${m.content.slice(0, 500)}`
-      ).join("\n\n");
+      // Knowledge platform search is permission-aware — pass the caller's role
+      // so guests only retrieve from spaces they were granted.
+      const { data: prof } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
+      let matches;
+      try {
+        matches = await searchKnowledge(
+          { orgId, userId, role: (prof?.role as string) ?? "member" },
+          args.query as string,
+          5,
+        );
+      } catch {
+        return "Semantic search isn't available right now.";
+      }
+      if (!matches.length) return "Nothing relevant found in the knowledge base.";
+      const label = (t: string) =>
+        t === "kb" ? "Knowledge Base" : t === "doc" ? "Document" : t === "connector" ? "Connected source" : "Knowledge";
+      return matches.map(m => {
+        const href = sourceHref(m.source_type, m.origin_id, m.url);
+        const link = href.startsWith("/") ? `${BASE_URL}${href}` : href;
+        return `[${label(m.source_type)}: ${m.title}] (${link})\n${m.content.slice(0, 500)}`;
+      }).join("\n\n");
     }
 
     case "draft_outreach_email": {

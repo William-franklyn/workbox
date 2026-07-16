@@ -119,6 +119,9 @@ export async function runIngest(sourceId: string): Promise<{ ok: true; chunks: n
 export interface KnowledgeMatch {
   source_id: string;
   source_type: string;
+  /** id in the origin system (docs.id, kb_articles.id, "gdrive:<id>", …) — requires migration 033 */
+  origin_id: string | null;
+  url: string | null;
   title: string;
   content: string;
   chunk_index: number;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { reindexSource, removeSource } from "@/lib/embeddings";
+import { reindexInternal, removeInternal } from "@/lib/knowledge/internal";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { cache, getRedis } from "@/lib/redis";
 
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   await bumpKbVersion(orgId);
   {
     const a = data as Record<string, unknown>;
-    void reindexSource("kb", a.id as string, orgId, (a.title as string) ?? "", `${a.summary ?? ""}\n${a.content ?? ""}`);
+    void reindexInternal("kb", a.id as string, orgId, (a.title as string) ?? "");
   }
   return NextResponse.json(data);
 }
@@ -110,7 +110,7 @@ export async function PATCH(req: NextRequest) {
   await bumpKbVersion(orgId);
   if (table === "kb_articles") {
     const a = data as Record<string, unknown>;
-    void reindexSource("kb", a.id as string, orgId, (a.title as string) ?? "", `${a.summary ?? ""}\n${a.content ?? ""}`);
+    void reindexInternal("kb", a.id as string, orgId, (a.title as string) ?? "");
   }
   return NextResponse.json(data);
 }
@@ -126,7 +126,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const table = type === "category" ? "kb_categories" : "kb_articles";
   await svc.from(table).delete().eq("id", id);
-  if (table === "kb_articles") void removeSource("kb", id);
+  if (table === "kb_articles") void removeInternal("kb", id);
   await bumpKbVersion(orgId);
   return NextResponse.json({ ok: true });
 }

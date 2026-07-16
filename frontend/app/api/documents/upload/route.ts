@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { extractableType } from "@/lib/knowledge/extract";
+import { runIngest } from "@/lib/knowledge/ingest";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -43,20 +45,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create document record." }, { status: 500 });
   }
 
-  // Trigger FastAPI ingestion in background
-  const backendUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/_/backend`
-    : process.env.FASTAPI_URL || "http://localhost:8000";
-  fetch(`${backendUrl}/api/v1/ingest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      document_id: doc.id,
-      organization_id: profile.organization_id,
-      storage_path: storagePath,
-      file_type: fileType,
-    }),
-  }).catch(() => {}); // fire and forget
+  // Ingest into the knowledge platform in the background (replaces the
+  // retired FastAPI service), mirroring status back onto the documents row.
+  if (extractableType(file.name, file.type)) {
+    void (async () => {
+      try {
+        await sb.from("documents").update({ status: "processing" }).eq("id", doc.id);
+        const { data: source } = await sb.from("knowledge_sources").upsert({
+          org_id: profile.organization_id,
+          created_by: user.id,
+          type: "file",
+          origin_id: `document:${doc.id}`,
+          title: file.name,
+          storage_path: storagePath,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        }, { onConflict: "org_id,type,origin_id" }).select("id").single();
+        const result = source ? await runIngest(source.id) : { ok: false as const, error: "source insert failed" };
+        await sb.from("documents")
+          .update({ status: result.ok ? "ready" : "error" })
+          .eq("id", doc.id);
+      } catch {
+        await sb.from("documents").update({ status: "error" }).eq("id", doc.id).then(() => {}, () => {});
+      }
+    })();
+  } else {
+    await sb.from("documents").update({ status: "ready" }).eq("id", doc.id);
+  }
 
   return NextResponse.json({ document: doc });
 }
