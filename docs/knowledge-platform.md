@@ -101,6 +101,17 @@ while (true) {
 }
 ```
 
+## Frontend: the Knowledge Hub
+
+Route: [`frontend/app/(app)/knowledge-hub/page.tsx`](../frontend/app/(app)/knowledge-hub/page.tsx) — registered in the nav as **Docs → Knowledge Hub** ([`navConfig.ts`](../frontend/components/shell/navConfig.ts)). It is intentionally separate from `/knowledge` (the legacy KB *article editor*); the hub is the ask/ingest surface for the whole platform.
+
+One self-contained client page (matching the app's convention — plain `useState` + `fetch`, Tailwind classes + CSS variables, `toast()` from `@/store/toast`), with two tabs:
+
+- **Ask** (`AskPanel`): gradient-accented question input (AI actions get the gradient per the design language), consumes the `/api/knowledge/ask` SSE stream — renders the `sources` event as numbered cards with match percentages and a retrieval-confidence badge *before* the answer starts streaming, then streams the answer with `[n]` citations highlighted as accent superscripts. Errors surface as toasts.
+- **Sources** (`SourcesPanel`): source list with live status chips (`ready` + chunk count / `processing` / `failed` with the error as tooltip), file upload (accept list mirrors `extractableType()` — keep them in sync), add-text modal, admin "Sync workspace content" button, and hover actions for re-ingest/delete. Shows a warning banner when the API reports `embeddings_configured: false`.
+
+UI conventions to preserve when extending: no component library beyond `lucide-react` icons; colors only via CSS variables (`--bg-secondary`, `--border`, `--text-primary/secondary/muted`, `--accent-purple/blue`, `--success/warning/danger`); optimistic delete with reload-on-failure.
+
 ## Configuration
 
 | Env var | Required for | Notes |

@@ -4,7 +4,7 @@ import {
   FolderOpen, Building2, PieChart, UsersRound, Settings,
   BookOpen, Layout, FormInput, StickyNote, Send,
   BarChart3, Briefcase, Activity, DollarSign,
-  Users, UserCheck, Clock, Plug, Zap, KeyRound, Bookmark,
+  Users, UserCheck, Clock, Plug, Zap, KeyRound, Bookmark, Brain,
 } from "lucide-react";
 
 export interface NavChild { label: string; href: string; icon: LucideIcon }
@@ -26,10 +26,13 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     id: "docs", label: "Docs", href: "/documents", icon: FolderOpen,
     children: [
-      { label: "Documents",      href: "/documents", icon: FolderOpen },
-      { label: "Knowledge Base", href: "/knowledge", icon: BookOpen },
-      { label: "Templates",      href: "/templates", icon: Layout },
-      { label: "Sticky Notes",   href: "/notes",     icon: StickyNote },
+      { label: "Documents",      href: "/documents",     icon: FolderOpen },
+      // Knowledge Hub — the Enterprise Intelligence pivot's ask/ingest surface
+      // (docs/knowledge-platform.md). Distinct from the KB article editor below.
+      { label: "Knowledge Hub",  href: "/knowledge-hub", icon: Brain },
+      { label: "Knowledge Base", href: "/knowledge",     icon: BookOpen },
+      { label: "Templates",      href: "/templates",     icon: Layout },
+      { label: "Sticky Notes",   href: "/notes",         icon: StickyNote },
     ],
   },
   // Forms is a standalone feature (not nested under Docs) — room to grow.
