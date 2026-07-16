@@ -1,26 +1,22 @@
-# WorkBox — Enterprise Intelligence Platform
+# Sphynx — Enterprise Intelligence Platform
 
-WorkBox is pivoting from an all-in-one productivity suite into an **Enterprise Intelligence Platform** — "The AI Operating System for Enterprise." Full strategy: [docs/VISION.md](docs/VISION.md).
+Sphynx is the **Enterprise Intelligence Platform** — "The AI Operating System for Enterprise." Full strategy: [docs/VISION.md](docs/VISION.md).
+
+Sphynx grew out of WorkBox (an all-in-one productivity suite) as its `product`-branch pivot. The original suite has moved to its own repo (`William-franklyn/workmate`) as a permanent portfolio deployment; **this repo is Sphynx's home** and should eventually be renamed `sphynx` on GitHub. In-app branding still says "WorkBox" in places — renaming the UI is an open task, not an accident to preserve.
 
 Before building any feature, it must pass the five guiding questions:
 1. What customer problem does this solve?
 2. Why would an organization pay for this?
-3. Does it strengthen WorkBox's position as an Enterprise Intelligence Platform?
+3. Does it strengthen Sphynx's position as an Enterprise Intelligence Platform?
 4. Can competitors easily copy it?
 5. Can we measure the business value it delivers?
 
-## Branch workflow
+## Branch workflow & database
 
-- `product` — the pivot. All Enterprise Intelligence work happens here.
-- `main` — the **original WorkBox productivity suite, kept alive permanently as a portfolio deployment**. Hotfixes only; never merge `product → main`.
-- Merge `main → product` periodically to limit drift.
-
-### ⚠️ Shared database — migration discipline
-
-Both branches point at the **same Supabase project**. `main` (portfolio) still runs the legacy RAG stack (`doc_chunks`, `match_doc_chunks`, the Python backend at `/_/backend`). Therefore:
-
-- Migrations on `product` must stay **additive** with respect to anything `main` reads or writes. Never drop or alter legacy tables/functions while the portfolio deployment lives — that's why `034_drop_legacy_doc_chunks.sql` exists but must not be run (see its header).
-- If the pivot ever needs a breaking schema change to a shared table, first move the portfolio to its own database clone (pg_dump/restore), then proceed.
+- `product` — Sphynx's active trunk. All work happens here. (Once the `workmate` split is confirmed live, make this the default branch; the old `main` stays only as frozen WorkBox history.)
+- `main` — frozen pre-pivot WorkBox history. Don't build on it; the living portfolio copy is in the `workmate` repo.
+- **Own Supabase project** for Sphynx, schema-cloned (`pg_dump --schema-only`) from the original WorkBox database at split time. Migrations are free to be destructive here; the portfolio has its own database. The numbered SQL files in `frontend/supabase/migrations/` remain the log of record — but the schema baseline is the clone, not a replay of 000–031 (the original live DB predated those files in places).
+- Deployment: Vercel project with **Root Directory = `frontend`** (plain Next.js — no `services` config; crons live in `frontend/vercel.json`).
 
 ## Repo map
 

@@ -1,18 +1,14 @@
 -- ============================================================
--- 034: ⚠️  DO NOT RUN while the portfolio WorkBox deployment lives. ⚠️
+-- 034: Drop the legacy 384-dim RAG pipeline (doc_chunks +
+-- match_doc_chunks, from migration 021). Nothing in this repo
+-- uses them — all retrieval goes through knowledge_chunks.
 --
--- Drops the legacy 384-dim RAG pipeline (doc_chunks + match_doc_chunks,
--- from migration 021). The `product` branch stopped using it entirely,
--- BUT the `main` branch — deployed as the original-WorkBox portfolio
--- project — still reads and writes doc_chunks for its agent knowledge
--- search and /api/v1/search. Both branches share this database.
---
--- Run this only when one of these becomes true:
---   a) the portfolio deployment is retired or moved to its own
---      database (pg_dump/restore clone), or
---   b) main is updated to the new knowledge pipeline.
---
--- Until then the only cost of keeping doc_chunks is a little storage.
+-- Sphynx's database is a schema clone of the original WorkBox
+-- project, so these objects came along in the dump. Safe to run
+-- here anytime. (In the ORIGINAL WorkBox database — now owned by
+-- the workmate portfolio deployment — this must NOT be run; that
+-- app still uses doc_chunks.)
+-- Run in Supabase SQL editor.
 -- ============================================================
 
 drop function if exists public.match_doc_chunks(vector(384), text, int);
