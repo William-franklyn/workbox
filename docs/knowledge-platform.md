@@ -6,7 +6,7 @@
 
 The knowledge platform turns an organization's content — uploaded files, internal WorkBox docs, KB articles, browser captures, and (later) external connectors — into a **permission-aware, semantically searchable knowledge base** that an AI can answer questions from **with citations**.
 
-It fully replaced the legacy RAG pipeline (`lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service) — all three were deleted after the switchover, and migration `034` drops the database side (Sphynx's schema-cloned database inherited those objects from the original WorkBox project).
+It fully replaced the legacy RAG pipeline (`lib/embeddings.ts` + `doc_chunks` + the Python `backend/` service) — all three were deleted after the switchover, and migration `034` drops the database side (Chiron's schema-cloned database inherited those objects from the original WorkBox project).
 
 ## Architecture at a glance
 
@@ -129,7 +129,7 @@ Routes return a clear `503` naming the missing key rather than failing deep in t
 
 ## Operations runbook
 
-**Apply the migrations:** run `032_knowledge_platform.sql`, `033_retire_doc_chunks.sql`, then `034_drop_legacy_doc_chunks.sql` in the Supabase SQL editor (same manual process as all prior migrations; 032 is re-runnable — `if not exists` throughout). All three are safe in **Sphynx's own database**. Only if you're somehow pointed at the *original* WorkBox database (now the workmate portfolio's): skip 034 — see the migration header.
+**Apply the migrations:** run `032_knowledge_platform.sql`, `033_retire_doc_chunks.sql`, then `034_drop_legacy_doc_chunks.sql` in the Supabase SQL editor (same manual process as all prior migrations; 032 is re-runnable — `if not exists` throughout). All three are safe in **Chiron's own database**. Only if you're somehow pointed at the *original* WorkBox database (now the workmate portfolio's): skip 034 — see the migration header.
 
 **Smoke test (end to end):**
 1. `npm run dev` in `frontend/`, sign in.
